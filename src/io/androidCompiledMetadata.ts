@@ -4,6 +4,7 @@ import { ANDROID_SAMPLE_COLORS } from '../manifest/kakaoColors';
 export interface AndroidCompiledMetadata {
   colors?: Record<string, string>;
   name?: string;
+  resourcePackage?: string;
   version?: string;
   themeId?: string;
   appearance?: 'light' | 'dark';
@@ -198,6 +199,7 @@ function readResourceTable(buffer: Buffer) {
   if (outer.type !== TABLE) throw new Error('resources.arsc가 Android 리소스 테이블 형식이 아닙니다.');
   let position = outer.headerSize;
   let globalStrings: string[] = [];
+  let packageName: string | undefined;
   const resources = new Map<string, Map<string, ResourceCandidate[]>>();
 
   while (position < outer.size) {
@@ -206,7 +208,9 @@ function readResourceTable(buffer: Buffer) {
       globalStrings = readStringPool(buffer, position).strings;
     } else if (current.type === TABLE_PACKAGE) {
       const packageEnd = position + current.size;
-      requireRange(buffer, position, Math.min(current.headerSize, 284), '패키지 테이블');
+      if (current.headerSize < 284) throw new Error('손상된 Android 패키지 테이블 데이터입니다.');
+      requireRange(buffer, position, current.headerSize, '패키지 테이블');
+      packageName ??= buffer.toString('utf16le', position + 12, position + 268).split('\0', 1)[0] || undefined;
       const typeStringsOffset = buffer.readUInt32LE(position + 268);
       const keyStringsOffset = buffer.readUInt32LE(position + 276);
       const typeStrings = readStringPool(buffer, position + typeStringsOffset).strings;
@@ -272,7 +276,7 @@ function readResourceTable(buffer: Buffer) {
     }
     position += current.size;
   }
-  return resources;
+  return { packageName, resources };
 }
 
 function candidate(
@@ -327,7 +331,8 @@ export async function inspectCompiledAndroidApk(source: Buffer): Promise<Android
   };
   if (!tableBuffer) return result;
 
-  const resources = readResourceTable(tableBuffer);
+  const { packageName: resourcePackage, resources } = readResourceTable(tableBuffer);
+  if (resourcePackage) result.resourcePackage = resourcePackage;
   const colors: Record<string, string> = {};
   for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
     const parsed = normalizeColor(candidate(resources, 'color', name));

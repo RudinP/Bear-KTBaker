@@ -11,6 +11,7 @@ import {
   prepareStandaloneAndroidManifest,
   signStandaloneApk,
   standaloneRuntimePaths,
+  verifyStandaloneAndroidMetadata,
   verifyStandaloneApkStructure,
 } from './androidStandaloneBuild';
 
@@ -64,6 +65,7 @@ describe('standalone Android APK build support', () => {
       '--manifest', '/tmp/theme/src/main/AndroidManifest.xml',
       '-I', '/runtime/android.jar',
       '--rename-manifest-package', 'com.example.prettytheme',
+      '--rename-resources-package', 'com.example.prettytheme',
       '--version-code', '20304',
       '--version-name', '2.3.4',
     ]));
@@ -72,6 +74,45 @@ describe('standalone Android APK build support', () => {
       '/tmp/theme/.standalone/theme.zip',
       '/tmp/theme/.standalone/theme-adv.zip',
     ]);
+  });
+
+  it('rejects a compiled manifest package that differs from the requested theme identifier', () => {
+    expect(() => verifyStandaloneAndroidMetadata({
+      themeId: 'com.example.wrongmanifest',
+      resourcePackage: 'com.example.prettytheme',
+      appearance: 'light',
+    }, {
+      packageName: 'com.example.prettytheme',
+    })).toThrow('manifest package');
+  });
+
+  it('rejects a compiled resources package that differs from the requested theme identifier', () => {
+    expect(() => verifyStandaloneAndroidMetadata({
+      themeId: 'com.example.prettytheme',
+      resourcePackage: 'com.example.wrongresources',
+      appearance: 'light',
+    }, {
+      packageName: 'com.example.prettytheme',
+    })).toThrow('resources package');
+  });
+
+  it('compares Android colors as AARRGGBB while preserving meaningful alpha differences', () => {
+    const metadata = {
+      themeId: 'com.example.prettytheme',
+      resourcePackage: 'com.example.prettytheme',
+      appearance: 'light' as const,
+      colors: { theme_header_color: '#123456' },
+    };
+    const expected = {
+      packageName: 'com.example.prettytheme',
+      colors: { theme_header_color: '#FF123456' },
+    };
+
+    expect(() => verifyStandaloneAndroidMetadata(metadata, expected)).not.toThrow();
+    expect(() => verifyStandaloneAndroidMetadata(metadata, {
+      ...expected,
+      colors: { theme_header_color: '#7F123456' },
+    })).toThrow('색상 1개');
   });
 
   it('creates one signing identity and reuses it for later exports', async () => {
@@ -142,6 +183,10 @@ describe('standalone Android APK build support', () => {
     const runtimeDir = path.join(directory, 'runtime');
     const outputPath = path.join(directory, 'pretty-theme.apk');
     const identityPath = path.join(directory, 'identity.json');
+    const compiledFixture = Buffer.from(
+      (await readFile(path.join(process.cwd(), 'src/io/fixtures/compiled-theme-metadata.apk.b64'), 'utf8')).replace(/\s/g, ''),
+      'base64',
+    );
     for (const resourceRoot of ['res', 'theme', 'theme-adv']) {
       await mkdir(path.join(buildDir, 'src', 'main', resourceRoot), { recursive: true });
     }
@@ -154,10 +199,7 @@ describe('standalone Android APK build support', () => {
     const run = vi.fn(async (_executable: string, args: string[]) => {
       calls.push(args);
       if (args[0] !== 'link') return;
-      const resourceApk = new JSZip();
-      resourceApk.file('AndroidManifest.xml', Buffer.from('manifest'));
-      resourceApk.file('resources.arsc', Buffer.from('resources'));
-      await writeFile(args[args.indexOf('-o') + 1], await resourceApk.generateAsync({ type: 'nodebuffer' }));
+      await writeFile(args[args.indexOf('-o') + 1], compiledFixture);
     });
 
     const result = await buildStandaloneAndroidApk({
@@ -165,9 +207,14 @@ describe('standalone Android APK build support', () => {
       outputPath,
       runtimeDir,
       identityPath,
-      packageName: 'com.example.prettytheme',
+      packageName: 'com.example.standalonefixture',
       versionCode: 100,
-      versionName: '1.0.0',
+      versionName: '7.8.9',
+      expectedMetadata: {
+        name: '독립 테마',
+        appearance: 'dark',
+        colors: { theme_header_color: '#FF123456' },
+      },
       platform: 'darwin',
       run,
     });
@@ -175,5 +222,49 @@ describe('standalone Android APK build support', () => {
     expect(result).toBe(outputPath);
     expect(calls.map((args) => args[0])).toEqual(['compile', 'compile', 'compile', 'link']);
     await expect(verifyStandaloneApkStructure(await readFile(outputPath))).resolves.toMatchObject({ hasV2SigningBlock: true });
+  });
+
+  it('stops before writing when the compiled resources package does not match the requested identifier', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'kakao-standalone-package-check-'));
+    const buildDir = path.join(directory, 'source');
+    const runtimeDir = path.join(directory, 'runtime');
+    const outputPath = path.join(directory, 'must-not-exist.apk');
+    await mkdir(path.join(runtimeDir, 'bin', 'darwin'), { recursive: true });
+    await writeFile(path.join(runtimeDir, 'bin', 'darwin', 'aapt2'), 'binary');
+    await writeFile(path.join(runtimeDir, 'android.jar'), 'android');
+    await writeFile(path.join(runtimeDir, 'classes.dex'), 'dex\n035\0runtime');
+
+    const fixture = Buffer.from(
+      (await readFile(path.join(process.cwd(), 'src/io/fixtures/compiled-theme-metadata.apk.b64'), 'utf8')).replace(/\s/g, ''),
+      'base64',
+    );
+    const fixtureZip = await JSZip.loadAsync(fixture);
+    const manifest = await fixtureZip.file('AndroidManifest.xml')!.async('nodebuffer');
+    const resources = await fixtureZip.file('resources.arsc')!.async('nodebuffer');
+    const original = Buffer.from('com.example.standalonefixture', 'utf16le');
+    const replacement = Buffer.from('com.example.wrongresourcexxxx', 'utf16le');
+    const packageOffset = resources.indexOf(original);
+    expect(packageOffset).toBeGreaterThanOrEqual(0);
+    replacement.copy(resources, packageOffset);
+    const mismatchedApk = new JSZip();
+    mismatchedApk.file('AndroidManifest.xml', manifest);
+    mismatchedApk.file('resources.arsc', resources);
+    const compiled = await mismatchedApk.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
+    const run = vi.fn(async (_executable: string, args: string[]) => {
+      if (args[0] === 'link') await writeFile(args[args.indexOf('-o') + 1], compiled);
+    });
+
+    await expect(buildStandaloneAndroidApk({
+      buildDir,
+      outputPath,
+      runtimeDir,
+      identityPath: path.join(directory, 'identity.json'),
+      packageName: 'com.example.standalonefixture',
+      versionCode: 70_809,
+      versionName: '7.8.9',
+      platform: 'darwin',
+      run,
+    })).rejects.toThrow('resources package');
+    await expect(readFile(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

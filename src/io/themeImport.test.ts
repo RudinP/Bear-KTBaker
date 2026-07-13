@@ -224,6 +224,7 @@ describe('manifest-driven theme import', () => {
     const metadata = await inspectCompiledAndroidApk(fixture);
 
     expect(metadata.themeId).toBe('com.example.standalonefixture');
+    expect(metadata.resourcePackage).toBe('com.example.standalonefixture');
     expect(metadata.version).toBe('7.8.9');
     expect(metadata.name).toBe('독립 테마');
     expect(metadata.appearance).toBe('dark');

@@ -255,21 +255,13 @@ async function exportAndroid(project: ThemeProject) {
       packageName: identifier,
       versionCode: androidVersionCode(project.meta.version),
       versionName,
+      expectedMetadata: {
+        name: project.meta.name,
+        appearance: project.meta.appearance,
+        colors: project.colorValues.android,
+      },
       platform: process.platform as 'darwin' | 'win32',
     });
-    const metadata = await inspectCompiledAndroidApk(await readFile(verifiedApk));
-    const expectedColors = project.colorValues.android;
-    const missingOrChangedColors = Object.keys(ANDROID_SAMPLE_COLORS).filter((name) =>
-      metadata.colors?.[name]?.toUpperCase() !== expectedColors[name]?.toUpperCase());
-    if (
-      metadata.themeId !== identifier
-      || metadata.version !== versionName
-      || metadata.name !== project.meta.name
-      || metadata.appearance !== project.meta.appearance
-      || missingOrChangedColors.length > 0
-    ) {
-      throw new Error(`Android APK 리소스 검증에 실패했습니다${missingOrChangedColors.length ? ` (색상 ${missingOrChangedColors.length}개)` : ''}.`);
-    }
     await cp(verifiedApk, result.filePath);
     return { path: result.filePath };
   } catch (error) {

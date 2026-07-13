@@ -7,15 +7,16 @@ import {
   buildStandaloneAndroidApk,
   prepareStandaloneAndroidManifest,
   standaloneRuntimePaths,
+  verifyStandaloneAndroidMetadata,
   verifyStandaloneApkStructure,
 } from '../src/io/androidStandaloneBuild';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
 import { createDefaultTheme } from '../src/domain/theme';
 import { inspectCompiledAndroidApk } from '../src/io/androidCompiledMetadata';
-import { ANDROID_SAMPLE_COLORS } from '../src/manifest/kakaoColors';
 
 async function main() {
 const root = process.cwd();
+const packageName = 'com.themestudio.standaloneverification';
 const runtimeDir = path.join(root, 'resources', 'templates', 'android-runtime');
 const runtimeManifest = JSON.parse(await readFile(path.join(runtimeDir, 'runtime-manifest.json'), 'utf8')) as {
   files: Record<string, string>;
@@ -71,9 +72,14 @@ try {
     outputPath,
     runtimeDir,
     identityPath: path.join(temporary, 'signing-identity.json'),
-    packageName: 'com.themestudio.standaloneverification',
+    packageName,
     versionCode: 20304,
     versionName: '2.3.4',
+    expectedMetadata: {
+      name: project.meta.name,
+      appearance: project.meta.appearance,
+      colors: project.colorValues.android,
+    },
     platform: 'darwin',
   });
 
@@ -86,20 +92,21 @@ try {
   for (const marker of ['com/kakao/talk/theme/apeach/MainActivity', 'kakaotalk://settings/theme/', 'market://details?id=']) {
     if (!dexText.includes(Buffer.from(marker))) throw new Error(`Runtime DEX marker missing: ${marker}`);
   }
-  if (metadata.themeId !== 'com.themestudio.standaloneverification') throw new Error('Compiled package id mismatch.');
-  if (metadata.version !== '2.3.4') throw new Error('Compiled version mismatch.');
-  if (metadata.name !== project.meta.name) throw new Error(`Compiled Korean label mismatch: ${metadata.name ?? 'missing'}`);
-  if (metadata.appearance !== 'dark') throw new Error(`Compiled dark-mode metadata mismatch: ${metadata.appearance ?? 'missing'}`);
-  if (Object.keys(metadata.colors ?? {}).length !== Object.keys(ANDROID_SAMPLE_COLORS).length) {
-    throw new Error(`Compiled color count mismatch: ${Object.keys(metadata.colors ?? {}).length}`);
-  }
+  verifyStandaloneAndroidMetadata(metadata, {
+    packageName,
+    versionName: '2.3.4',
+    name: project.meta.name,
+    appearance: project.meta.appearance,
+    colors: project.colorValues.android,
+  });
 
   const copiedOutput = process.argv[2];
   if (copiedOutput) await writeFile(path.resolve(copiedOutput), output);
   console.log(JSON.stringify({
     runtimeVerified: true,
     apkBytes: output.length,
-    packageName: metadata.themeId,
+    manifestPackage: metadata.themeId,
+    resourcePackage: metadata.resourcePackage,
     version: metadata.version,
     name: metadata.name,
     appearance: metadata.appearance,

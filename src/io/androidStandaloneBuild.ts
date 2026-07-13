@@ -6,6 +6,7 @@ import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { ApkSignerV2, PackageSigner } from 'android-package-signer';
 import JSZip from 'jszip';
+import { inspectCompiledAndroidApk, type AndroidCompiledMetadata } from './androidCompiledMetadata';
 
 const execFileAsync = promisify(execFile);
 
@@ -22,6 +23,52 @@ export interface AndroidSigningIdentity {
   alias: string;
   password: string;
   pkcs12DataUrl: string;
+}
+
+export interface StandaloneAndroidMetadataExpectation {
+  packageName: string;
+  versionName?: string;
+  name?: string;
+  appearance?: 'light' | 'dark';
+  colors?: Record<string, string>;
+}
+
+function normalizedAndroidColor(value: string | undefined) {
+  const hex = value?.trim().match(/^#([0-9a-f]{6}|[0-9a-f]{8})$/i)?.[1];
+  if (!hex) return undefined;
+  return `#${hex.length === 6 ? 'FF' : ''}${hex.toUpperCase()}`;
+}
+
+export function verifyStandaloneAndroidMetadata(
+  metadata: AndroidCompiledMetadata,
+  expected: StandaloneAndroidMetadataExpectation,
+) {
+  const mismatches: string[] = [];
+  if (metadata.themeId !== expected.packageName) {
+    mismatches.push(`manifest package ${metadata.themeId ?? 'missing'}`);
+  }
+  if (metadata.resourcePackage !== expected.packageName) {
+    mismatches.push(`resources package ${metadata.resourcePackage ?? 'missing'}`);
+  }
+  if (expected.versionName !== undefined && metadata.version !== expected.versionName) {
+    mismatches.push(`version ${metadata.version ?? 'missing'}`);
+  }
+  if (expected.name !== undefined && metadata.name !== expected.name) {
+    mismatches.push(`name ${metadata.name ?? 'missing'}`);
+  }
+  if (expected.appearance !== undefined && metadata.appearance !== expected.appearance) {
+    mismatches.push(`appearance ${metadata.appearance ?? 'missing'}`);
+  }
+  const changedColors = Object.keys(expected.colors ?? {}).filter((name) => {
+    const actual = normalizedAndroidColor(metadata.colors?.[name]);
+    const wanted = normalizedAndroidColor(expected.colors?.[name]);
+    return !actual || !wanted || actual !== wanted;
+  });
+  if (changedColors.length) mismatches.push(`색상 ${changedColors.length}개`);
+  if (mismatches.length) {
+    throw new Error(`Android APK 리소스 검증에 실패했습니다 (${mismatches.join(', ')}).`);
+  }
+  return metadata;
 }
 
 export function prepareStandaloneAndroidManifest(template: string) {
@@ -77,6 +124,7 @@ export function buildStandaloneAapt2Plan({
       '--version-code', String(versionCode),
       '--version-name', versionName,
       '--rename-manifest-package', packageName,
+      '--rename-resources-package', packageName,
       ...compiled,
     ],
   };
@@ -194,6 +242,7 @@ export async function buildStandaloneAndroidApk({
   packageName,
   versionCode,
   versionName,
+  expectedMetadata,
   platform = process.platform as StandaloneAndroidPlatform,
   run = execFileAsync as Aapt2Runner,
 }: {
@@ -204,6 +253,7 @@ export async function buildStandaloneAndroidApk({
   packageName: string;
   versionCode: number;
   versionName: string;
+  expectedMetadata?: Pick<StandaloneAndroidMetadataExpectation, 'name' | 'appearance' | 'colors'>;
   platform?: StandaloneAndroidPlatform;
   run?: Aapt2Runner;
 }) {
@@ -235,6 +285,11 @@ export async function buildStandaloneAndroidApk({
   const identity = await loadOrCreateSigningIdentity(identityPath);
   const signed = await signStandaloneApk(withRuntime, identity);
   await verifyStandaloneApkStructure(signed);
+  verifyStandaloneAndroidMetadata(await inspectCompiledAndroidApk(signed), {
+    packageName,
+    versionName,
+    ...expectedMetadata,
+  });
   await writeFile(outputPath, signed);
   return outputPath;
 }
