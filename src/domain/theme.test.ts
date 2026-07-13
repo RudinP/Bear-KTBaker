@@ -99,4 +99,19 @@ describe('theme project', () => {
     expect(restored.chat.bubbles.you.groupedPressed).toBeDefined();
     expect(restored.screens.chatroom.background).toBeDefined();
   });
+
+  it('migrates legacy Piccoma tab assets to missing Now slots per platform without replacing current Now assets', () => {
+    const project = createDefaultTheme('예전 Piccoma 프로젝트');
+    const iosLegacy = { fileName: 'maintabIcoPiccoma@3x.png', dataUrl: 'data:image/png;base64,aW9z' };
+    const androidLegacy = { fileName: 'theme_maintab_ico_piccoma_image.png', dataUrl: 'data:image/png;base64,YW5kcm9pZA==' };
+    const androidCurrent = { fileName: 'theme_maintab_ico_now_image.png', dataUrl: 'data:image/png;base64,bm93' };
+    project.platformResources.ios['main.tab.piccoma.normal'] = iosLegacy;
+    project.platformResources.android['main.tab.piccoma.normal'] = androidLegacy;
+    project.platformResources.android['main.tab.now.normal'] = androidCurrent;
+
+    const restored = parseThemeProject(serializeThemeProject(project));
+
+    expect(restored.platformResources.ios['main.tab.now.normal']).toEqual(iosLegacy);
+    expect(restored.platformResources.android['main.tab.now.normal']).toEqual(androidCurrent);
+  });
 });

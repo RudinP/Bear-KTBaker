@@ -1,7 +1,7 @@
 import path from 'node:path';
 import JSZip from 'jszip';
 import { PNG } from 'pngjs';
-import { createDefaultTheme, type BubbleAppearance, type ThemeProject } from '../domain/theme';
+import { createDefaultTheme, migrateLegacyNowTabAssets, type BubbleAppearance, type ThemeProject } from '../domain/theme';
 import type { NinePatchGuides } from '../domain/ninePatch';
 import { KAKAO_RESOURCE_SLOTS, type PlatformResourceBinding } from '../manifest/kakaoResources';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS, KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
@@ -318,6 +318,7 @@ export async function importIosKtheme(source: Buffer, suggestedName: string) {
   project.meta.appearance = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-style')) === 'dark' ? 'dark' : 'light';
   const importedColors = applyIosColors(project, css);
   await importMappedImages(zip, project, 'ios', css);
+  migrateLegacyNowTabAssets(project);
   applyIosBubbleGuides(project, css);
   mirrorSemanticResources(project, 'ios');
   mirrorSemanticColors(project, 'ios', importedColors);
@@ -370,6 +371,7 @@ export async function importAndroidSourceZip(source: Buffer, suggestedName: stri
   const zip = await JSZip.loadAsync(source);
   const project = createDefaultTheme(suggestedName.replace(/\.(zip|apk)$/i, ''), false);
   await importMappedImages(zip, project, 'android');
+  migrateLegacyNowTabAssets(project);
   let importedColors = new Set<string>();
   const manifest = await zip.file('src/main/AndroidManifest.xml')?.async('string');
   project.meta.appearance = manifest && /<meta-data\b(?=[^>]*android:name=["']com\.kakao\.talk\.theme_style["'])(?=[^>]*android:value=["']dark["'])[^>]*\/>/i.test(manifest)

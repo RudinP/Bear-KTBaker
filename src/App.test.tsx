@@ -7,6 +7,7 @@ import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from './
 
 describe('theme editor', () => {
   afterEach(() => {
+    vi.useRealTimers();
     delete window.themeStudio;
   });
 
@@ -271,6 +272,93 @@ describe('theme editor', () => {
     expect(screen.getByText('100%')).toBeInTheDocument();
   });
 
+  it('pans the preview with Space-drag and stops on pointer release or Space release without changing history', () => {
+    render(<App />);
+    const stage = screen.getByTestId('preview-stage');
+    Object.defineProperties(stage, {
+      scrollLeft: { value: 120, writable: true },
+      scrollTop: { value: 80, writable: true },
+    });
+    stage.setPointerCapture = vi.fn();
+    stage.releasePointerCapture = vi.fn();
+
+    expect(fireEvent.keyDown(window, { key: ' ' })).toBe(false);
+    expect(stage).toHaveClass('is-space-pan-ready');
+    fireEvent.pointerDown(stage, { pointerId: 7, clientX: 300, clientY: 200 });
+    expect(stage).toHaveClass('is-panning');
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 260, clientY: 150 });
+
+    expect(stage.scrollLeft).toBe(160);
+    expect(stage.scrollTop).toBe(130);
+    expect(screen.getByRole('button', { name: '실행 취소' })).toBeDisabled();
+
+    fireEvent.pointerUp(window, { pointerId: 7 });
+    fireEvent.pointerMove(window, { pointerId: 7, clientX: 200, clientY: 100 });
+    expect(stage.scrollLeft).toBe(160);
+    expect(stage.scrollTop).toBe(130);
+    expect(stage).not.toHaveClass('is-panning');
+    expect(stage).toHaveClass('is-space-pan-ready');
+
+    expect(fireEvent.keyUp(window, { key: ' ' })).toBe(false);
+    expect(stage).not.toHaveClass('is-space-pan-ready');
+  });
+
+  it('stops a Space-drag when capture is lost or the window blurs', () => {
+    render(<App />);
+    const stage = screen.getByTestId('preview-stage');
+    Object.defineProperties(stage, {
+      scrollLeft: { value: 10, writable: true },
+      scrollTop: { value: 20, writable: true },
+    });
+    stage.setPointerCapture = vi.fn();
+    stage.releasePointerCapture = vi.fn();
+
+    fireEvent.keyDown(window, { key: ' ' });
+    fireEvent.pointerDown(stage, { pointerId: 3, clientX: 100, clientY: 100 });
+    fireEvent.lostPointerCapture(stage, { pointerId: 3 });
+    fireEvent.pointerMove(window, { pointerId: 3, clientX: 50, clientY: 50 });
+    expect([stage.scrollLeft, stage.scrollTop]).toEqual([10, 20]);
+
+    fireEvent.pointerDown(stage, { pointerId: 4, clientX: 100, clientY: 100 });
+    fireEvent.blur(window);
+    fireEvent.pointerMove(window, { pointerId: 4, clientX: 50, clientY: 50 });
+    expect([stage.scrollLeft, stage.scrollTop]).toEqual([10, 20]);
+    expect(stage).not.toHaveClass('is-space-pan-ready');
+    expect(stage).not.toHaveClass('is-panning');
+  });
+
+  it('keeps Space available to editable controls and preview buttons', () => {
+    render(<App />);
+    const stage = screen.getByTestId('preview-stage');
+    const themeName = screen.getByRole('textbox', { name: '상단 테마 이름' });
+    const bubble = screen.getAllByTestId('bubble-me')[0];
+
+    expect(fireEvent.keyDown(themeName, { key: ' ' })).toBe(true);
+    expect(stage).not.toHaveClass('is-space-pan-ready');
+    expect(fireEvent.keyDown(bubble, { key: ' ' })).toBe(true);
+    expect(stage).not.toHaveClass('is-space-pan-ready');
+  });
+
+  it('keeps Space-drag panning attached after leaving and reopening the work canvas', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '테마 정보' }));
+    fireEvent.click(screen.getByRole('button', { name: '채팅방' }));
+    const stage = screen.getByTestId('preview-stage');
+    Object.defineProperties(stage, {
+      scrollLeft: { value: 0, writable: true },
+      scrollTop: { value: 0, writable: true },
+    });
+    stage.setPointerCapture = vi.fn();
+    stage.releasePointerCapture = vi.fn();
+
+    fireEvent.keyDown(window, { key: ' ' });
+    fireEvent.pointerDown(stage, { pointerId: 8, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, { pointerId: 8, clientX: 75, clientY: 70 });
+
+    expect(stage.scrollLeft).toBe(25);
+    expect(stage.scrollTop).toBe(30);
+  });
+
   it('loads a saved project through the same beginner-friendly import button', async () => {
     const imported = createDefaultTheme('다시 연 프로젝트');
     imported.meta.author = '제작자';
@@ -394,6 +482,61 @@ describe('theme editor', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('저장하지 못했습니다. 저장 폴더를 열 수 없습니다.');
     expect(screen.queryByText('프로젝트를 저장했습니다.')).not.toBeInTheDocument();
+  });
+
+  it('auto-dismisses success and error file notices', async () => {
+    vi.useFakeTimers();
+    const imported = createDefaultTheme('다시 연 프로젝트');
+    const importTheme = vi.fn()
+      .mockResolvedValueOnce({ kind: 'project', project: imported })
+      .mockRejectedValueOnce(new Error('손상된 테마 파일입니다.'));
+    window.themeStudio = {
+      platform: 'darwin', importTheme, openProject: vi.fn(), saveProject: vi.fn(),
+      exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots: vi.fn(),
+    };
+    render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '불러오기' }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('status', { name: '파일 작업 결과' })).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3_000));
+    expect(screen.queryByRole('status', { name: '파일 작업 결과' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '불러오기' }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('손상된 테마 파일입니다.');
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('restarts the transient notice timer when a notice is replaced and cleans it up on unmount', async () => {
+    vi.useFakeTimers();
+    const saveProject = vi.fn().mockResolvedValue('/tmp/project.ktstudio');
+    window.themeStudio = {
+      platform: 'darwin', importTheme: vi.fn(), openProject: vi.fn(), saveProject,
+      exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots: vi.fn(),
+    };
+    const view = render(<App />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '프로젝트 저장' }));
+      await Promise.resolve();
+    });
+    act(() => vi.advanceTimersByTime(2_000));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '프로젝트 저장' }));
+      await Promise.resolve();
+    });
+    act(() => vi.advanceTimersByTime(1_001));
+    expect(screen.getByRole('status', { name: '파일 작업 결과' })).toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(1);
+
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('keeps project saving in the toolbar and completion limited to installable themes', () => {

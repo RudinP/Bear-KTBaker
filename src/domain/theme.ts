@@ -158,6 +158,24 @@ export function serializeThemeProject(project: ThemeProject): string {
   return JSON.stringify(project, null, 2);
 }
 
+export function migrateLegacyNowTabAssets(project: ThemeProject): ThemeProject {
+  for (const state of ['normal', 'selected'] as const) {
+    const currentId = `main.tab.now.${state}`;
+    const legacyId = `main.tab.piccoma.${state}`;
+    const sharedCurrent = project.resources[currentId];
+    let firstFallback: ImageAsset | undefined;
+    for (const platform of ['ios', 'android'] as const) {
+      if (project.platformResources[platform][currentId] || sharedCurrent) continue;
+      const legacy = project.platformResources[platform][legacyId] ?? project.resources[legacyId];
+      if (!legacy) continue;
+      project.platformResources[platform][currentId] = { ...legacy };
+      firstFallback ??= legacy;
+    }
+    if (!sharedCurrent && firstFallback) project.resources[currentId] = { ...firstFallback };
+  }
+  return project;
+}
+
 export function parseThemeProject(source: string): ThemeProject {
   let value: unknown;
   try {
@@ -182,6 +200,7 @@ export function parseThemeProject(source: string): ThemeProject {
     ios: project.platformResources?.ios ?? {},
     android: project.platformResources?.android ?? {},
   };
+  migrateLegacyNowTabAssets(project);
   project.colorValues ??= { ios: { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS }, android: { ...ANDROID_SAMPLE_COLORS } };
   project.colorValues.ios = { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS, ...project.colorValues.ios };
   project.colorValues.android = { ...ANDROID_SAMPLE_COLORS, ...project.colorValues.android };
