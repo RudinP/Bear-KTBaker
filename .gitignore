@@ -16,6 +16,8 @@ docs/superpowers/
 .idea/
 .vscode/
 *.swp
+local.properties
+key.properties
 
 # Signing credentials and provisioning files
 *.pem
@@ -25,6 +27,10 @@ docs/superpowers/
 *.jks
 *.keystore
 *.mobileprovision
+*.cer
+*.crt
+*.der
+*.pk8
 
 # User-created exports placed at the project root
 /*.apk

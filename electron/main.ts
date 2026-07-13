@@ -8,6 +8,7 @@ import JSZip from 'jszip';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
 import { buildStandaloneAndroidApk, prepareStandaloneAndroidManifest } from '../src/io/androidStandaloneBuild';
 import { buildIosCss } from '../src/io/iosTheme';
+import { generateCleanIosThemeArchive } from '../src/io/archiveHygiene';
 import { buildNinePatchPng, replaceNinePatchInterior, stripNinePatchBorder } from '../src/io/ninePatchPng';
 import { getMappedResourceWrites } from '../src/io/resourceWrites';
 import { flexibleBubbleTargetSize, uploadSourceScale } from '../src/io/resourceGeometry';
@@ -209,7 +210,7 @@ async function exportIos(project: ThemeProject) {
   if (!cssFile) throw new Error('iOS 테마 템플릿이 손상되었습니다.');
   zip.file('KakaoTalkTheme.css', buildIosCss(project, await cssFile.async('string')));
   await replaceMappedIosImages(zip, project);
-  await writeFile(result.filePath, await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+  await writeFile(result.filePath, await generateCleanIosThemeArchive(zip));
   return result.filePath;
 }
 
