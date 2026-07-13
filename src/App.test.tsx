@@ -86,15 +86,16 @@ describe('theme editor', () => {
 
   it('undoes an entire nine-patch drag as one history step after drop', () => {
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Android' }));
     fireEvent.click(screen.getAllByTestId('bubble-me')[0]);
     fireEvent.click(screen.getByRole('button', { name: '보낸 첫 말풍선 영역 조정' }));
-    const coordinate = screen.getByLabelText('X 끝 (px)');
+    const coordinate = screen.getByLabelText('가로 늘림 끝 (px)');
     const start = Number((coordinate as HTMLInputElement).value);
     const canvas = document.querySelector<HTMLElement>('.patch-canvas')!;
     vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100, toJSON: () => ({}),
     });
-    const guide = screen.getByRole('button', { name: '세로 가이드 2' });
+    const guide = screen.getByRole('button', { name: '상단 늘림 끝 마커' });
     guide.setPointerCapture = vi.fn();
 
     fireEvent.pointerDown(guide, { pointerId: 1, clientX: start });
@@ -102,13 +103,13 @@ describe('theme editor', () => {
     fireEvent.pointerMove(window, { pointerId: 1, clientX: start + 2 });
     fireEvent.pointerMove(window, { pointerId: 1, clientX: start + 4 });
     fireEvent.pointerUp(window, { pointerId: 1, clientX: start + 4 });
-    expect(screen.getByLabelText('X 끝 (px)')).toHaveValue(start + 4);
+    expect(screen.getByLabelText('가로 늘림 끝 (px)')).toHaveValue(start + 4);
 
     fireEvent.click(screen.getByRole('button', { name: '실행 취소' }));
-    expect(screen.getByLabelText('X 끝 (px)')).toHaveValue(start);
+    expect(screen.getByLabelText('가로 늘림 끝 (px)')).toHaveValue(start);
 
     fireEvent.click(screen.getByRole('button', { name: '다시 실행' }));
-    expect(screen.getByLabelText('X 끝 (px)')).toHaveValue(start + 4);
+    expect(screen.getByLabelText('가로 늘림 끝 (px)')).toHaveValue(start + 4);
   });
 
   it('connects macOS undo and redo shortcuts to project history', () => {

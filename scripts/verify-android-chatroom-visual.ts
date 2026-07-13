@@ -260,6 +260,29 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
   if (rect.width > 520.01 || rect.height > 340.01) {
     throw new Error(`${platform} area editor exceeds its bounds: ${rect.width}x${rect.height}`);
   }
+  const editorContract = await page.locator('.patch-stage').evaluate((element) => ({
+    mode: element.getAttribute('data-editor-mode'),
+    androidEdges: element.querySelectorAll('[data-nine-patch-edge]').length,
+    androidHandles: element.querySelectorAll('[data-nine-patch-marker-handle]').length,
+    iosGuides: element.querySelectorAll('[data-ios-inset-guide]').length,
+  }));
+  if (platform === 'Android') {
+    if (
+      editorContract.mode !== 'android-nine-patch'
+      || editorContract.androidEdges !== 4
+      || editorContract.androidHandles !== 8
+      || editorContract.iosGuides !== 0
+    ) {
+      throw new Error(`Android editor is not a four-edge .9.png editor: ${JSON.stringify(editorContract)}`);
+    }
+  } else if (
+    editorContract.mode !== 'ios-inset'
+    || editorContract.androidEdges !== 0
+    || editorContract.androidHandles !== 0
+    || editorContract.iosGuides !== 6
+  ) {
+    throw new Error(`iOS editor is not an inset editor: ${JSON.stringify(editorContract)}`);
+  }
   await page.getByRole('button', { name: '완료' }).click();
 }
 
