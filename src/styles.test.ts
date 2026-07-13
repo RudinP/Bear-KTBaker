@@ -44,4 +44,13 @@ describe('desktop workspace responsiveness', () => {
     expect(css).toMatch(/\.screenshot-backdrop\s*\{[^}]*-webkit-app-region:\s*no-drag/i);
     expect(css).toMatch(/\.screenshot-toolbar\s+\.screenshot-action\s*\{[^}]*min-height:\s*36px[^}]*pointer-events:\s*auto[^}]*-webkit-app-region:\s*no-drag/i);
   });
+
+  it('reserves real gutters for iOS inset badges outside the artwork', () => {
+    expect(css).toMatch(/\.patch-stage\[data-editor-mode=["']ios-inset["']\]\s*\{[^}]*padding:\s*108px\s+36px\s+52px\s+150px/i);
+    expect(css).toMatch(/\.guide\.vertical\[data-label-lane=["']3["']\]:before\s*\{[^}]*top:\s*-91px/i);
+    expect(css).toMatch(/\.guide\.horizontal\[data-label-side=["']left["']\]:before\s*\{[^}]*right:\s*calc\(100%\s*\+\s*12px\)/i);
+    for (const [lane, offset] of [['0', '-36px'], ['1', '-12px'], ['2', '12px'], ['3', '36px']] as const) {
+      expect(css).toMatch(new RegExp(`\\.guide\\.horizontal\\[data-label-lane=["']${lane}["']\\]:before\\s*\\{[^}]*translateY\\(calc\\(-50% \\+ ${offset.replace('-', '\\-')}\\)\\)`, 'i'));
+    }
+  });
 });

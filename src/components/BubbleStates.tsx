@@ -3,7 +3,7 @@ import type { BubbleAppearance, Platform, ThemeProject } from '../domain/theme';
 import { colorValue, cssColor } from '../manifest/colorResolver';
 import { resolveResourceAsset, resolveResourceUrl } from '../manifest/resourceResolver';
 import { getResourceSlot } from '../manifest/kakaoResources';
-import { ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
+import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
 import { contentInsetsPx } from '../preview/nineSlice';
 import { resolveAssetScale } from '../preview/imagePlacement';
 import { previewFontFamily } from '../preview/fontFamily';
@@ -26,7 +26,10 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
   const rawNinePatch = platform === 'android' && Boolean(asset?.fileName.endsWith('.9.png') || (!asset && source?.includes('.9.png')));
   const binding = getResourceSlot(resourceId)[platform];
   const sampleSize = binding?.sampleContentSize ?? binding?.samplePixelSize ?? (platform === 'android' ? [122, 112] : [120, 105]);
-  const [render, setRender] = useState({ source, width: sampleSize[0], height: sampleSize[1] });
+  const authoredSize = platform === 'ios'
+    ? { width: asset?.width ?? sampleSize[0], height: asset?.height ?? sampleSize[1] }
+    : { width: sampleSize[0], height: sampleSize[1] };
+  const [render, setRender] = useState({ source, ...authoredSize });
 
   useEffect(() => {
     if (!source) {
@@ -36,7 +39,7 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     let active = true;
     // Clear any previous platform/resource immediately. The decoded Android
     // marker border is replaced with the stripped canvas when loading ends.
-    setRender({ source, width: sampleSize[0], height: sampleSize[1] });
+    setRender({ source, ...authoredSize });
     const image = new Image();
     image.onload = () => {
       if (!active) return;
@@ -55,11 +58,15 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
       active = false;
       image.onload = null;
     };
-  }, [rawNinePatch, sampleSize[0], sampleSize[1], source]);
+  }, [asset?.height, asset?.width, rawNinePatch, sampleSize[0], sampleSize[1], source]);
 
   const guides = appearance.stretchByPlatform?.[platform] ?? (asset ? appearance.stretch : officialSampleBubbleGuides(platform, side, pressed));
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, platform);
-  const insets = contentInsetsPx(guides, { width: render.width, height: render.height }, sourceScale, platform === 'android' ? 'android' : 'css');
+  const iosGeometry = platform === 'ios' && render.source
+    ? iosInsetGeometry(guides, { width: render.width, height: render.height }, sourceScale)
+    : undefined;
+  const renderGuides = iosGeometry?.guides ?? guides;
+  const insets = contentInsetsPx(renderGuides, { width: render.width, height: render.height }, sourceScale, platform === 'android' ? 'android' : 'css');
   const chatLayout = getHostLayout(platform, 'chatroom').chat!;
   const hostInsets = chatLayout.bubbleContentInset;
   const typography = platform === 'android'
@@ -76,9 +83,11 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     fontWeight: typography.fontWeight,
     lineHeight: typography.lineHeight,
     maxWidth: chatLayout.maxBubbleWidth,
+    ...(iosGeometry ? { minWidth: iosGeometry.minimumSize.width, minHeight: iosGeometry.minimumSize.height } : {}),
   } as React.CSSProperties}>
-    {render.source && exportSafe && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
-    {render.source && !exportSafe && platform === 'ios' && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(render.source, guides, render.width, render.height, sourceScale)} />}
+    {render.source && exportSafe && platform === 'ios' && <NineSliceImage image={render.source} guides={renderGuides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="ios-inset-export" />}
+    {render.source && exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
+    {render.source && !exportSafe && platform === 'ios' && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(render.source, renderGuides, render.width, render.height, sourceScale, 'ios')} />}
     {render.source && !exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
     <span className="mini-bubble-copy">{children}</span>
   </div>;

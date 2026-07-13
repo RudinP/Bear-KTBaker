@@ -25,4 +25,13 @@ describe('nine-patch preview style', () => {
     expect(guides.content.left).toBe(51 / 121);
     expect(guides.content.right).toBe(88 / 121);
   });
+
+  it('treats the iOS stretch coordinate as one logical point even when a stale range end is wider', () => {
+    const style = ninePatchBorderStyle('bubble.png', {
+      stretch: { x: [51 / 120, 90 / 120], y: [51 / 105, 90 / 105] },
+      content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
+    }, 120, 105, 3, 'ios');
+
+    expect(style.borderImageSlice).toBe('51 66 51 51 fill');
+  });
 });

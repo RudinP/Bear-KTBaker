@@ -120,4 +120,44 @@ describe('BubbleStates', () => {
     const layer = screen.getByText('네!').closest('.mini-bubble')?.querySelector<HTMLElement>('.kt-ios-inset-layer');
     expect(layer?.style.borderImageSource).toContain(replacementUrl);
   });
+
+  it('preserves iOS fixed caps for short, long, reply, grouped, and pressed states', () => {
+    const project = createDefaultTheme();
+    const guides = {
+      stretch: { x: [99 / 345, 102 / 345] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
+      content: { left: 51 / 345, top: 249 / 375, right: 141 / 345, bottom: 321 / 375 },
+    };
+    for (const id of [
+      'chat.bubble.me.first.normal',
+      'chat.bubble.me.grouped.normal',
+      'chat.bubble.me.first.pressed',
+    ]) {
+      project.platformResources.ios[id] = {
+        fileName: `${id}@3x.png`, dataUrl: `data:image/png;base64,${id}`, width: 345, height: 375, sourceScale: 3,
+      };
+    }
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: guides };
+    project.chat.bubbles.me.grouped.stretchByPlatform = { ios: guides };
+    project.chat.bubbles.me.pressed.stretchByPlatform = { ios: guides };
+
+    const { container } = render(<BubbleStates project={project} platform="ios" side="me" />);
+    const bubbles = [...container.querySelectorAll<HTMLElement>('.mini-bubble')];
+
+    expect(bubbles).toHaveLength(5);
+    expect(bubbles.every((bubble) => bubble.style.minWidth === '115px')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minHeight === '125px')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset"]'))).toBe(true);
+  });
+
+  it('does not impose bitmap-derived minimum dimensions on color-only iOS bubbles', () => {
+    const project = createDefaultTheme('색상 전용', false);
+
+    const { container } = render(<BubbleStates project={project} platform="ios" side="me" />);
+    const bubbles = [...container.querySelectorAll<HTMLElement>('.mini-bubble')];
+
+    expect(bubbles).toHaveLength(5);
+    expect(bubbles.every((bubble) => bubble.style.minWidth === '')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minHeight === '')).toBe(true);
+    expect(container.querySelector('[data-renderer="ios-inset"]')).not.toBeInTheDocument();
+  });
 });

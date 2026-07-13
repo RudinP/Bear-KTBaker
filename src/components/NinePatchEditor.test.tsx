@@ -36,6 +36,11 @@ describe('nine-patch area editor', () => {
     expect(screen.queryByLabelText('X 끝 (px)')).not.toBeInTheDocument();
     expect(document.querySelector('[data-ios-inset-guide="stretch-x-start"]')).toHaveAttribute('data-source-px', '51');
     expect(document.querySelector('[data-ios-inset-guide="stretch-x-end"]')).toHaveAttribute('data-source-px', '54');
+    expect(document.querySelectorAll('.guide.horizontal')).not.toHaveLength(0);
+    expect([...document.querySelectorAll('.guide.horizontal')].every((guide) => guide.getAttribute('data-label-side') === 'left')).toBe(true);
+    expect([...document.querySelectorAll('.guide.vertical')].every((guide) => guide.getAttribute('data-label-side') === 'above')).toBe(true);
+    expect(new Set([...document.querySelectorAll('.guide.horizontal')].map((guide) => guide.getAttribute('data-label-lane'))).size).toBe(4);
+    expect(new Set([...document.querySelectorAll('.guide.vertical')].map((guide) => guide.getAttribute('data-label-lane'))).size).toBe(4);
     expect(screen.getByLabelText('글자 위 여백 (CSS px)')).toHaveValue(10);
     expect(screen.getByLabelText('글자 왼쪽 여백 (CSS px)')).toHaveValue(11);
     expect(screen.getByLabelText('글자 아래 여백 (CSS px)')).toHaveValue(7);

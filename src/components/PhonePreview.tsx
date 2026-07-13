@@ -11,7 +11,7 @@ import { getHostLayout } from '../preview/layout';
 import { previewFontFamily } from '../preview/fontFamily';
 import { ANDROID_CHAT_ACTIONS_PATH, ANDROID_CHAT_ACTIONS_VIEWBOX, ANDROID_CHAT_SEND_VECTOR, IOS_CHAT_SEND_VECTOR, OFFICIAL_CHATROOM_VECTORS } from '../preview/officialUiVectors';
 import { OFFICIAL_CHAT_FILTER_VECTORS, OFFICIAL_MAIN_ACTION_VECTORS, OFFICIAL_MORE_SERVICE_VECTORS } from '../preview/officialMainUiVectors';
-import { ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
+import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
 import { contentInsetsPx } from '../preview/nineSlice';
 import { calculateImagePlacement, placementBackgroundStyle, resolveAssetScale } from '../preview/imagePlacement';
 import { NineSliceImage } from './NineSliceImage';
@@ -169,15 +169,18 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
 
   const guides = appearance.stretchByPlatform?.ios ?? (asset ? appearance.stretch : officialSampleBubbleGuides('ios', side));
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, 'ios');
-  const insets = contentInsetsPx(guides, renderSize, sourceScale);
+  const geometry = iosInsetGeometry(guides, renderSize, sourceScale);
+  const insets = contentInsetsPx(geometry.guides, renderSize, sourceScale);
   const textColor = cssColor(colorValue(project, 'ios', `chat.bubble.${side}.text${pressed ? '.pressed' : ''}`));
   const style: React.CSSProperties = source ? {
     backgroundColor: 'transparent', color: textColor,
     paddingTop: insets.top, paddingRight: insets.right, paddingBottom: insets.bottom, paddingLeft: insets.left,
+    minWidth: geometry.minimumSize.width,
+    minHeight: geometry.minimumSize.height,
   } : { backgroundColor: appearance.color, color: textColor };
   return <Editable id={side === 'me' ? 'bubble-me' : 'bubble-you'} label={`${side === 'me' ? '보낸' : '받은'} ${grouped ? '연속' : '첫'} 말풍선`} selected={selected} onSelect={onSelect} className={`kt-bubble ${side === 'me' ? 'sent' : 'received'}-${grouped ? 'group' : 'first'}`} style={style}
     onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)}>
-    {source && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(source, guides, renderSize.width, renderSize.height, sourceScale)} />}
+    {source && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(source, geometry.guides, renderSize.width, renderSize.height, sourceScale, 'ios')} />}
     <span className="kt-bubble-copy">{children}</span>
   </Editable>;
 }

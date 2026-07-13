@@ -232,7 +232,7 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(container.querySelector('.kt-chat-send')).toBeInTheDocument();
   });
 
-  it('uses the iOS CSS cap inset as a single border image without nine-cell seams', () => {
+  it('uses the iOS CSS cap inset as a single border image and preserves the logical source size', () => {
     const { container } = render(<PhonePreview {...baseProps} platform="ios" screen="chatroom" />);
     const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
     const layer = bubble.querySelector<HTMLElement>('.kt-ios-inset-layer');
@@ -246,9 +246,28 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(bubble.style.paddingTop).toBe('10px');
     expect(bubble.style.paddingRight).toBe('17px');
     expect(Number.parseFloat(bubble.style.paddingLeft)).toBeCloseTo(11, 5);
-    expect(bubble.style.minWidth).toBe('');
-    expect(bubble.style.minHeight).toBe('');
+    expect(bubble.style.minWidth).toBe('40px');
+    expect(bubble.style.minHeight).toBe('35px');
     expect(container.querySelector('.kt-bubble-copy')).toBeInTheDocument();
+  });
+
+  it('never compresses decorated iOS caps below a custom asset logical size', () => {
+    const project = createDefaultTheme();
+    const guides = {
+      stretch: { x: [99 / 345, 102 / 345] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
+      content: { left: 51 / 345, top: 249 / 375, right: 141 / 345, bottom: 321 / 375 },
+    };
+    project.platformResources.ios['chat.bubble.me.first.normal'] = {
+      fileName: 'decorated@3x.png', dataUrl: 'data:image/png;base64,REVDS1JBVEVE', width: 345, height: 375, sourceScale: 3,
+    };
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: guides };
+
+    render(<PhonePreview {...baseProps} project={project} platform="ios" screen="chatroom" />);
+    const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
+
+    expect(bubble.style.minWidth).toBe('115px');
+    expect(bubble.style.minHeight).toBe('125px');
+    expect(bubble.querySelector('[data-renderer="ios-inset"]')).toBeInTheDocument();
   });
 
   it('uses only the Android .9.png marker renderer for Android bubbles', () => {

@@ -67,7 +67,8 @@ describe('promotional image studio', () => {
     expect(container.querySelector('[data-poster-bubble="sent"]')).toHaveTextContent('보내는 문구를 직접 입력');
     expect(container.querySelector('.poster-chat-crop')).not.toBeInTheDocument();
     expect(container.querySelector('.poster-bubbles .device-frame')).not.toBeInTheDocument();
-    expect(container.querySelectorAll('.poster-bubbles [data-renderer="poster-nine-slice"]')).toHaveLength(2);
+    const renderer = platform === 'ios' ? 'ios-inset-export' : 'poster-nine-slice';
+    expect(container.querySelectorAll(`.poster-bubbles [data-renderer="${renderer}"]`)).toHaveLength(2);
   });
 
   it('lets the user choose the solid promotional poster background color', () => {
@@ -141,6 +142,24 @@ describe('promotional image studio', () => {
     expect(sentBubble?.style.getPropertyValue('--bubble-text')).toBe('#123456');
     expect(receivedBubble?.style.getPropertyValue('--bubble-text')).toBe('#345678');
     expect(passcodeTitle).toHaveStyle({ color: '#654321' });
+  });
+
+  it('uses the non-compressing iOS inset renderer in promotion bubbles', () => {
+    const project = createDefaultTheme();
+    for (const id of ['chat.bubble.me.first.normal', 'chat.bubble.you.first.normal']) {
+      project.platformResources.ios[id] = {
+        fileName: `${id}@3x.png`, dataUrl: `data:image/png;base64,${id}`, width: 345, height: 375, sourceScale: 3,
+      };
+    }
+
+    const { container } = render(<ScreenshotStudio project={project} platform="ios" onClose={() => undefined} />);
+    const bubbles = [...container.querySelectorAll<HTMLElement>('.poster-bubbles .mini-bubble')];
+
+    expect(bubbles).toHaveLength(2);
+    expect(bubbles.every((bubble) => bubble.style.minWidth === '115px')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minHeight === '125px')).toBe(true);
+    expect(container.querySelectorAll('[data-renderer="ios-inset-export"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-renderer="poster-nine-slice"]')).toHaveLength(0);
   });
 
   it('captures exactly one 5:4 PNG at 2000x1600 and passes it to the Electron save API', async () => {
