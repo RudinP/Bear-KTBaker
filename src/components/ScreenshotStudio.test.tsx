@@ -46,6 +46,10 @@ describe('promotional image studio', () => {
     const [sourceWidth, sourceHeight] = passcodeDevice?.dataset.sourceViewport?.split('x').map(Number) ?? [];
     const [frameWidth, frameHeight] = passcodeDevice?.dataset.frame?.split('x').map(Number) ?? [];
     const previewScale = Number(passcodeDevice?.dataset.previewScale);
+    if (platform === 'ios') {
+      expect([sourceWidth, sourceHeight]).toEqual([402, 874]);
+      expect(previewScale).toBeCloseTo(430 / 874, 8);
+    }
     expect(sourceWidth * previewScale).toBeLessThanOrEqual(frameWidth);
     expect(sourceHeight * previewScale).toBeLessThanOrEqual(frameHeight);
     expect(passcodeDevice).toHaveAttribute('data-contained', 'true');

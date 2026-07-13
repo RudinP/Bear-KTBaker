@@ -96,13 +96,15 @@ export const IOS_HOST_LAYOUTS: HostLayoutSet = {
   },
   passcode: {
     ...base('passcode'),
-    header: { x: 0, y: 0, width: 375, height: 0 },
-    content: { x: 0, y: 0, width: 375, height: 750 },
+    viewport: { width: 402, height: 874 },
+    themeSurface: { x: 0, y: 0, width: 402, height: 874 },
+    header: { x: 0, y: 0, width: 402, height: 0 },
+    content: { x: 0, y: 0, width: 402, height: 874 },
     passcode: {
-      imageSurface: { x: 0, y: 0, width: 375, height: 375 },
-      titleTop: 136,
-      bulletTop: 225,
-      keypad: { x: 0, y: 375, width: 375, height: 375 },
+      imageSurface: { x: 0, y: 0, width: 402, height: 564 },
+      titleTop: 257,
+      bulletTop: 326,
+      keypad: { x: 0, y: 564, width: 402, height: 310 },
     },
   },
   splash: {

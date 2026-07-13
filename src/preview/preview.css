@@ -180,16 +180,23 @@
 .kt-composer.expanded { top: 439px; height: 388px; padding-top: 10px; background: rgba(255,255,255,.98); }.android .kt-composer.expanded { top: 437px; height: 316px; }.kt-composer.expanded .kt-composer-pill { z-index: 2; }
 .kt-attachments { position: absolute; inset: 66px 0 0; display: grid; grid-template-columns: repeat(4,1fr); padding: 8px 12px 20px; background: #fff; }.kt-attachments div { display: grid; place-items: center; align-content: center; font-size: 10px; }
 .kt-notification-bar { position: absolute; z-index: 70; top: 0; left: 8px; right: 8px; height: 72px; display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 7px 12px; border-radius: 13px; box-shadow: 0 7px 24px rgba(45,35,35,.15); text-align: left; }.kt-notification-avatar { width: 38px; height: 38px; overflow: hidden; border-radius: 14px; }.kt-notification-avatar img { width: 100%; height: 100%; object-fit: cover; }.kt-notification-copy { min-width: 0; display: grid; gap: 3px; }.kt-notification-copy b { font-size: 11px; }.kt-notification-copy > span { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.kt-notification-move { color: #f06470; font-size: 10px; white-space: nowrap; }
-.kt-passcode { background-size: 402px 402px; background-position: center 105px; background-repeat: no-repeat; }
+.kt-passcode { background-repeat: no-repeat; }
 .android .kt-passcode { background-size: 360px 360px; background-position: center top; }
 .kt-passcode-keypad-background { position: absolute; z-index: 1; top: 360px; left: 0; right: 0; bottom: 0; display: block; }
 .kt-passcode-title { position: absolute; z-index: 10; left: 0; right: 0; text-align: center; }.kt-passcode-title-copy { display: inline-flex; }.kt-passcode-title h4 { margin: 0; font-size: 25px; font-weight: 500; }.kt-passcode-title p { margin: 13px 0 20px; color: inherit; opacity: .65; font-size: 10px; }.kt-passcode-bullets { display: flex; justify-content: center; gap: 4px; }.kt-passcode-title img { width: 40px; height: 40px; object-fit: contain; }
 .kt-keypad { position: absolute; z-index: 12; left: 0; right: 0; display: grid; grid-template-columns: repeat(3,1fr); align-items: center; padding: 14px 46px 22px; background: rgba(255,246,246,.94); }.android .kt-keypad { padding-bottom: 15px; }
-.kt-keypad > .kt-keypad-key,.kt-keypad > .kt-keypad-delete,.kt-keypad > .kt-keypad-empty { position: relative; width: 100%; height: 62px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; font: inherit; font-size: 18px; }
+.kt-keypad > .kt-keypad-key,.kt-keypad > .kt-keypad-delete,.kt-keypad > .kt-keypad-empty,.kt-keypad > .kt-keypad-cancel { position: relative; width: 100%; height: 62px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; font: inherit; font-size: 18px; }
 .kt-keypad > .kt-keypad-key > span:last-child,.kt-keypad > .kt-keypad-delete > span { position: relative; z-index: 2; }
 .kt-keypad-pressed-image,.kt-keypad-pressed-color { position: absolute; z-index: 1; left: 50%; top: 50%; width: 60px; height: 60px; display: block; border-radius: 50%; object-fit: contain; transform: translate(-50%,-50%); }
 .kt-keypad-delete svg { width: 24px; height: 16px; display: block; }
+.ios .kt-passcode-title h4 { font-size: 25px; line-height: 30px; }
+.ios .kt-passcode-title p { margin: 10px 0 0; font-size: 12px; line-height: 14px; }
+.ios .kt-passcode > .kt-passcode-bullets { position: absolute; z-index: 10; left: 0; right: 0; gap: 2px; }
+.ios .kt-passcode > .kt-passcode-bullets img,.ios .kt-passcode > .kt-passcode-bullets i { width: 44px; height: 44px; object-fit: contain; }
+.ios .kt-keypad { grid-template-rows: repeat(4,66px); align-items: stretch; padding: 5px 14px 41px; }
+.ios .kt-keypad > .kt-keypad-key,.ios .kt-keypad > .kt-keypad-delete,.ios .kt-keypad > .kt-keypad-cancel { height: 66px; font-size: 20px; }
+.ios .kt-keypad > .kt-keypad-cancel { font-size: 16px; }
 .kt-splash { display: grid; place-items: center; }.kt-splash-content { display: grid; place-items: center; gap: 12px; color: #875c5c; text-align: center; background: transparent; }.kt-splash-content > img { width: 100%; height: 100%; object-fit: cover; }.kt-splash-content span { width: 95px; height: 78px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.75); font-size: 24px; font-weight: 700; }.kt-splash-content b { font-size: 16px; }
 @media (max-width: 1210px) {
-  .device-frame.guide-device { --kt-scale: .68 !important; width: calc(var(--kt-width) * .68) !important; height: calc(var(--kt-height) * .68) !important; }
+  .preview-stage .device-frame.guide-device { --kt-scale: .68 !important; width: calc(var(--kt-width) * .68) !important; height: calc(var(--kt-height) * .68) !important; }
 }

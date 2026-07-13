@@ -28,8 +28,34 @@ describe('platform auxiliary screens', () => {
     expect(container.querySelectorAll('[data-passcode-bullet]')).toHaveLength(4);
     expect(screen.getByTestId('passcode-keypad')).toHaveAttribute(
       'data-frame',
-      platform === 'ios' ? '0,375,375,375' : '0,360,360,400',
+      platform === 'ios' ? '0,564,402,310' : '0,360,360,400',
     );
+  });
+
+  it('uses the installed iOS passcode copy, bullet geometry, and bottom-row controls', () => {
+    const { container } = render(<PhonePreview project={createDefaultTheme()} platform="ios" screen="passcode"
+      selected="passcode-keypad" onSelect={vi.fn()} />);
+
+    expect(screen.getByLabelText('카카오톡 미리보기')).toHaveAttribute('data-viewport', '402x874');
+    expect(screen.getByRole('heading', { name: '암호 입력' })).toBeInTheDocument();
+    expect(screen.getByText('카카오톡 암호를 입력해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '키패드 취소' })).toHaveTextContent('취소');
+    expect(container.querySelector('.kt-passcode-title')).toHaveStyle({ top: '257px' });
+    expect(container.querySelector('.kt-passcode-bullets')).toHaveStyle({ top: '326px' });
+    expect(container.querySelector('.kt-theme-background')).toHaveAttribute('data-surface', '402x564');
+    expect(container.querySelector<HTMLElement>('.kt-theme-background')).toHaveStyle({
+      backgroundPosition: '-81px 0px',
+      backgroundSize: '564px 564px',
+    });
+  });
+
+  it('does not add the iOS cancel key or copy to the Android passcode screen', () => {
+    render(<PhonePreview project={createDefaultTheme()} platform="android" screen="passcode"
+      selected="passcode-keypad" onSelect={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: '암호' })).toBeInTheDocument();
+    expect(screen.getByText('카카오톡 암호를 입력해주세요.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '키패드 취소' })).not.toBeInTheDocument();
   });
 
   it('switches iOS notification and direct-share guide states without changing screens', () => {

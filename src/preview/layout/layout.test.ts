@@ -81,4 +81,26 @@ describe('official KakaoTalk host layouts', () => {
     expect(getHostLayout('ios', 'splash').available).toBe(false);
     expect(getHostLayout('android', 'splash').available).toBe(true);
   });
+
+  it('keeps the installed iOS passcode screen full-size while leaving Android geometry unchanged', () => {
+    const ios = getHostLayout('ios', 'passcode');
+    const android = getHostLayout('android', 'passcode');
+
+    expect(ios.viewport).toEqual({ width: 402, height: 874 });
+    expect(ios.content).toEqual({ x: 0, y: 0, width: 402, height: 874 });
+    expect(ios.passcode).toEqual({
+      imageSurface: { x: 0, y: 0, width: 402, height: 564 },
+      titleTop: 257,
+      bulletTop: 326,
+      keypad: { x: 0, y: 564, width: 402, height: 310 },
+    });
+
+    expect(android.viewport).toEqual({ width: 360, height: 760 });
+    expect(android.passcode).toEqual({
+      imageSurface: { x: 0, y: 0, width: 360, height: 360 },
+      titleTop: 104,
+      bulletTop: 196,
+      keypad: { x: 0, y: 360, width: 360, height: 400 },
+    });
+  });
 });
