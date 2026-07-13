@@ -270,6 +270,29 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(bubble.querySelector('[data-renderer="ios-inset"]')).toBeInTheDocument();
   });
 
+  it('matches exported iOS integer-point inset metrics for non-aligned source guides', () => {
+    const project = createDefaultTheme();
+    project.platformResources.ios['chat.bubble.me.first.normal'] = {
+      fileName: 'misaligned@3x.png', dataUrl: 'data:image/png;base64,TUlTQUxJR05FRA==', width: 120, height: 105, sourceScale: 3,
+    };
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: {
+      stretch: { x: [50 / 120, 90 / 120], y: [52 / 105, 90 / 105] },
+      content: { left: 32 / 120, top: 31 / 105, right: 70 / 120, bottom: 83 / 105 },
+    } };
+
+    render(<PhonePreview {...baseProps} project={project} platform="ios" screen="chatroom" />);
+    const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
+    const layer = bubble.querySelector<HTMLElement>('[data-renderer="ios-inset"]');
+
+    expect(bubble.style.paddingTop).toBe('10px');
+    expect(bubble.style.paddingRight).toBe('17px');
+    expect(bubble.style.paddingBottom).toBe('7px');
+    expect(bubble.style.paddingLeft).toBe('11px');
+    expect(bubble.style.minWidth).toBe('40px');
+    expect(bubble.style.minHeight).toBe('35px');
+    expect(layer?.style.borderImageSlice).toBe('51 69 51 48 fill');
+  });
+
   it('uses only the Android .9.png marker renderer for Android bubbles', () => {
     const { container } = render(<PhonePreview {...baseProps} platform="android" screen="chatroom" />);
     const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');

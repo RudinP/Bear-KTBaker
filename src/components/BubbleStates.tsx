@@ -66,7 +66,8 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     ? iosInsetGeometry(guides, { width: render.width, height: render.height }, sourceScale)
     : undefined;
   const renderGuides = iosGeometry?.guides ?? guides;
-  const insets = contentInsetsPx(renderGuides, { width: render.width, height: render.height }, sourceScale, platform === 'android' ? 'android' : 'css');
+  const renderScale = iosGeometry?.scale ?? sourceScale;
+  const insets = contentInsetsPx(renderGuides, { width: render.width, height: render.height }, renderScale, platform === 'android' ? 'android' : 'css');
   const chatLayout = getHostLayout(platform, 'chatroom').chat!;
   const hostInsets = chatLayout.bubbleContentInset;
   const typography = platform === 'android'
@@ -85,9 +86,9 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     maxWidth: chatLayout.maxBubbleWidth,
     ...(iosGeometry ? { minWidth: iosGeometry.minimumSize.width, minHeight: iosGeometry.minimumSize.height } : {}),
   } as React.CSSProperties}>
-    {render.source && exportSafe && platform === 'ios' && <NineSliceImage image={render.source} guides={renderGuides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="ios-inset-export" />}
+    {render.source && exportSafe && platform === 'ios' && <NineSliceImage image={render.source} guides={renderGuides} sourceSize={{ width: render.width, height: render.height }} sourceScale={renderScale} renderer="ios-inset-export" />}
     {render.source && exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
-    {render.source && !exportSafe && platform === 'ios' && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(render.source, renderGuides, render.width, render.height, sourceScale, 'ios')} />}
+    {render.source && !exportSafe && platform === 'ios' && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(render.source, guides, render.width, render.height, sourceScale, 'ios')} />}
     {render.source && !exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
     <span className="mini-bubble-copy">{children}</span>
   </div>;

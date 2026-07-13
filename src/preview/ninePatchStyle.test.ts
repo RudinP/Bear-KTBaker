@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ninePatchBorderStyle, officialSampleBubbleGuides } from './ninePatchStyle';
+import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from './ninePatchStyle';
 
 describe('nine-patch preview style', () => {
   it('keeps fixed edges and stretches only the marker-defined center', () => {
@@ -33,5 +33,18 @@ describe('nine-patch preview style', () => {
     }, 120, 105, 3, 'ios');
 
     expect(style.borderImageSlice).toBe('51 66 51 51 fill');
+  });
+
+  it('uses the same integer-point quantization as the exported iOS CSS', () => {
+    const geometry = iosInsetGeometry({
+      stretch: { x: [50 / 120, 90 / 120], y: [52 / 105, 90 / 105] },
+      content: { left: 32 / 120, top: 31 / 105, right: 70 / 120, bottom: 83 / 105 },
+    }, { width: 120, height: 105 }, 3);
+
+    expect(geometry.guides).toEqual({
+      stretch: { x: [48 / 120, 51 / 120], y: [51 / 105, 54 / 105] },
+      content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
+    });
+    expect(geometry.minimumSize).toEqual({ width: 40, height: 35 });
   });
 });

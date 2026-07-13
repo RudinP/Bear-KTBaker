@@ -170,7 +170,7 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
   const guides = appearance.stretchByPlatform?.ios ?? (asset ? appearance.stretch : officialSampleBubbleGuides('ios', side));
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, 'ios');
   const geometry = iosInsetGeometry(guides, renderSize, sourceScale);
-  const insets = contentInsetsPx(geometry.guides, renderSize, sourceScale);
+  const insets = contentInsetsPx(geometry.guides, renderSize, geometry.scale);
   const textColor = cssColor(colorValue(project, 'ios', `chat.bubble.${side}.text${pressed ? '.pressed' : ''}`));
   const style: React.CSSProperties = source ? {
     backgroundColor: 'transparent', color: textColor,
@@ -180,7 +180,7 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
   } : { backgroundColor: appearance.color, color: textColor };
   return <Editable id={side === 'me' ? 'bubble-me' : 'bubble-you'} label={`${side === 'me' ? '보낸' : '받은'} ${grouped ? '연속' : '첫'} 말풍선`} selected={selected} onSelect={onSelect} className={`kt-bubble ${side === 'me' ? 'sent' : 'received'}-${grouped ? 'group' : 'first'}`} style={style}
     onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)}>
-    {source && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(source, geometry.guides, renderSize.width, renderSize.height, sourceScale, 'ios')} />}
+    {source && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(source, guides, renderSize.width, renderSize.height, sourceScale, 'ios')} />}
     <span className="kt-bubble-copy">{children}</span>
   </Editable>;
 }
