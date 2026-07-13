@@ -1,0 +1,20 @@
+appId: com.rudin.bear.ktbaker
+productName: Bear KTBaker
+files:
+  - dist/**
+  - dist-electron/**
+extraResources:
+  - from: resources/templates
+    to: templates
+directories:
+  buildResources: resources
+  output: release
+mac:
+  category: public.app-category.graphics-design
+  icon: AppIcon.icon
+  target: [dmg, zip]
+win:
+  target: [nsis]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

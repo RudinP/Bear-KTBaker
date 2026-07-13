@@ -1,0 +1,195 @@
+.device-frame.guide-device {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--kt-frame-radius);
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(28, 34, 45, .25), 0 2px 8px rgba(28, 34, 45, .1), inset 0 0 0 1px rgba(36,39,45,.16);
+}
+.phone-preview-stack { display: grid; justify-items: center; gap: 8px; }
+.preview-state-switcher { display: flex; gap: 3px; padding: 3px; border: 1px solid rgba(56,60,65,.12); border-radius: 10px; background: rgba(255,255,255,.72); box-shadow: 0 4px 12px rgba(34,39,46,.08); }
+.preview-state-switcher button { height: 26px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: #6b7076; font-size: 11px; cursor: pointer; }
+.preview-state-switcher button[data-active="true"] { background: #292b2d; color: #fff; }
+.preview-availability-note { margin: 0; color: #6d737a; font-size: 11px; }
+.kt-banner-ad-pill { display: flex; align-items: center; gap: 5px; box-sizing: border-box; border-radius: 999px; padding: 3px 24px 3px 4px; color: #fff; box-shadow: 0 1px 3px rgba(35,24,24,.16); }
+.kt-banner-ad-avatar { flex: 0 0 auto; width: 24px; height: 24px; overflow: hidden; border-radius: 50%; background: rgba(255,255,255,.2); }
+.kt-banner-ad-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.kt-banner-ad-copy { min-width: 0; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.kt-banner-ad-badge { flex: 0 0 auto; align-self: flex-start; margin-top: -2px; font-size: 7px; line-height: 1; }
+.kt-bottom-banner-preview { justify-content: center; padding: 0 28px; }
+.kt-banner-message { min-width: 0; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.kt-banner-message b { color: #f6ca41; font-weight: 650; }
+.kt-banner-play { position: relative; flex: 0 0 auto; width: 12px; height: 12px; margin-right: 6px; border: 1px solid currentColor; border-radius: 50%; opacity: .9; }
+.kt-banner-play::after { content: ''; position: absolute; top: 3px; left: 4px; width: 0; height: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 4px solid currentColor; }
+.kt-banner-close { position: absolute; top: 50%; right: 10px; width: 12px; height: 12px; transform: translateY(-50%); opacity: .55; }
+.kt-banner-close::before,.kt-banner-close::after { content: ''; position: absolute; top: 5px; left: 1px; width: 10px; height: 1px; background: currentColor; }
+.kt-banner-close::before { transform: rotate(45deg); }
+.kt-banner-close::after { transform: rotate(-45deg); }
+.device-frame.guide-device.android { border-radius: var(--kt-frame-radius); }
+.device-frame.guide-device .screen-scaler.guide-scaler {
+  width: var(--kt-width);
+  height: var(--kt-height);
+  overflow: hidden;
+  transform: scale(var(--kt-scale));
+  transform-origin: left top;
+}
+.kt-screen {
+  position: relative;
+  width: var(--kt-width);
+  height: var(--kt-height);
+  overflow: hidden;
+  color: #342d2d;
+  background-position: center top;
+  background-repeat: no-repeat;
+  font-family: var(--kt-font-family);
+  text-rendering: geometricPrecision;
+}
+.kt-theme-background {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  display: block;
+  pointer-events: none;
+}
+.kt-nine-slice { position: absolute; z-index: -1; inset: 0; display: block; pointer-events: none; }
+.kt-nine-slice-source { display: none; }
+.kt-nine-slice-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+.color-hotspot { position: relative; display: inline-flex; align-items: center; color: inherit; cursor: pointer; }
+.color-hotspot:after { content: ""; position: absolute; z-index: 60; inset: -3px; border: 1.5px solid transparent; border-radius: 7px; pointer-events: none; transition: border-color .14s, box-shadow .14s; }
+.color-hotspot:hover:after { border-color: rgba(16,163,127,.9); box-shadow: 0 0 0 3px rgba(16,163,127,.14); }
+.color-hotspot[data-selected="true"]:after { border-color: #10a37f; box-shadow: 0 0 0 3px rgba(16,163,127,.18); }
+.color-hotspot:hover > .edit-hint { opacity: 1; transform: translate(-50%, 0); }
+.kt-main-header {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px 0;
+  background: transparent;
+}
+.android .kt-main-header { top: 0; height: 67px; padding-top: 2px; }
+.kt-main-header h4 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 24px; font-weight: 520; letter-spacing: -.04em; }
+.kt-main-header h4 img { width: 32px; height: 32px; border-radius: 12px; object-fit: cover; }
+.kt-header-profile { width: 32px; height: 32px; display: block; overflow: hidden; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
+.kt-main-actions { min-width: 96px; display: flex; align-items: center; justify-content: flex-end; }
+.kt-main-actions img { display: block; width: 28px; height: 28px; object-fit: contain; }
+.kt-main-actions .kt-official-actions { display: block; }
+.ios .kt-main-actions.actions-friends .kt-official-actions { width: 143px; height: 22px; }
+.ios .kt-main-actions.actions-chats .kt-official-actions { width: 102px; height: 21px; }
+.ios .kt-main-actions.actions-more .kt-official-actions { width: 108px; height: 23px; }
+.android .kt-main-actions.actions-friends .kt-official-actions { width: 140px; height: 22px; }
+.android .kt-main-actions.actions-chats .kt-official-actions { width: 133.333px; height: 50px; margin-right: -15px; transform: translateY(4px); }
+.android .kt-main-actions.actions-more .kt-official-actions { width: 90px; height: 19px; }
+.kt-chip-row { position: absolute; z-index: 25; top: 64px; left: 16px; right: 16px; height: 55px; display: flex; align-items: center; gap: 7px; }
+.android .kt-chip-row { top: 67px; height: 45px; }
+.kt-chip-row > * { height: 38px; min-width: 55px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 0; padding: 0 15px; border: 1px solid rgba(75,61,61,.22); border-radius: 22px; background: rgba(255,255,255,.12); color: #594848; font-size: 13px; font-style: normal; font-weight: 450; }
+.kt-chip-row > .selected-chip { border-color: #594444; background: #594444; color: #fff; }
+.kt-chip-row > .color-hotspot > span:not(.edit-hint) { display: flex; align-items: center; gap: 3px; }
+.kt-chip-row > .kt-filter-chip { width: 38px; min-width: 38px; padding: 0; }
+.kt-chat-filter-icon { width: 20px; height: 16px; display: block; }
+.kt-chip-row em { min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 9px; background: #f4512c; color: #fff; font-size: 8px; font-style: normal; }
+.kt-guide-banner { position: absolute; z-index: 10; top: 123px; left: 16px; right: 16px; height: 84px; display: flex; align-items: center; justify-content: space-between; padding: 0 21px; border-radius: 14px; background: rgba(250,250,250,.93); color: #4b4141; }
+.android .kt-guide-banner { top: 122px; height: 82px; }
+.kt-guide-banner b,.kt-guide-banner small { display: block; }
+.kt-guide-banner b { font-size: 14px; font-weight: 650; }.kt-guide-banner small { margin-top: 5px; color: #9a9494; font-size: 9px; }
+.kt-list { position: absolute; z-index: 8; top: 220px; left: 0; right: 0; bottom: 53px; overflow: hidden; }
+.android .kt-list { top: 233px; bottom: 53px; }
+.kt-list-row { height: 66px; display: grid; grid-template-columns: 50px 1fr 58px; align-items: center; gap: 9px; padding: 0 17px; }
+.kt-list-row:active { background-color: var(--kt-cell-pressed) !important; }
+.kt-list-row:active b { color: var(--kt-title-pressed) !important; }
+.kt-list-row:active p { color: var(--kt-description-pressed) !important; }
+.kt-chat-list .kt-list-row:active p,.kt-now-list .kt-list-row:active p { color: var(--kt-paragraph-pressed) !important; }
+.android .kt-list-row { height: 64px; padding: 0 14px; }
+.kt-list-avatar { position: relative; width: 44px; height: 44px; display: block; overflow: hidden; border-radius: 17px; background: #f8b7b7; }
+.kt-list-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.kt-list-avatar.avatar-1 { background: #f9d877; }.kt-list-avatar.avatar-2 { background: #eac9ad; }.kt-list-avatar.avatar-3 { background: #bfd8f0; }.kt-list-avatar.avatar-4 { background: #c8e3c3; }.kt-list-avatar.avatar-5 { background: #e9c5e8; }
+.kt-list-copy { min-width: 0; }.kt-list-copy > .color-hotspot { display: flex; width: 100%; }.kt-list-copy b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 540; }.kt-list-copy p { margin: 5px 0 0; overflow: hidden; color: #806f6f; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.kt-row-meta { align-self: stretch; display: flex; flex-direction: column; align-items: flex-end; padding-top: 13px; }.kt-row-meta time { color: #a49696; font-size: 8px; }.kt-row-meta em { min-width: 18px; height: 18px; display: grid; place-items: center; margin-top: 5px; border-radius: 9px; background: #f4512c; color: #fff; font-size: 8px; font-style: normal; }
+.kt-friends-list h5 { height: 25px; margin: 0; padding: 0 17px; color: #d86f78; font-size: 10px; font-weight: 500; }.kt-friends-list .kt-list-row { height: 61px; grid-template-columns: 50px 1fr; }
+.kt-now-list .kt-list-row { height: 78px; }
+.kt-tabbar { position: absolute; z-index: 50; left: 0; right: 0; display: flex; align-items: center; justify-content: space-around; overflow: visible; padding: 5px 9px; border: 0; background: transparent; isolation: isolate; }
+.android .kt-tabbar { align-items: center; padding: 5px 10px; }
+.kt-tabbar-background { position: absolute; z-index: -1; inset: 0; display: block; overflow: hidden; width: 100%; height: 100%; pointer-events: none; }
+.kt-tabbar-background > img { position: absolute; left: 50%; bottom: 0; display: block; width: 470px; height: 49px; max-width: none; object-fit: fill; transform: translateX(-50%); }
+.android .kt-tabbar-background > img { top: 0; left: 50%; bottom: auto; transform: translateX(-50%); }
+.android .kt-tabbar-background.is-nine-patch > img { transform: translateX(-50%); }
+.kt-tabbar > .kt-tab-item { position: relative; z-index: 1; width: 48px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; }
+.android .kt-tabbar > .kt-tab-item { height: 42px; }
+.kt-tabbar > .kt-tab-item > img { width: 38px; height: 38px; object-fit: contain; }
+.android .kt-tabbar > .kt-tab-item > img { width: 38px; height: 38px; }
+.kt-tabbar > .kt-tab-item > i { width: 24px; height: 24px; border: 2px solid currentColor; border-radius: 50%; }
+.screen-more .kt-guide-banner { display: none; }
+.ios .screen-more .kt-chip-row { top: 68px; left: 18px; right: 18px; height: 56px; gap: 8px; }
+.ios .screen-more .kt-chip-row > [data-more-chip] { height: 40px; min-width: 0; padding: 0; font-size: 15px; }
+.ios .screen-more .kt-chip-row > [data-more-chip="home"] { width: 50px; }
+.ios .screen-more .kt-chip-row > [data-more-chip="wallet"] { width: 64px; }
+.android .screen-more .kt-chip-row > [data-more-chip] { min-width: 0; padding: 0; }
+.android .screen-more .kt-chip-row > [data-more-chip="home"] { width: 46px; }
+.android .screen-more .kt-chip-row > [data-more-chip="wallet"] { width: 58px; }
+.kt-more-content { position: absolute; z-index: 8; top: 126px; left: 0; right: 0; bottom: 53px; overflow: hidden; background: transparent; }
+.android .kt-more-content { top: 112px; bottom: 53px; }
+.kt-pay { height: 54px; display: flex; align-items: center; justify-content: space-between; margin: 8px 20px 0; padding: 0 18px; border-radius: 14px; background: #ffe500; color: #191919; }.kt-pay b { font-size: 15px; }.kt-pay small { font-size: 11px; }.kt-pay span { font-size: 11px; }
+.kt-service-grid { position: relative; height: 250px; display: grid; grid-template-columns: repeat(4,1fr); margin: 12px 20px; padding: 10px 4px 30px; border-radius: 15px; }
+.kt-service-item { min-width: 0; display: grid; grid-template-rows: 31px auto; place-items: center; align-content: center; gap: 5px; font-size: 10px; }
+.kt-service-item svg { width: 27px; height: 27px; display: block; }
+.kt-service-item > span:not(.edit-hint) { white-space: nowrap; }
+.kt-grid-pagination { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.kt-grid-pagination > .color-hotspot { display: block; width: max-content; height: 5px; }
+.kt-grid-dot { display: block; width: 5px; height: 5px; border-radius: 999px; }
+.kt-grid-dot[data-active="true"] { width: 18px; }
+.kt-game-card { margin: 4px 16px; padding: 13px 14px; border-top: 1px solid #eee; }.kt-game-card h5 { margin: 0; font-size: 14px; }.kt-game-card p { margin: 5px 0 12px; color: #8d8683; font-size: 10px; }.kt-game-card > div { height: 62px; display: flex; align-items: center; padding: 0 15px; border-radius: 13px; background: #f3e7d8; }
+.kt-chat-header { position: absolute; z-index: 35; top: 0; left: 0; right: 0; height: 55px; display: grid; grid-template-columns: 68px 1fr 96px; align-items: center; padding: 0 12px 0 15px; background: transparent; }
+.android .kt-chat-header { height: 56px; grid-template-columns: 56px 1fr 105px; padding: 0 17px 0 0; }
+.kt-chat-header b { font-size: 16px; font-weight: 620; }
+.ios .kt-chat-header > .color-hotspot:nth-child(2) { position: absolute; left: 50%; transform: translateX(-50%); }
+.android .kt-chat-header > .color-hotspot:nth-child(2) { justify-self: start; }
+.kt-chat-back { justify-self: start; width: 18px; height: 28px; display: grid; place-items: center; overflow: visible; }.kt-chat-back svg { width: 11px; height: 20px; }
+.android .kt-chat-back { width: 56px; }.android .kt-chat-back svg { width: 18px; height: 17px; }
+.kt-chat-fixed-actions { justify-self: end; width: 103px; height: 28px; display: grid; place-items: center; overflow: visible; }.kt-chat-fixed-actions svg { width: 99px; height: 20px; }.android .kt-chat-fixed-actions { width: 103px; }.android .kt-chat-fixed-actions svg { width: 99px; height: 20px; }
+.kt-chat-body { position: absolute; z-index: 8; left: 0; right: 0; overflow: hidden; }
+.kt-date { width: max-content; margin: 10px auto 0; padding: 5px 11px; border-radius: 13px; background: rgba(148,111,111,.1); color: #846f6f; font-size: 8px; }
+.kt-message-flow { display: flex; flex-direction: column; align-items: stretch; }
+.kt-message { position: relative; display: flex; align-items: flex-start; gap: var(--kt-avatar-gap); }.kt-message.received { align-self: flex-start; }.kt-message.sent { align-self: flex-end; flex-direction: column; align-items: flex-end; }
+.kt-chat-avatar { width: var(--kt-avatar-size); height: var(--kt-avatar-size); overflow: hidden; border-radius: var(--kt-avatar-radius); background: #fff; }.kt-chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.kt-message-stack { display: flex; flex-direction: column; align-items: flex-start; gap: var(--kt-sender-gap); }
+.kt-message-stack > .kt-bubble + .kt-bubble { margin-top: calc(var(--kt-group-gap) - var(--kt-sender-gap)); }
+.kt-received-last-row { display: flex; align-items: end; gap: 5px; margin-top: calc(var(--kt-group-gap) - var(--kt-sender-gap)); }
+.kt-sender { display: block; margin: 0 0 0 2px; color: #5f4d4d; font-size: 9px; }
+.kt-bubble { position: relative; display: block; width: max-content; min-width: 35px; max-width: var(--kt-max-bubble-width); min-height: 35px; border: 0; border-radius: 0; background-image: none; box-shadow: none; font-size: 14px; line-height: 18px; isolation: isolate; }
+.android .kt-bubble { min-height: 29px; font-size: 15px; font-weight: 300; line-height: 24px; }
+.kt-ninepatch-layer { z-index: -1; display: block; }
+.kt-bubble-copy { position: relative; z-index: 1; display: block; white-space: nowrap; }
+.kt-message time { color: #806f6f; font-size: 8px; white-space: nowrap; }.kt-received-last-row time,.kt-message.sent time { position: static; margin-bottom: 4px; }
+.kt-sent-row { display: flex; align-items: end; justify-content: flex-end; gap: 5px; }.kt-unread { font-size: 9px; }
+.kt-composer { position: absolute; z-index: 45; left: 0; right: 0; background: transparent; }
+.kt-composer-controls { position: relative; width: 100%; height: var(--kt-composer-height); border-radius: calc(var(--kt-composer-height) / 2); box-shadow: 0 5px 18px rgba(45,35,35,.09); }
+.kt-composer-pill { position: absolute; z-index: 1; left: var(--kt-composer-field-offset); right: 82px; top: 0; height: var(--kt-composer-height); display: flex; align-items: center; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #b2aaaa; }
+.kt-composer-pill input { width: 100%; min-width: 0; height: 100%; padding: 0 48px 0 var(--kt-composer-input-inset); border: 0; outline: 0; background: transparent; font-size: 13px; }
+.kt-composer-pill input::placeholder { color: currentColor; opacity: .48; }
+.kt-composer-fixed-icon { position: absolute; z-index: 3; top: calc((var(--kt-composer-height) - var(--kt-composer-button-size)) / 2); width: var(--kt-composer-button-size); height: var(--kt-composer-button-size); display: grid; place-items: center; border: 0; border-radius: 50%; padding: 0; background: rgba(70,70,70,.055); }.kt-composer-fixed-icon svg { display: block; }.kt-composer-fixed-icon.menu { left: var(--kt-composer-menu-inset); cursor: pointer; }.kt-composer-fixed-icon.menu svg { width: var(--kt-composer-menu-icon-size); height: var(--kt-composer-menu-icon-size); }.kt-composer-fixed-icon.emoji { top: calc((var(--kt-composer-height) - var(--kt-composer-emoji-button-size)) / 2); right: calc(var(--kt-composer-send-inset) + var(--kt-composer-send-button-size) + var(--kt-composer-emoji-gap)); width: var(--kt-composer-emoji-button-size); height: var(--kt-composer-emoji-button-size); color: #191919; }.kt-composer-fixed-icon.emoji svg { width: var(--kt-composer-emoji-icon-size); height: var(--kt-composer-emoji-icon-size); }.kt-composer-fixed-icon.hash { right: var(--kt-composer-menu-inset); }.kt-composer-fixed-icon.hash svg { width: var(--kt-composer-hash-icon-size); height: var(--kt-composer-hash-icon-size); }
+.kt-chat-send { position: absolute; z-index: 4; top: calc((var(--kt-composer-height) - var(--kt-composer-send-button-size)) / 2); right: var(--kt-composer-send-inset); width: var(--kt-composer-send-button-size); height: var(--kt-composer-send-button-size); display: grid; place-items: center; border-radius: 50%; }
+.kt-chat-send > .color-hotspot,.kt-chat-send > .color-hotspot > span { width: 100%; height: 100%; display: grid; place-items: center; border-radius: inherit; }
+.kt-chat-send svg { width: var(--kt-composer-send-icon-size); height: var(--kt-composer-send-icon-size); }
+.kt-composer.expanded { top: 439px; height: 388px; padding-top: 10px; background: rgba(255,255,255,.98); }.android .kt-composer.expanded { top: 437px; height: 316px; }.kt-composer.expanded .kt-composer-pill { z-index: 2; }
+.kt-attachments { position: absolute; inset: 66px 0 0; display: grid; grid-template-columns: repeat(4,1fr); padding: 8px 12px 20px; background: #fff; }.kt-attachments div { display: grid; place-items: center; align-content: center; font-size: 10px; }
+.kt-notification-bar { position: absolute; z-index: 70; top: 0; left: 8px; right: 8px; height: 72px; display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 7px 12px; border-radius: 13px; box-shadow: 0 7px 24px rgba(45,35,35,.15); text-align: left; }.kt-notification-avatar { width: 38px; height: 38px; overflow: hidden; border-radius: 14px; }.kt-notification-avatar img { width: 100%; height: 100%; object-fit: cover; }.kt-notification-copy { min-width: 0; display: grid; gap: 3px; }.kt-notification-copy b { font-size: 11px; }.kt-notification-copy > span { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.kt-notification-move { color: #f06470; font-size: 10px; white-space: nowrap; }
+.kt-passcode { background-size: 402px 402px; background-position: center 105px; background-repeat: no-repeat; }
+.android .kt-passcode { background-size: 360px 360px; background-position: center top; }
+.kt-passcode-keypad-background { position: absolute; z-index: 1; top: 360px; left: 0; right: 0; bottom: 0; display: block; }
+.kt-passcode-title { position: absolute; z-index: 10; left: 0; right: 0; text-align: center; }.kt-passcode-title-copy { display: inline-flex; }.kt-passcode-title h4 { margin: 0; font-size: 25px; font-weight: 500; }.kt-passcode-title p { margin: 13px 0 20px; color: inherit; opacity: .65; font-size: 10px; }.kt-passcode-bullets { display: flex; justify-content: center; gap: 4px; }.kt-passcode-title img { width: 40px; height: 40px; object-fit: contain; }
+.kt-keypad { position: absolute; z-index: 12; left: 0; right: 0; display: grid; grid-template-columns: repeat(3,1fr); align-items: center; padding: 14px 46px 22px; background: rgba(255,246,246,.94); }.android .kt-keypad { padding-bottom: 15px; }
+.kt-keypad > .kt-keypad-key,.kt-keypad > .kt-keypad-delete,.kt-keypad > .kt-keypad-empty { position: relative; width: 100%; height: 62px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; font: inherit; font-size: 18px; }
+.kt-keypad > .kt-keypad-key > span:last-child,.kt-keypad > .kt-keypad-delete > span { position: relative; z-index: 2; }
+.kt-keypad-pressed-image,.kt-keypad-pressed-color { position: absolute; z-index: 1; left: 50%; top: 50%; width: 60px; height: 60px; display: block; border-radius: 50%; object-fit: contain; transform: translate(-50%,-50%); }
+.kt-keypad-delete svg { width: 24px; height: 16px; display: block; }
+.kt-splash { display: grid; place-items: center; }.kt-splash-content { display: grid; place-items: center; gap: 12px; color: #875c5c; text-align: center; background: transparent; }.kt-splash-content > img { width: 100%; height: 100%; object-fit: cover; }.kt-splash-content span { width: 95px; height: 78px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.75); font-size: 24px; font-weight: 700; }.kt-splash-content b { font-size: 16px; }
+@media (max-width: 1210px) {
+  .device-frame.guide-device { --kt-scale: .68 !important; width: calc(var(--kt-width) * .68) !important; height: calc(var(--kt-height) * .68) !important; }
+}

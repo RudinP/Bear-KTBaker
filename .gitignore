@@ -1,0 +1,35 @@
+node_modules/
+dist/
+dist-electron/
+release/
+coverage/
+.DS_Store
+.superpowers/
+docs/superpowers/
+*.log
+*.tsbuildinfo
+
+# Local environment and editor state
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.swp
+
+# Signing credentials and provisioning files
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# User-created exports placed at the project root
+/*.apk
+/*.ktheme
+/*.ktstudio
+/*.dmg
+/*.exe
+/*.zip

@@ -1,0 +1,52 @@
+{
+  "name": "kakao-theme-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Visual KakaoTalk theme editor for iOS and Android",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently -k \"vite\" \"npm:dev:electron\"",
+    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build": "tsc -b && vite build && npm run build:electron",
+    "build:electron": "tsup electron/main.ts electron/preload.ts --format cjs --out-dir dist-electron --clean --external electron",
+    "test": "vitest run",
+    "test:visual": "npm run build && tsx scripts/verify-android-chatroom-visual.ts",
+    "test:promotion": "npm run build && tsx scripts/verify-promotion-export.ts",
+    "verify": "npm test && npm run test:visual && npm run test:promotion",
+    "test:watch": "vitest",
+    "audit:theme": "tsx scripts/audit-theme-resources.ts",
+    "typecheck": "tsc -b --pretty false",
+    "verify:android-runtime": "tsx scripts/verify-standalone-android-export.ts",
+    "package:mac": "npm run verify:android-runtime && npm run build && electron-builder --mac --universal",
+    "package:win": "npm run verify:android-runtime && npm run build && electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "android-package-signer": "^0.2.1",
+    "html-to-image": "^1.11.13",
+    "jszip": "^3.10.1",
+    "pngjs": "^7.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.10.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.0.12",
+    "jsdom": "^27.1.0",
+    "playwright-core": "^1.55.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.0",
+    "wait-on": "^9.0.3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "androidApi": 35,
+  "buildTools": "35.0.0",
+  "upstream": "https://dl.google.com/android/repository/repository2-1.xml",
+  "files": {
+    "android.jar": "4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b",
+    "bin/darwin/aapt2": "729a6a8deba828992c50cb448d4ef3947003ec5a0d1deead7534897c8fc3486f",
+    "bin/win32/aapt2.exe": "cbfe5deda5f7074ce47b6f33818b456ee8046a076a11af13e29c837d3c80c564",
+    "classes.dex": "2176cee02a6c1192459780eaada3193402e8fa21d95e86e742c75f88759992f3"
+  }
+}
