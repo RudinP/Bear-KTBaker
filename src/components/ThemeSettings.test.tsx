@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../domain/theme';
 import { ThemeSettings } from './ThemeSettings';
@@ -9,9 +9,12 @@ describe('guide-faithful theme icon settings', () => {
     const onProject = vi.fn();
     render(<ThemeSettings project={project} platform="android" onProject={onProject} />);
 
-    expect(screen.getByLabelText('Android 앱 아이콘 이미지')).toBeInTheDocument();
-    expect(screen.getByLabelText('Android 적응형 전경 이미지')).toBeInTheDocument();
-    expect(screen.getByLabelText('Android 적응형 배경 이미지')).toBeInTheDocument();
+    expect(screen.getByLabelText('Android 기본 앱 아이콘 (구형 기기) 이미지')).toBeInTheDocument();
+    const adaptive = screen.getByRole('group', { name: 'Android 8 이상 적응형 앱 아이콘' });
+    expect(within(adaptive).getByText('전경과 배경 두 레이어가 함께 표시됩니다.')).toBeInTheDocument();
+    expect(within(adaptive).getByLabelText('Android 적응형 전경 이미지')).toBeInTheDocument();
+    expect(within(adaptive).getByLabelText('Android 적응형 배경 이미지')).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/Android .* 이미지/)).toHaveLength(3);
 
     fireEvent.change(screen.getByLabelText('Android 적응형 배경 이미지'), {
       target: { files: [new File(['background'], 'background.png', { type: 'image/png' })] },

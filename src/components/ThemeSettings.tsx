@@ -12,13 +12,6 @@ export function ThemeSettings({ project, platform, onProject }: {
   platform: Platform;
   onProject: (project: ThemeProject) => void;
 }) {
-  const iconSettings = platform === 'ios'
-    ? [['common.theme-icon', 'iPhone 테마 목록 아이콘'] as const]
-    : [
-      ['common.theme-icon', 'Android 앱 아이콘'] as const,
-      ['common.app-icon.foreground', 'Android 적응형 전경'] as const,
-      ['common.app-icon.background', 'Android 적응형 배경'] as const,
-    ];
   const setPlatformResource = (resourceId: string, asset: ImageAsset) => onProject({
     ...project,
     platformResources: {
@@ -30,6 +23,19 @@ export function ThemeSettings({ project, platform, onProject }: {
     ...project,
     meta: { ...project.meta, [key]: value },
   });
+  const iconPicker = (resourceId: string, label: string) => {
+    const icon = project.platformResources[platform][resourceId]?.dataUrl
+      ?? resolveResourceUrl(project, platform, resourceId);
+    return <label className="app-icon-picker" key={resourceId}>
+      <input type="file" aria-label={`${label} 이미지`} accept="image/png,image/jpeg,image/webp" onChange={(event) => {
+        const file = event.target.files?.[0];
+        if (file) readImage(file, (asset) => setPlatformResource(resourceId, asset));
+      }} />
+      <span className="app-icon-preview" style={icon ? { backgroundImage: `url(${icon})` } : undefined} />
+      <b>{label}</b>
+      <small>이미지를 눌러 변경</small>
+    </label>;
+  };
 
   return <main className="theme-settings-workspace">
     <div className="settings-heading">
@@ -38,19 +44,19 @@ export function ThemeSettings({ project, platform, onProject }: {
     </div>
     <div className="settings-card">
       <section className="settings-icon-column">
-        {iconSettings.map(([resourceId, label]) => {
-          const icon = project.platformResources[platform][resourceId]?.dataUrl
-            ?? resolveResourceUrl(project, platform, resourceId);
-          return <label className="app-icon-picker" key={resourceId}>
-            <input type="file" aria-label={`${label} 이미지`} accept="image/png,image/jpeg,image/webp" onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) readImage(file, (asset) => setPlatformResource(resourceId, asset));
-            }} />
-            <span className="app-icon-preview" style={icon ? { backgroundImage: `url(${icon})` } : undefined} />
-            <b>{label}</b>
-            <small>이미지를 눌러 변경</small>
-          </label>;
-        })}
+        {platform === 'ios'
+          ? iconPicker('common.theme-icon', 'iPhone 테마 목록 아이콘')
+          : <>
+            {iconPicker('common.theme-icon', 'Android 기본 앱 아이콘 (구형 기기)')}
+            <div className="settings-icon-column" role="group" aria-label="Android 8 이상 적응형 앱 아이콘">
+              <div>
+                <b>Android 8 이상 적응형 앱 아이콘</b>
+                <small>전경과 배경 두 레이어가 함께 표시됩니다.</small>
+              </div>
+              {iconPicker('common.app-icon.foreground', 'Android 적응형 전경')}
+              {iconPicker('common.app-icon.background', 'Android 적응형 배경')}
+            </div>
+          </>}
       </section>
       <section className="settings-form" aria-label="테마 메타데이터">
         <label><span>테마 이름</span><input value={project.meta.name} onChange={(event) => updateMeta('name', event.target.value)} /></label>

@@ -31,9 +31,10 @@ function dataUrl(buffer: Buffer) {
 }
 
 function preferredFile(binding: PlatformResourceBinding, platform: 'ios' | 'android') {
-  return platform === 'ios'
-    ? binding.files.find((file) => file.includes('@3x.')) ?? binding.files[0]
-    : binding.files.find((file) => file.includes('/drawable-xxhdpi/')) ?? binding.files[0];
+  if (platform === 'ios') return binding.files.find((file) => file.includes('@3x.')) ?? binding.files[0];
+  return binding.files.find((file) => file.includes('/mipmap-xxhdpi/'))
+    ?? binding.files.find((file) => file.includes('/drawable-xxhdpi/'))
+    ?? binding.files[0];
 }
 
 function compiledAndroidPath(sourcePath: string) {

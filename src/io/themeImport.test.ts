@@ -8,6 +8,12 @@ import { detectThemeImportKind, importAndroidSourceZip, importAndroidThemeArchiv
 
 const templates = path.join(process.cwd(), 'resources/templates');
 
+function solidPng(red: number, green: number, blue: number) {
+  const png = new PNG({ width: 1, height: 1 });
+  png.data.set([red, green, blue, 255]);
+  return PNG.sync.write(png);
+}
+
 describe('manifest-driven theme import', () => {
   it('detects supported theme and project extensions without depending on filename case', () => {
     expect(detectThemeImportKind('MY THEME.KTHEME')).toBe('ios');
@@ -240,6 +246,39 @@ describe('manifest-driven theme import', () => {
 
     expect(project.resources['main.background'].fileName).toBe('theme_background_image.png');
     expect(project.resources['main.profile.01'].fileName).toBe('theme_profile_01_image.png');
+  });
+
+  it('prefers xxhdpi adaptive icon layers in Android source ZIP and compiled APK imports', async () => {
+    const mdpi = solidPng(255, 0, 0);
+    const xxhdpi = solidPng(0, 255, 0);
+    const source = new JSZip();
+    source.file('src/main/res/mipmap-mdpi/ic_launcher_foreground.png', mdpi);
+    source.file('src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png', xxhdpi);
+    source.file('src/main/res/mipmap-mdpi/ic_launcher_background.png', mdpi);
+    source.file('src/main/res/mipmap-xxhdpi/ic_launcher_background.png', xxhdpi);
+
+    const sourceProject = await importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'adaptive.zip',
+    );
+    expect(sourceProject.platformResources.android['common.app-icon.foreground']?.dataUrl)
+      .toBe(`data:image/png;base64,${xxhdpi.toString('base64')}`);
+    expect(sourceProject.platformResources.android['common.app-icon.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${xxhdpi.toString('base64')}`);
+
+    const apk = new JSZip();
+    apk.file('res/mipmap-mdpi-v4/ic_launcher_foreground.png', mdpi);
+    apk.file('res/mipmap-xxhdpi-v4/ic_launcher_foreground.png', xxhdpi);
+    apk.file('res/mipmap-mdpi-v4/ic_launcher_background.png', mdpi);
+    apk.file('res/mipmap-xxhdpi-v4/ic_launcher_background.png', xxhdpi);
+    const apkProject = await importAndroidSourceZip(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'adaptive.apk',
+    );
+    expect(apkProject.platformResources.android['common.app-icon.foreground']?.dataUrl)
+      .toBe(`data:image/png;base64,${xxhdpi.toString('base64')}`);
+    expect(apkProject.platformResources.android['common.app-icon.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${xxhdpi.toString('base64')}`);
   });
 
   it('restores compiled APK dark-mode metadata supplied by the Android inspector', async () => {
