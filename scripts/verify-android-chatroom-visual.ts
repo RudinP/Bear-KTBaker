@@ -67,7 +67,7 @@ function bubbleRects(image: PNG, crop: Crop, side: 'me' | 'you') {
   const matches = side === 'me'
     ? components(image, crop, (red, green, blue, x, y) => (
       x > 300 && y > 250 && y < 550
-      && red > 220 && red < 255 && green > 90 && green < 180 && blue > 90 && blue < 180
+      && red > 220 && red <= 255 && green > 90 && green < 180 && blue > 90 && blue < 180
     )).filter((rect) => rect.width >= 50 && rect.height >= 25)
     : components(image, crop, (red, green, blue, x, y) => (
       x < 320 && y > 100 && y < 400 && red > 245 && green > 245 && blue > 245
@@ -114,7 +114,7 @@ function isBubbleFill(image: PNG, crop: Crop, side: 'me' | 'you', x: number, y: 
   const green = image.data[offset + 1];
   const blue = image.data[offset + 2];
   return side === 'me'
-    ? red > 220 && red < 255 && green > 90 && green < 180 && blue > 90 && blue < 180
+    ? red > 220 && red <= 255 && green > 90 && green < 180 && blue > 90 && blue < 180
     : red > 245 && green > 245 && blue > 245;
 }
 
@@ -251,7 +251,10 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
   closeTo(stateMetrics[3].height, groupedHeight, `${platform} grouped-state height`, 0.01);
   closeTo(stateMetrics[4].height, mainMetrics.height, `${platform} pressed-state height`, 0.01);
   await page.getByRole('button', { name: '보낸 첫 말풍선 영역 조정' }).click();
-  await page.getByText(`${source.width} × ${source.height}px 원본 기준`, { exact: true }).waitFor();
+  const sourceLabel = platform === 'iPhone'
+    ? `${source.width} × ${source.height}px 원본 · @3x 기준`
+    : `${source.width} × ${source.height}px 원본 기준`;
+  await page.getByText(sourceLabel, { exact: true }).waitFor();
   const rect = await page.locator('.patch-canvas').evaluate((element) => {
     const bounds = element.getBoundingClientRect();
     return { width: bounds.width, height: bounds.height };
@@ -265,6 +268,8 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
     androidEdges: element.querySelectorAll('[data-nine-patch-edge]').length,
     androidHandles: element.querySelectorAll('[data-nine-patch-marker-handle]').length,
     iosGuides: element.querySelectorAll('[data-ios-inset-guide]').length,
+    iosDerivedGuides: element.querySelectorAll('[data-ios-inset-guide].derived').length,
+    iosEditableStretchGuides: element.querySelectorAll('button[data-ios-inset-guide][data-guide-kind="stretch"]').length,
   }));
   if (platform === 'Android') {
     if (
@@ -279,7 +284,9 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
     editorContract.mode !== 'ios-inset'
     || editorContract.androidEdges !== 0
     || editorContract.androidHandles !== 0
-    || editorContract.iosGuides !== 6
+    || editorContract.iosGuides !== 8
+    || editorContract.iosDerivedGuides !== 2
+    || editorContract.iosEditableStretchGuides !== 2
   ) {
     throw new Error(`iOS editor is not an inset editor: ${JSON.stringify(editorContract)}`);
   }

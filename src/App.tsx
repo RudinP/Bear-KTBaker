@@ -11,6 +11,7 @@ import { ThemeSettings } from './components/ThemeSettings';
 import { createDefaultTheme, serializeThemeProject, type EditableElementId, type Platform, type ScreenId, type ThemeProject } from './domain/theme';
 import { updateBubbleGuides, type BubbleVariant } from './domain/bubbleGuideUpdate';
 import { resolveResourceAsset, resolveResourceUrl } from './manifest/resourceResolver';
+import { resolveAssetScale } from './preview/imagePlacement';
 import { officialSampleBubbleGuides } from './preview/ninePatchStyle';
 
 type ProjectHistory = { past: ThemeProject[]; present: ThemeProject; future: ThemeProject[] };
@@ -108,6 +109,11 @@ export default function App() {
     const variant = patchTarget?.variant ?? 'normal';
     setProject(updateBubbleGuides(project, side, variant, platform, guides));
   };
+  const patchAsset = patchTarget ? resolveResourceAsset(project, platform, patchTarget.resourceId) : undefined;
+  const patchImage = patchTarget ? resolveResourceUrl(project, platform, patchTarget.resourceId) : undefined;
+  const patchImageScale = platform === 'ios'
+    ? resolveAssetScale(patchAsset ?? { fileName: patchImage ?? '', sourceScale: undefined }, 'ios')
+    : 1;
 
   const openTheme = async () => {
     if (!window.themeStudio) return;
@@ -150,7 +156,7 @@ export default function App() {
         </div>
       </div>
       {fileNotice && <div className="file-operation-notice" data-kind={fileNotice.kind} role={fileNotice.kind === 'error' ? 'alert' : 'status'} aria-label={fileNotice.kind === 'status' ? '파일 작업 결과' : undefined}>{fileNotice.text}</div>}
-      {patchTarget && <NinePatchEditor platform={platform} guides={selectedBubble.stretchByPlatform?.[platform] ?? (!resolveResourceAsset(project, platform, patchTarget.resourceId) && project.baseSample === 'apeach' ? officialSampleBubbleGuides(platform, patchTarget.side, patchTarget.variant === 'pressed' || patchTarget.variant === 'groupedPressed') : selectedBubble.stretch)} color={selectedBubble.color} image={resolveResourceUrl(project, platform, patchTarget.resourceId)} imageIsNinePatch={platform === 'android' && (resolveResourceAsset(project, platform, patchTarget.resourceId)?.fileName.endsWith('.9.png') || !resolveResourceAsset(project, platform, patchTarget.resourceId))} onChange={updatePatch} onClose={() => setPatchTarget(null)} />}
+      {patchTarget && <NinePatchEditor platform={platform} guides={selectedBubble.stretchByPlatform?.[platform] ?? (!patchAsset && project.baseSample === 'apeach' ? officialSampleBubbleGuides(platform, patchTarget.side, patchTarget.variant === 'pressed' || patchTarget.variant === 'groupedPressed') : selectedBubble.stretch)} color={selectedBubble.color} image={patchImage} imageScale={patchImageScale} imageIsNinePatch={platform === 'android' && (patchAsset?.fileName.endsWith('.9.png') || !patchAsset)} onChange={updatePatch} onClose={() => setPatchTarget(null)} />}
       {showExport && <ExportSheet project={project} onClose={() => setShowExport(false)} />}
       {showScreenshots && <ScreenshotStudio project={project} platform={platform} onClose={() => setShowScreenshots(false)} />}
     </div>

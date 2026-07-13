@@ -19,21 +19,39 @@ describe('nine-patch area editor', () => {
     expect(screen.getByLabelText('내용 왼쪽 경계 (px)')).toHaveValue(20);
   });
 
-  it('renders iOS as cap-point and edge-inset controls without Android marker rails', () => {
+  it('renders iOS CSS cap points as a derived one-point stretch band and edge insets', () => {
     const onChange = vi.fn();
-    render(<NinePatchEditor platform="ios" guides={DEFAULT_NINE_PATCH} color="#ff7f7f" imageSize={{ width: 100, height: 100 }} onChange={onChange} onClose={vi.fn()} />);
+    const iosGuides: NinePatchGuides = {
+      stretch: { x: [51 / 120, 54 / 120], y: [51 / 105, 54 / 105] },
+      content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
+    };
+    render(<NinePatchEditor platform="ios" guides={iosGuides} color="#ff7f7f" imageSize={{ width: 120, height: 105 }} imageScale={3} onChange={onChange} onClose={vi.fn()} />);
 
     expect(screen.getByRole('dialog', { name: 'iOS Inset 영역 조정' })).toBeInTheDocument();
     expect(document.querySelector('.patch-stage')).toHaveAttribute('data-editor-mode', 'ios-inset');
     expect(document.querySelectorAll('[data-nine-patch-edge]')).toHaveLength(0);
-    expect(document.querySelectorAll('[data-ios-inset-guide]')).toHaveLength(6);
-    expect(screen.getByLabelText('늘림 기준 X (px)')).toHaveValue(42);
-    expect(screen.getByLabelText('늘림 기준 Y (px)')).toHaveValue(40);
-    expect(screen.getByLabelText('글자 오른쪽 여백 (px)')).toHaveValue(16);
+    expect(document.querySelectorAll('[data-ios-inset-guide]')).toHaveLength(8);
+    expect(screen.getByLabelText('늘림 기준 X (CSS px)')).toHaveValue(17);
+    expect(screen.getByLabelText('늘림 기준 Y (CSS px)')).toHaveValue(17);
     expect(screen.queryByLabelText('X 끝 (px)')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-ios-inset-guide="stretch-x-start"]')).toHaveAttribute('data-source-px', '51');
+    expect(document.querySelector('[data-ios-inset-guide="stretch-x-end"]')).toHaveAttribute('data-source-px', '54');
+    expect(screen.getByLabelText('글자 위 여백 (CSS px)')).toHaveValue(10);
+    expect(screen.getByLabelText('글자 왼쪽 여백 (CSS px)')).toHaveValue(11);
+    expect(screen.getByLabelText('글자 아래 여백 (CSS px)')).toHaveValue(7);
+    expect(screen.getByLabelText('글자 오른쪽 여백 (CSS px)')).toHaveValue(17);
+    expect(screen.getAllByRole('spinbutton').slice(-4).map((input) => input.getAttribute('aria-label'))).toEqual([
+      '글자 위 여백 (CSS px)',
+      '글자 왼쪽 여백 (CSS px)',
+      '글자 아래 여백 (CSS px)',
+      '글자 오른쪽 여백 (CSS px)',
+    ]);
 
-    fireEvent.change(screen.getByLabelText('글자 오른쪽 여백 (px)'), { target: { value: '20' } });
-    expect(onChange.mock.calls.at(-1)?.[0].content.right).toBeCloseTo(0.8, 4);
+    fireEvent.change(screen.getByLabelText('늘림 기준 X (CSS px)'), { target: { value: '18' } });
+    expect(onChange.mock.calls.at(-1)?.[0].stretch.x).toEqual([54 / 120, 57 / 120]);
+
+    fireEvent.change(screen.getByLabelText('글자 오른쪽 여백 (CSS px)'), { target: { value: '20' } });
+    expect(onChange.mock.calls.at(-1)?.[0].content.right).toBeCloseTo(0.5, 4);
   });
 
   it('shows real source pixels and lets the user type exact stretch coordinates', () => {
@@ -110,7 +128,7 @@ describe('nine-patch area editor', () => {
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 82 });
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 80 });
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('글자 오른쪽 여백 (px)')).toHaveValue(20);
+    expect(screen.getByLabelText('글자 오른쪽 여백 (CSS px)')).toHaveValue(20);
 
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 80 });
     expect(onChange).toHaveBeenCalledTimes(1);
