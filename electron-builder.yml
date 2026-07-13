@@ -12,6 +12,9 @@ directories:
 mac:
   category: public.app-category.graphics-design
   icon: AppIcon.icon
+  # Keep local Apple Development identities out of distributable metadata.
+  # Replace this with an explicit Developer ID identity only for notarized releases.
+  identity: "-"
   target: [dmg, zip]
 win:
   target: [nsis]

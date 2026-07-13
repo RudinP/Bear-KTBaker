@@ -15,6 +15,7 @@ describe('desktop application branding', () => {
     expect(builder).toContain('appId: com.rudin.bear.ktbaker');
     expect(builder).toContain('buildResources: resources');
     expect(builder).toContain('icon: AppIcon.icon');
+    expect(builder).toContain('identity: "-"');
     expect(main).toContain("title: 'Bear KTBaker'");
     expect(main).toContain("app.setName('Bear KTBaker')");
   });
