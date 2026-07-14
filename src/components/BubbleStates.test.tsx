@@ -32,7 +32,7 @@ describe('BubbleStates', () => {
 
     render(<BubbleStates project={project} platform={platform} side="me" />);
 
-    const normal = screen.getByText('네!').closest<HTMLElement>('.mini-bubble');
+    const normal = screen.getByText('오').closest<HTMLElement>('.mini-bubble');
     const pressed = screen.getByText('선택된 모습').closest<HTMLElement>('.mini-bubble');
     expect(normal?.style.getPropertyValue('--bubble-text')).toBe(normalColor);
     expect(pressed?.style.getPropertyValue('--bubble-text')).toBe(pressedColor);
@@ -49,6 +49,19 @@ describe('BubbleStates', () => {
     expect(bubble?.style.fontWeight).toBe(fontWeight);
     expect(bubble?.style.lineHeight).toBe(lineHeight);
     expect(bubble?.style.maxWidth).toBe(maxWidth);
+  });
+
+  it.each([
+    ['ios', 'me'],
+    ['ios', 'you'],
+    ['android', 'me'],
+    ['android', 'you'],
+  ] as const)('uses the same one-character short sample for %s %s bubbles', (platform, side) => {
+    const { container } = render(<BubbleStates project={createDefaultTheme()} platform={platform} side={side} />);
+    const short = container.querySelector<HTMLElement>('.state-cell .mini-bubble');
+
+    expect(short).toHaveTextContent('오');
+    expect(short).toHaveAttribute('data-content-mode', 'single-line');
   });
 
   it.each(['ios', 'android'] as const)('renders an unclipped, structured reply preview for %s', (platform) => {
@@ -118,7 +131,7 @@ describe('BubbleStates', () => {
     previous.naturalHeight = 105;
     act(() => previous.onload?.());
 
-    const canvas = screen.getByText('네!').closest('.mini-bubble')?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
+    const canvas = screen.getByText('오').closest('.mini-bubble')?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
     expect(canvas?.dataset.sourceImage).toBe(replacementUrl);
   });
 

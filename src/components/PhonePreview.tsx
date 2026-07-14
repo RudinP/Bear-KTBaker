@@ -9,6 +9,7 @@ import { getColorSlot } from '../manifest/kakaoColors';
 import { getResourceSlot } from '../manifest/kakaoResources';
 import { KAKAO_PREVIEW_VERSION, getScreenBlueprint } from '../preview/blueprints';
 import { getHostLayout } from '../preview/layout';
+import { SHORT_BUBBLE_SAMPLE } from '../preview/bubbleSamples';
 import { previewFontFamily } from '../preview/fontFamily';
 import { ANDROID_CHAT_ACTIONS_PATH, ANDROID_CHAT_ACTIONS_VIEWBOX, ANDROID_CHAT_SEND_VECTOR, IOS_CHAT_SEND_VECTOR, OFFICIAL_CHATROOM_VECTORS } from '../preview/officialUiVectors';
 import { OFFICIAL_CHAT_FILTER_VECTORS, OFFICIAL_MAIN_ACTION_VECTORS, OFFICIAL_MORE_SERVICE_VECTORS } from '../preview/officialMainUiVectors';
@@ -232,7 +233,8 @@ function AndroidNinePatchBubble({ project, side, grouped, appearance, selected, 
     paddingBottom: insets.bottom + hostInsets.bottom,
     paddingLeft: insets.left + hostInsets.left,
   } : { backgroundColor: appearance.color, color: textColor };
-  return <Editable id={side === 'me' ? 'bubble-me' : 'bubble-you'} label={`${side === 'me' ? '보낸' : '받은'} ${grouped ? '연속' : '첫'} 말풍선`} selected={selected} onSelect={onSelect} className={`kt-bubble ${side === 'me' ? 'sent' : 'received'}-${grouped ? 'group' : 'first'}`} style={style}>
+  return <Editable id={side === 'me' ? 'bubble-me' : 'bubble-you'} label={`${side === 'me' ? '보낸' : '받은'} ${grouped ? '연속' : '첫'} 말풍선`} selected={selected} onSelect={onSelect} className={`kt-bubble ${side === 'me' ? 'sent' : 'received'}-${grouped ? 'group' : 'first'}`} style={style}
+    platformBubble="android" contentMode="single-line">
     {render.source && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
     <span className="kt-bubble-copy">{children}</span>
   </Editable>;
@@ -595,9 +597,9 @@ function IosChatRoom(props: PreviewProps & { notificationVariant?: NotificationV
         '--kt-group-gap': `${chat.groupGap}px`, '--kt-max-bubble-width': `${chat.maxBubbleWidth}px`,
       } as React.CSSProperties}>
         <div className="kt-message received" data-anchor="start"><ProfileHotspot project={project} platform="ios" selected={selected} onSelect={onSelect} className="kt-chat-avatar" />
-          <div className="kt-message-stack" style={{ gap: chat.senderGap }}><span className="kt-sender">어피치</span><IosInsetBubble project={project} side="you" grouped={false} appearance={you.normal} selected={selected} onSelect={onSelect}>어피치피치한</IosInsetBubble>
+          <div className="kt-message-stack" style={{ gap: chat.senderGap }}><span className="kt-sender">어피치</span><IosInsetBubble project={project} side="you" grouped={false} appearance={you.normal} selected={selected} onSelect={onSelect}>{SHORT_BUBBLE_SAMPLE}</IosInsetBubble>
             <div className="kt-received-last-row"><IosInsetBubble project={project} side="you" grouped appearance={you.grouped} selected={selected} onSelect={onSelect}>봄~봄~봄이 왔어요</IosInsetBubble><ColorHotspot slotId="chat.unread.received" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread.received')) }}>1</span></ColorHotspot><time>오후 12:03</time></div></div></div>
-        <div className="kt-message sent" data-anchor="end" style={{ marginTop: chat.sentGap, gap: chat.groupGap }}><div className="kt-sent-row"><ColorHotspot slotId="chat.unread" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread')) }}>1</span></ColorHotspot><IosInsetBubble project={project} side="me" grouped={false} appearance={me.normal} selected={selected} onSelect={onSelect}>으아 설레에</IosInsetBubble></div>
+        <div className="kt-message sent" data-anchor="end" style={{ marginTop: chat.sentGap, gap: chat.groupGap }}><div className="kt-sent-row"><ColorHotspot slotId="chat.unread" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread')) }}>1</span></ColorHotspot><IosInsetBubble project={project} side="me" grouped={false} appearance={me.normal} selected={selected} onSelect={onSelect}>{SHORT_BUBBLE_SAMPLE}</IosInsetBubble></div>
           <div className="kt-sent-row kt-sent-last"><time data-position="left-of-last-bubble">오후 12:04</time><IosInsetBubble project={project} side="me" grouped appearance={me.grouped} selected={selected} onSelect={onSelect}>ㅎㅎㅎ</IosInsetBubble></div></div>
       </div>
     </div>

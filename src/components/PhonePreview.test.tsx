@@ -254,6 +254,24 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(container.querySelector('.kt-ios-inset-layer')).not.toBeInTheDocument();
   });
 
+  it('uses the same one-character short sample for sent and received first bubbles on iOS', () => {
+    render(<PhonePreview {...baseProps} platform="ios" screen="chatroom" />);
+
+    const received = screen.getByLabelText('받은 첫 말풍선 꾸미기');
+    const sent = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
+    expect(within(received).getByText('오')).toBeInTheDocument();
+    expect(within(sent).getByText('오')).toBeInTheDocument();
+    expect(received).toHaveAttribute('data-content-mode', 'single-line');
+    expect(sent).toHaveAttribute('data-content-mode', 'single-line');
+  });
+
+  it('marks both Android first-bubble renderers with the same single-line contract', () => {
+    render(<PhonePreview {...baseProps} platform="android" screen="chatroom" />);
+
+    expect(screen.getByLabelText('받은 첫 말풍선 꾸미기')).toHaveAttribute('data-content-mode', 'single-line');
+    expect(screen.getByLabelText('보낸 첫 말풍선 꾸미기')).toHaveAttribute('data-content-mode', 'single-line');
+  });
+
   it('allows decorated iOS caps to compress to the content-derived target size', () => {
     const project = createDefaultTheme();
     const guides = {

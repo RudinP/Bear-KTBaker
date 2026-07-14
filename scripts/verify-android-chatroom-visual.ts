@@ -402,6 +402,38 @@ async function selectAndroidChatroom(page: Page) {
   });
 }
 
+async function verifyIosSymmetricShortBubbleSamples(page: Page) {
+  await page.getByRole('button', { name: 'iPhone' }).click();
+  await page.getByRole('button', { name: '채팅방', exact: true }).click();
+
+  for (const bubbleClass of ['received-first', 'sent-first'] as const) {
+    const phoneBubble = page.locator(`.kt-bubble.${bubbleClass}`).first();
+    const phoneMetric = await phoneBubble.evaluate((bubble) => ({
+      text: bubble.querySelector<HTMLElement>('.kt-bubble-copy')?.textContent,
+      width: (bubble as HTMLElement).offsetWidth,
+      height: (bubble as HTMLElement).offsetHeight,
+    }));
+    if (phoneMetric.text !== '오') {
+      throw new Error(`iPhone ${bubbleClass} is not the one-character short sample: ${JSON.stringify(phoneMetric)}`);
+    }
+
+    await phoneBubble.click();
+    const panel = page.locator('.bubble-states[data-platform="ios"]');
+    await panel.waitFor();
+    const stateBubble = panel.locator('.state-cell').filter({ hasText: '짧은 글' }).locator('.mini-bubble');
+    const stateMetric = await stateBubble.evaluate((bubble) => ({
+      text: bubble.querySelector<HTMLElement>('.mini-bubble-copy')?.textContent,
+      width: (bubble as HTMLElement).offsetWidth,
+      height: (bubble as HTMLElement).offsetHeight,
+    }));
+    if (stateMetric.text !== '오') {
+      throw new Error(`iPhone ${bubbleClass} state is not the one-character short sample: ${JSON.stringify(stateMetric)}`);
+    }
+    closeTo(stateMetric.width, phoneMetric.width, `iPhone ${bubbleClass} phone/state short width`, 0.01);
+    closeTo(stateMetric.height, phoneMetric.height, `iPhone ${bubbleClass} phone/state short height`, 0.01);
+  }
+}
+
 async function verifyWorkspaceZoomContainment(page: Page) {
   for (let step = 0; step < 6; step += 1) {
     await page.getByRole('button', { name: '미리보기 확대' }).click();
@@ -632,6 +664,7 @@ async function main() {
     }
     compareBubbleSet(actualImage, referenceImage, 'you');
     compareBubbleSet(actualImage, referenceImage, 'me');
+    await verifyIosSymmetricShortBubbleSamples(page);
     await verifyAreaEditorAspectRatio(page, 'Android', { width: 122, height: 112 });
     await verifyAreaEditorAspectRatio(page, 'iPhone', { width: 120, height: 105 });
     await verifyImportedBubbleMapping(app, page, decoratedFixture);
