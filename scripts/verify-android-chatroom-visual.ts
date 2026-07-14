@@ -55,36 +55,6 @@ async function createDecoratedIosTheme(file: string) {
   await writeFile(file, await template.generateAsync({ type: 'nodebuffer' }));
 }
 
-function mappedAxisCoordinate(
-  sourceLength: number,
-  stretch: readonly [number, number],
-  targetLength: number,
-  sourceCoordinate: number,
-) {
-  const fixedLeading = stretch[0] / DECORATED_IOS_BUBBLE.scale;
-  const fixedTrailing = (sourceLength - stretch[1]) / DECORATED_IOS_BUBBLE.scale;
-  const fixed = fixedLeading + fixedTrailing;
-  const targetLeading = targetLength >= fixed ? fixedLeading : fixedLeading * targetLength / fixed;
-  const targetStretch = targetLength >= fixed ? targetLength - fixed : 0;
-  const sourceSegments = [0, stretch[0], stretch[1], sourceLength];
-  const targetSegments = [0, targetLeading, targetLeading + targetStretch, targetLength];
-  for (let index = 0; index < 3; index += 1) {
-    if (sourceCoordinate > sourceSegments[index + 1] && index < 2) continue;
-    const progress = (sourceCoordinate - sourceSegments[index]) / (sourceSegments[index + 1] - sourceSegments[index]);
-    return targetSegments[index] + progress * (targetSegments[index + 1] - targetSegments[index]);
-  }
-  return targetLength;
-}
-
-function decoratedContentCenter(target: { width: number; height: number }) {
-  const spec = DECORATED_IOS_BUBBLE;
-  const left = mappedAxisCoordinate(spec.source.width, spec.stretch.x, target.width, spec.content.left);
-  const right = mappedAxisCoordinate(spec.source.width, spec.stretch.x, target.width, spec.content.right);
-  const top = mappedAxisCoordinate(spec.source.height, spec.stretch.y, target.height, spec.content.top);
-  const bottom = mappedAxisCoordinate(spec.source.height, spec.stretch.y, target.height, spec.content.bottom);
-  return { x: (left + right) / 2, y: (top + bottom) / 2 };
-}
-
 function components(image: PNG, crop: Crop, predicate: PixelPredicate) {
   const mask = new Uint8Array(crop.width * crop.height);
   const seen = new Uint8Array(mask.length);
@@ -402,35 +372,57 @@ async function selectAndroidChatroom(page: Page) {
   });
 }
 
-async function verifyIosSymmetricShortBubbleSamples(page: Page) {
+async function verifyIosTitleInsetsAndContainment(page: Page) {
   await page.getByRole('button', { name: 'iPhone' }).click();
   await page.getByRole('button', { name: '채팅방', exact: true }).click();
 
   for (const bubbleClass of ['received-first', 'sent-first'] as const) {
     const phoneBubble = page.locator(`.kt-bubble.${bubbleClass}`).first();
     const phoneMetric = await phoneBubble.evaluate((bubble) => ({
-      text: bubble.querySelector<HTMLElement>('.kt-bubble-copy')?.textContent,
-      width: (bubble as HTMLElement).offsetWidth,
-      height: (bubble as HTMLElement).offsetHeight,
+      placement: bubble.querySelector<HTMLElement>('.kt-bubble-copy')?.dataset.iosLabelPlacement,
+      transform: getComputedStyle(bubble.querySelector<HTMLElement>('.kt-bubble-copy')!).transform,
     }));
-    if (phoneMetric.text !== '오') {
-      throw new Error(`iPhone ${bubbleClass} is not the one-character short sample: ${JSON.stringify(phoneMetric)}`);
+    if (phoneMetric.placement !== 'title-edge-insets' || phoneMetric.transform !== 'none') {
+      throw new Error(`iPhone ${bubbleClass} remapped its authored title edge insets: ${JSON.stringify(phoneMetric)}`);
     }
 
     await phoneBubble.click();
     const panel = page.locator('.bubble-states[data-platform="ios"]');
     await panel.waitFor();
-    const stateBubble = panel.locator('.state-cell').filter({ hasText: '짧은 글' }).locator('.mini-bubble');
-    const stateMetric = await stateBubble.evaluate((bubble) => ({
-      text: bubble.querySelector<HTMLElement>('.mini-bubble-copy')?.textContent,
-      width: (bubble as HTMLElement).offsetWidth,
-      height: (bubble as HTMLElement).offsetHeight,
+    const metrics = await panel.locator('.mini-bubble').evaluateAll((bubbles) => bubbles.map((bubble) => {
+      const element = bubble as HTMLElement;
+      const copy = element.querySelector<HTMLElement>('.mini-bubble-copy')!;
+      const style = getComputedStyle(element);
+      return {
+        mode: element.dataset.contentMode,
+        text: copy.textContent,
+        placement: copy.dataset.iosLabelPlacement,
+        transform: getComputedStyle(copy).transform,
+        width: element.clientWidth,
+        height: element.clientHeight,
+        copy: { x: copy.offsetLeft, y: copy.offsetTop, width: copy.offsetWidth, height: copy.offsetHeight },
+        padding: {
+          top: Number.parseFloat(style.paddingTop),
+          right: Number.parseFloat(style.paddingRight),
+          bottom: Number.parseFloat(style.paddingBottom),
+          left: Number.parseFloat(style.paddingLeft),
+        },
+      };
     }));
-    if (stateMetric.text !== '오') {
-      throw new Error(`iPhone ${bubbleClass} state is not the one-character short sample: ${JSON.stringify(stateMetric)}`);
+    for (const metric of metrics) {
+      closeTo(metric.copy.x, metric.padding.left, `${bubbleClass} ${metric.text} title left`, 0.51);
+      closeTo(metric.copy.y, metric.padding.top, `${bubbleClass} ${metric.text} title top`, 0.51);
+      if (
+        metric.transform !== 'none'
+        || metric.width + 0.51 < metric.padding.left + metric.copy.width + metric.padding.right
+        || metric.height + 0.51 < metric.padding.top + metric.copy.height + metric.padding.bottom
+      ) {
+        throw new Error(`iPhone ${bubbleClass} text escaped its title insets: ${JSON.stringify(metric)}`);
+      }
+      if (metric.mode === 'single-line' && metric.placement !== 'title-edge-insets') {
+        throw new Error(`iPhone ${bubbleClass} single-line state lacks the title-inset contract: ${JSON.stringify(metric)}`);
+      }
     }
-    closeTo(stateMetric.width, phoneMetric.width, `iPhone ${bubbleClass} phone/state short width`, 0.01);
-    closeTo(stateMetric.height, phoneMetric.height, `iPhone ${bubbleClass} phone/state short height`, 0.01);
   }
 }
 
@@ -598,32 +590,34 @@ async function verifyImportedBubbleMapping(app: ElectronApplication, page: Page,
   await page.getByLabel('보낸 첫 말풍선 꾸미기').click();
 
   const shortBubble = page.locator('.state-cell').filter({ hasText: '짧은 글' }).locator('.mini-bubble');
-  await shortBubble.locator('[data-ios-label-placement="mapped-nine-slice"][data-ios-content-center-x]').waitFor();
+  await shortBubble.locator('[data-ios-label-placement="title-edge-insets"]').waitFor();
   const metric = await shortBubble.evaluate((bubble) => {
     const copy = bubble.querySelector<HTMLElement>('.mini-bubble-copy');
     const canvas = bubble.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
     if (!copy || !canvas) return undefined;
-    const bubbleBounds = bubble.getBoundingClientRect();
-    const copyBounds = copy.getBoundingClientRect();
-    const scaleX = bubbleBounds.width / (bubble as HTMLElement).offsetWidth;
-    const scaleY = bubbleBounds.height / (bubble as HTMLElement).offsetHeight;
+    const style = getComputedStyle(bubble);
     return {
       target: { width: (bubble as HTMLElement).offsetWidth, height: (bubble as HTMLElement).offsetHeight },
-      copyCenter: {
-        x: ((copyBounds.left + copyBounds.right) / 2 - bubbleBounds.left) / scaleX,
-        y: ((copyBounds.top + copyBounds.bottom) / 2 - bubbleBounds.top) / scaleY,
+      copy: { x: copy.offsetLeft, y: copy.offsetTop, width: copy.offsetWidth, height: copy.offsetHeight },
+      padding: {
+        top: Number.parseFloat(style.paddingTop),
+        right: Number.parseFloat(style.paddingRight),
+        bottom: Number.parseFloat(style.paddingBottom),
+        left: Number.parseFloat(style.paddingLeft),
       },
       transform: getComputedStyle(copy).transform,
       sourceImage: canvas.dataset.sourceImage,
-      clipped: (bubble as HTMLElement).scrollWidth > (bubble as HTMLElement).offsetWidth
-        || (bubble as HTMLElement).scrollHeight > (bubble as HTMLElement).offsetHeight,
     };
   });
   if (!metric) throw new Error('Decorated iOS short bubble geometry is missing.');
-  const expectedCenter = decoratedContentCenter(metric.target);
-  closeTo(metric.copyCenter.x, expectedCenter.x, 'decorated iOS short-label horizontal center', 0.2);
-  closeTo(metric.copyCenter.y, expectedCenter.y, 'decorated iOS short-label vertical center', 0.2);
-  if (metric.transform === 'none' || metric.clipped || !metric.sourceImage?.startsWith('data:image/png;base64,')) {
+  closeTo(metric.copy.x, metric.padding.left, 'decorated iOS short-label left inset', 0.51);
+  closeTo(metric.copy.y, metric.padding.top, 'decorated iOS short-label top inset', 0.51);
+  if (
+    metric.transform !== 'none'
+    || metric.target.width + 0.51 < metric.padding.left + metric.copy.width + metric.padding.right
+    || metric.target.height + 0.51 < metric.padding.top + metric.copy.height + metric.padding.bottom
+    || !metric.sourceImage?.startsWith('data:image/png;base64,')
+  ) {
     throw new Error(`Decorated iOS short bubble was not rendered safely: ${JSON.stringify(metric)}`);
   }
 
@@ -664,7 +658,7 @@ async function main() {
     }
     compareBubbleSet(actualImage, referenceImage, 'you');
     compareBubbleSet(actualImage, referenceImage, 'me');
-    await verifyIosSymmetricShortBubbleSamples(page);
+    await verifyIosTitleInsetsAndContainment(page);
     await verifyAreaEditorAspectRatio(page, 'Android', { width: 122, height: 112 });
     await verifyAreaEditorAspectRatio(page, 'iPhone', { width: 120, height: 105 });
     await verifyImportedBubbleMapping(app, page, decoratedFixture);

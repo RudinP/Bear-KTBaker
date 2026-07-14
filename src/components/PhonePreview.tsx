@@ -9,7 +9,6 @@ import { getColorSlot } from '../manifest/kakaoColors';
 import { getResourceSlot } from '../manifest/kakaoResources';
 import { KAKAO_PREVIEW_VERSION, getScreenBlueprint } from '../preview/blueprints';
 import { getHostLayout } from '../preview/layout';
-import { SHORT_BUBBLE_SAMPLE } from '../preview/bubbleSamples';
 import { previewFontFamily } from '../preview/fontFamily';
 import { ANDROID_CHAT_ACTIONS_PATH, ANDROID_CHAT_ACTIONS_VIEWBOX, ANDROID_CHAT_SEND_VECTOR, IOS_CHAT_SEND_VECTOR, OFFICIAL_CHATROOM_VECTORS } from '../preview/officialUiVectors';
 import { OFFICIAL_CHAT_FILTER_VECTORS, OFFICIAL_MAIN_ACTION_VECTORS, OFFICIAL_MORE_SERVICE_VECTORS } from '../preview/officialMainUiVectors';
@@ -188,7 +187,7 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
     onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)}>
     {source && <IosBubbleArtwork image={source} guides={guides} sourceSize={renderSize} sourceScale={sourceScale} />}
     {source
-      ? <IosBubbleLabel className="kt-bubble-copy" guides={guides} sourceSize={renderSize} sourceScale={sourceScale}>{children}</IosBubbleLabel>
+      ? <IosBubbleLabel className="kt-bubble-copy">{children}</IosBubbleLabel>
       : <span className="kt-bubble-copy" data-content-mode="single-line">{children}</span>}
   </Editable>;
 }
@@ -597,9 +596,9 @@ function IosChatRoom(props: PreviewProps & { notificationVariant?: NotificationV
         '--kt-group-gap': `${chat.groupGap}px`, '--kt-max-bubble-width': `${chat.maxBubbleWidth}px`,
       } as React.CSSProperties}>
         <div className="kt-message received" data-anchor="start"><ProfileHotspot project={project} platform="ios" selected={selected} onSelect={onSelect} className="kt-chat-avatar" />
-          <div className="kt-message-stack" style={{ gap: chat.senderGap }}><span className="kt-sender">어피치</span><IosInsetBubble project={project} side="you" grouped={false} appearance={you.normal} selected={selected} onSelect={onSelect}>{SHORT_BUBBLE_SAMPLE}</IosInsetBubble>
+          <div className="kt-message-stack" style={{ gap: chat.senderGap }}><span className="kt-sender">어피치</span><IosInsetBubble project={project} side="you" grouped={false} appearance={you.normal} selected={selected} onSelect={onSelect}>어피치피치한</IosInsetBubble>
             <div className="kt-received-last-row"><IosInsetBubble project={project} side="you" grouped appearance={you.grouped} selected={selected} onSelect={onSelect}>봄~봄~봄이 왔어요</IosInsetBubble><ColorHotspot slotId="chat.unread.received" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread.received')) }}>1</span></ColorHotspot><time>오후 12:03</time></div></div></div>
-        <div className="kt-message sent" data-anchor="end" style={{ marginTop: chat.sentGap, gap: chat.groupGap }}><div className="kt-sent-row"><ColorHotspot slotId="chat.unread" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread')) }}>1</span></ColorHotspot><IosInsetBubble project={project} side="me" grouped={false} appearance={me.normal} selected={selected} onSelect={onSelect}>{SHORT_BUBBLE_SAMPLE}</IosInsetBubble></div>
+        <div className="kt-message sent" data-anchor="end" style={{ marginTop: chat.sentGap, gap: chat.groupGap }}><div className="kt-sent-row"><ColorHotspot slotId="chat.unread" selected={selected} onSelect={onSelect}><span className="kt-unread" style={{ color: cssColor(colorValue(project, 'ios', 'chat.unread')) }}>1</span></ColorHotspot><IosInsetBubble project={project} side="me" grouped={false} appearance={me.normal} selected={selected} onSelect={onSelect}>으아 설레에</IosInsetBubble></div>
           <div className="kt-sent-row kt-sent-last"><time data-position="left-of-last-bubble">오후 12:04</time><IosInsetBubble project={project} side="me" grouped appearance={me.grouped} selected={selected} onSelect={onSelect}>ㅎㅎㅎ</IosInsetBubble></div></div>
       </div>
     </div>

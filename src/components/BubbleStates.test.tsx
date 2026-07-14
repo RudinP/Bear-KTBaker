@@ -32,7 +32,7 @@ describe('BubbleStates', () => {
 
     render(<BubbleStates project={project} platform={platform} side="me" />);
 
-    const normal = screen.getByText('오').closest<HTMLElement>('.mini-bubble');
+    const normal = screen.getByText('네!').closest<HTMLElement>('.mini-bubble');
     const pressed = screen.getByText('선택된 모습').closest<HTMLElement>('.mini-bubble');
     expect(normal?.style.getPropertyValue('--bubble-text')).toBe(normalColor);
     expect(pressed?.style.getPropertyValue('--bubble-text')).toBe(pressedColor);
@@ -56,12 +56,23 @@ describe('BubbleStates', () => {
     ['ios', 'you'],
     ['android', 'me'],
     ['android', 'you'],
-  ] as const)('uses the same one-character short sample for %s %s bubbles', (platform, side) => {
+  ] as const)('keeps the standard short sample for %s %s bubbles', (platform, side) => {
     const { container } = render(<BubbleStates project={createDefaultTheme()} platform={platform} side={side} />);
     const short = container.querySelector<HTMLElement>('.state-cell .mini-bubble');
 
-    expect(short).toHaveTextContent('오');
+    expect(short).toHaveTextContent('네!');
     expect(short).toHaveAttribute('data-content-mode', 'single-line');
+  });
+
+  it.each(['me', 'you'] as const)('places every iOS %s single-line label directly from title edge insets', (side) => {
+    const { container } = render(<BubbleStates project={createDefaultTheme()} platform="ios" side={side} />);
+    const labels = [...container.querySelectorAll<HTMLElement>('.mini-bubble[data-content-mode="single-line"] .mini-bubble-copy')];
+
+    expect(labels).toHaveLength(3);
+    for (const label of labels) {
+      expect(label).toHaveAttribute('data-ios-label-placement', 'title-edge-insets');
+      expect(label.style.transform).toBe('');
+    }
   });
 
   it.each(['ios', 'android'] as const)('renders an unclipped, structured reply preview for %s', (platform) => {
@@ -131,7 +142,7 @@ describe('BubbleStates', () => {
     previous.naturalHeight = 105;
     act(() => previous.onload?.());
 
-    const canvas = screen.getByText('오').closest('.mini-bubble')?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
+    const canvas = screen.getByText('네!').closest('.mini-bubble')?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
     expect(canvas?.dataset.sourceImage).toBe(replacementUrl);
   });
 
@@ -163,7 +174,7 @@ describe('BubbleStates', () => {
     expect(bubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset-nine-slice"]'))).toBe(true);
     expect(bubbles.every((bubble) => bubble.querySelector('.kt-nine-slice-canvas'))).toBe(true);
     expect(bubbles.filter((bubble) => bubble.dataset.contentMode === 'single-line').every((bubble) => (
-      bubble.querySelector('[data-ios-label-placement="mapped-nine-slice"]')
+      bubble.querySelector('[data-ios-label-placement="title-edge-insets"]')
     ))).toBe(true);
     expect(bubbles.map((bubble) => bubble.dataset.contentMode)).toEqual([
       'single-line', 'wrap', 'wrap', 'single-line', 'single-line',

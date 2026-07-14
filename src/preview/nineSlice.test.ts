@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { iosInsetGeometry } from './ninePatchStyle';
-import { calculateNineSlice, contentInsetsPx, singleLineLabelPlacement } from './nineSlice';
+import { calculateNineSlice, contentInsetsPx } from './nineSlice';
 
 const iosSend = {
   stretch: { x: [51 / 120, 54 / 120] as [number, number], y: [51 / 105, 54 / 105] as [number, number] },
@@ -78,28 +78,22 @@ describe('nine-slice bubble geometry', () => {
     expect(layout.cells.every((cell) => cell.target.x + cell.target.width <= 38.000001)).toBe(true);
   });
 
-  it('centers a short label in the content frame after decorated iOS caps are compressed', () => {
-    const source = { width: 344, height: 375 };
+  it('keeps the iOS title origin at the authored edge insets instead of remapping it through stretch', () => {
+    const source = { width: 240, height: 150 };
     const authoredGuides = {
-      stretch: { x: [99 / 344, 102 / 344] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
-      content: { left: 33 / 344, top: 225 / 375, right: 158 / 344, bottom: 344 / 375 },
+      stretch: { x: [114 / 240, 117 / 240] as [number, number], y: [78 / 150, 81 / 150] as [number, number] },
+      content: { left: 102 / 240, top: 81 / 150, right: 132 / 240, bottom: 93 / 150 },
     };
     const geometry = iosInsetGeometry(authoredGuides, source, 3);
     const insets = contentInsetsPx(geometry.guides, source, geometry.scale);
-    const label = { x: insets.left, y: insets.top, width: 18, height: 18 };
+    const label = { x: insets.left, y: insets.top, width: 13, height: 18 };
     const target = {
       width: label.width + insets.left + insets.right,
       height: label.height + insets.top + insets.bottom,
     };
-    const layout = calculateNineSlice(geometry.guides, source, geometry.scale, target);
-    const placement = singleLineLabelPlacement(layout, geometry.guides, label);
 
-    expect(target).toEqual({ width: 91, height: 103 });
-    expect(placement.contentFrame.x).toBeCloseTo(8.8064516, 6);
-    expect(placement.contentFrame.y).toBeCloseTo(62.2983871, 6);
-    expect(placement.contentFrame.width).toBeCloseTo(32.5571848, 6);
-    expect(placement.contentFrame.height).toBeCloseTo(32.3951613, 6);
-    expect(placement.translate.x).toBeCloseTo(5.08504399, 6);
-    expect(placement.translate.y).toBeCloseTo(-5.50403226, 6);
+    expect(insets).toEqual({ top: 27, right: 36, bottom: 19, left: 34 });
+    expect(target).toEqual({ width: 83, height: 64 });
+    expect(label).toEqual({ x: 34, y: 27, width: 13, height: 18 });
   });
 });

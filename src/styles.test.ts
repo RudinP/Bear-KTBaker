@@ -54,8 +54,8 @@ describe('desktop workspace responsiveness', () => {
     }
   });
 
-  it('centers short iOS labels as a two-axis frame instead of text-align alone', () => {
-    expect(css).toMatch(/\[data-platform-bubble=["']ios["']\]\[data-content-mode=["']single-line["']\]\s*\{[^}]*display:\s*(?:inline-)?grid[^}]*place-items:\s*center/i);
+  it('keeps single-line iOS labels at their authored inset origin without shrinking the bubble around them', () => {
+    expect(css).toMatch(/\[data-platform-bubble=["']ios["']\]\[data-content-mode=["']single-line["']\]\s*\{[^}]*display:\s*(?:inline-)?grid[^}]*width:\s*max-content[^}]*place-items:\s*start/i);
     expect(css).toMatch(/\[data-platform-bubble=["']ios["']\]\[data-content-mode=["']single-line["']\]\s*>\s*\[data-content-mode=["']single-line["']\]\s*\{[^}]*white-space:\s*nowrap/i);
     expect(css).not.toMatch(/--bubble-center-[xy]/i);
   });

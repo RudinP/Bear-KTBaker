@@ -251,18 +251,32 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(bubble.style.minWidth).toBe('');
     expect(bubble.style.minHeight).toBe('');
     expect(copy).toHaveAttribute('data-content-mode', 'single-line');
+    expect(copy).toHaveAttribute('data-ios-label-placement', 'title-edge-insets');
+    expect(copy?.style.transform).toBe('');
     expect(container.querySelector('.kt-ios-inset-layer')).not.toBeInTheDocument();
   });
 
-  it('uses the same one-character short sample for sent and received first bubbles on iOS', () => {
+  it('keeps the original received and sent chat copy independent of bubble positioning', () => {
     render(<PhonePreview {...baseProps} platform="ios" screen="chatroom" />);
 
     const received = screen.getByLabelText('받은 첫 말풍선 꾸미기');
     const sent = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
-    expect(within(received).getByText('오')).toBeInTheDocument();
-    expect(within(sent).getByText('오')).toBeInTheDocument();
+    expect(within(received).getByText('어피치피치한')).toBeInTheDocument();
+    expect(within(sent).getByText('으아 설레에')).toBeInTheDocument();
+  });
+
+  it('uses the same title-edge-inset placement contract for sent and received bubbles', () => {
+    render(<PhonePreview {...baseProps} platform="ios" screen="chatroom" />);
+
+    const received = screen.getByLabelText('받은 첫 말풍선 꾸미기');
+    const sent = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
     expect(received).toHaveAttribute('data-content-mode', 'single-line');
     expect(sent).toHaveAttribute('data-content-mode', 'single-line');
+    for (const bubble of [received, sent]) {
+      const copy = bubble.querySelector<HTMLElement>('.kt-bubble-copy');
+      expect(copy).toHaveAttribute('data-ios-label-placement', 'title-edge-insets');
+      expect(copy?.style.transform).toBe('');
+    }
   });
 
   it('marks both Android first-bubble renderers with the same single-line contract', () => {
@@ -290,7 +304,7 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(bubble.style.minHeight).toBe('');
     expect(bubble.querySelector('[data-renderer="ios-inset-nine-slice"]')).toBeInTheDocument();
     expect(bubble.querySelector('.kt-nine-slice-canvas')).toBeInTheDocument();
-    expect(bubble.querySelector('.kt-bubble-copy')).toHaveAttribute('data-ios-label-placement', 'mapped-nine-slice');
+    expect(bubble.querySelector('.kt-bubble-copy')).toHaveAttribute('data-ios-label-placement', 'title-edge-insets');
   });
 
   it('matches exported iOS integer-point inset metrics for non-aligned source guides', () => {

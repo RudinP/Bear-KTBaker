@@ -9,7 +9,6 @@ import { contentInsetsPx } from '../preview/nineSlice';
 import { resolveAssetScale } from '../preview/imagePlacement';
 import { previewFontFamily } from '../preview/fontFamily';
 import { getHostLayout } from '../preview/layout';
-import { SHORT_BUBBLE_SAMPLE } from '../preview/bubbleSamples';
 import { NineSliceImage } from './NineSliceImage';
 import { IosBubbleArtwork } from './IosBubbleArtwork';
 import { IosBubbleLabel } from './IosBubbleLabel';
@@ -100,7 +99,7 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     {render.source && exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
     {render.source && !exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
     {platform === 'ios' && render.source && contentMode === 'single-line'
-      ? <IosBubbleLabel className="mini-bubble-copy" guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale}>{children}</IosBubbleLabel>
+      ? <IosBubbleLabel className="mini-bubble-copy">{children}</IosBubbleLabel>
       : <span className="mini-bubble-copy" data-content-mode={contentMode}>{children}</span>}
   </div>;
 }
@@ -117,7 +116,7 @@ export function BubbleStates({ project, platform, side }: { project: ThemeProjec
   return <section className="bubble-states" aria-label="말풍선 모든 상태" data-platform={platform} style={{ fontFamily: previewFontFamily(platform, project.font?.family) }}>
     <div className="state-head"><div><span className="panel-kicker">실제 리소스 상태</span><h3>말풍선의 모든 모습</h3></div></div>
     <div className="state-grid">
-      <div className="state-cell" data-resource-id={normalId}><span>짧은 글</span><MiniBubble key={`${platform}:${normalId}:short`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="single-line">{SHORT_BUBBLE_SAMPLE}</MiniBubble></div>
+      <div className="state-cell" data-resource-id={normalId}><span>짧은 글</span><MiniBubble key={`${platform}:${normalId}:short`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="single-line">네!</MiniBubble></div>
       <div className="state-cell long" data-layout="full-width" data-resource-id={normalId}><span>긴 글</span><MiniBubble key={`${platform}:${normalId}:long`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="wrap">글이 길어져도 모양이 자연스러운지 확인해요.</MiniBubble></div>
       <div className="state-cell reply" data-layout="full-width" data-resource-id={normalId}><span>답장</span><MiniBubble key={`${platform}:${normalId}:reply`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="wrap"><span className="reply-content"><span className="reply-reference"><b data-reply-title>나에게 답장</b><span data-reply-original>답장 원문이 길어져도 자연스럽게 표시돼요.</span></span><span className="reply-divider" data-reply-divider /><span className="reply-body" data-reply-body>답장하면 이렇게 돼</span></span></MiniBubble></div>
       <div className="state-cell" data-resource-id={groupedId}><span>연속 메시지</span><MiniBubble key={`${platform}:${groupedId}:grouped`} project={project} platform={platform} side={side} appearance={set.grouped} resourceId={groupedId} grouped contentMode="single-line">두 번째 말풍선</MiniBubble></div>
