@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { PNG } from 'pngjs';
+import { buildNinePatchPng, parseNinePatchPng } from './ninePatchPng';
 import { flexibleBubbleTargetSize, pngDimensionsFromDataUrl, uploadSourceScale } from './resourceGeometry';
 
 describe('arbitrary-size uploaded resource geometry', () => {
@@ -16,6 +18,44 @@ describe('arbitrary-size uploaded resource geometry', () => {
   it('preserves an arbitrary Android bubble interior instead of forcing the sample dimensions', () => {
     expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', { width: 247, height: 133 }, 3, false)).toEqual({ width: 247, height: 133 });
     expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', { width: 249, height: 135 }, 3, true)).toEqual({ width: 247, height: 133 });
+  });
+
+  it.each([
+    ['@2x', { width: 80, height: 70 }, 2, { width: 120, height: 105 }],
+    ['1x', { width: 40, height: 35 }, 1, { width: 120, height: 105 }],
+  ] as const)('normalizes a mirrored iOS %s bubble to Android xxhdpi pixels', (_label, source, sourceScale, expected) => {
+    expect(flexibleBubbleTargetSize(
+      'android',
+      'src/main/theme/drawable-xxhdpi/theme_chatroom_bubble_me_01_image.9.png',
+      source,
+      sourceScale,
+      false,
+      'ios',
+    )).toEqual(expected);
+  });
+
+  it('writes normalized mirrored dimensions with independent Android nine-patch markers', () => {
+    const size = flexibleBubbleTargetSize(
+      'android',
+      'src/main/theme/drawable-xxhdpi/theme_chatroom_bubble_me_01_image.9.png',
+      { width: 80, height: 70 },
+      2,
+      false,
+      'ios',
+    );
+    const interior = PNG.sync.write(new PNG(size));
+    const androidGuides = {
+      stretch: { x: [54 / 122, 56 / 122] as [number, number], y: [55 / 112, 57 / 112] as [number, number] },
+      content: { left: 20 / 122, top: 12 / 112, right: 92 / 122, bottom: 100 / 112 },
+    };
+    const output = PNG.sync.read(buildNinePatchPng(interior, androidGuides));
+    const parsed = parseNinePatchPng(PNG.sync.write(output));
+
+    expect([output.width, output.height]).toEqual([122, 107]);
+    expect([parsed.width, parsed.height]).toEqual([120, 105]);
+    expect(parsed.guides.stretch.x).toEqual([53 / 120, 55 / 120]);
+    expect(parsed.guides.content.left).toBeCloseTo(20 / 120, 5);
+    expect(parsed.guides.content.top).toBeCloseTo(11 / 105, 5);
   });
 
   it('uses the guide-specific four-times scale only for the Android tab background', () => {

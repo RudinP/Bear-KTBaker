@@ -43,6 +43,31 @@ function legacyMirror(fileName: string, guides: NinePatchGuides, patch: Partial<
 }
 
 describe('legacy mirrored bubble isolation', () => {
+  it('never classifies an ordinary semantic resource as a legacy bubble mirror', () => {
+    const project = createDefaultTheme('일반 리소스 import', false);
+    const id = 'main.background';
+    const asset: ImageAsset = {
+      fileName: 'mainBgImage@3x.png', dataUrl: 'data:image/png;base64,bWFpbg==', width: 960, height: 1740, sourceScale: 3,
+    };
+    project.resources[id] = { ...asset };
+    project.platformResources.ios[id] = { ...asset };
+    project.platformResources.android[id] = { ...asset };
+
+    expect(legacyMirroredBubbleAssetSource(project, id)).toBeUndefined();
+    expect(shouldIgnoreLegacyMirroredBubbleAssetTarget(project, 'android', id)).toBe(false);
+  });
+
+  it('keeps a provenance-marked image-only semantic bubble mirror visible', () => {
+    const project = legacyMirror('chatroomBubbleSend01@3x.png', iosGuides);
+    delete project.chat.bubbles.me.normal.stretchByPlatform?.android;
+    project.platformResources.android[resourceId] = {
+      ...project.platformResources.android[resourceId]!, mirroredFromPlatform: 'ios',
+    };
+
+    expect(legacyMirroredBubbleAssetSource(project, resourceId)).toBeUndefined();
+    expect(shouldIgnoreLegacyMirroredBubbleAssetTarget(project, 'android', resourceId)).toBe(false);
+  });
+
   it('quarantines only the Android copy of a canonical iOS import', () => {
     const project = legacyMirror('chatroomBubbleSend01@3x.png', iosGuides);
 

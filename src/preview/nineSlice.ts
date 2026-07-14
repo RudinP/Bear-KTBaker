@@ -27,6 +27,11 @@ export interface NineSliceLayout {
   cells: NineSliceCell[];
 }
 
+export interface SingleLineLabelPlacement {
+  contentFrame: SliceRect;
+  translate: { x: number; y: number };
+}
+
 export function contentInsetsPx(guides: NinePatchGuides, source: Size, scale: number, renderer: 'css' | 'android' = 'css'): EdgeInsets {
   const logical = (sourcePixels: number) => {
     const value = sourcePixels / scale;
@@ -92,4 +97,57 @@ export function calculateNineSlice(
   }
 
   return { source, target, scale, cells };
+}
+
+function mapSourceCoordinate(
+  layout: NineSliceLayout,
+  axis: 'x' | 'y',
+  coordinate: number,
+) {
+  const cells = axis === 'x'
+    ? layout.cells.filter((cell) => cell.row === 0)
+    : layout.cells.filter((cell) => cell.column === 0);
+  const length = axis === 'x' ? layout.source.width : layout.source.height;
+  const value = Math.max(0, Math.min(length, coordinate));
+
+  for (const [index, cell] of cells.entries()) {
+    const sourceStart = cell.source[axis];
+    const sourceLength = axis === 'x' ? cell.source.width : cell.source.height;
+    const sourceEnd = sourceStart + sourceLength;
+    if (value > sourceEnd && index < cells.length - 1) continue;
+    const targetStart = cell.target[axis];
+    const targetLength = axis === 'x' ? cell.target.width : cell.target.height;
+    const progress = sourceLength > 0 ? (value - sourceStart) / sourceLength : 0;
+    return targetStart + Math.max(0, Math.min(1, progress)) * targetLength;
+  }
+
+  return axis === 'x' ? layout.target.width : layout.target.height;
+}
+
+export function contentFrameForNineSlice(layout: NineSliceLayout, guides: NinePatchGuides): SliceRect {
+  const left = mapSourceCoordinate(layout, 'x', guides.content.left * layout.source.width);
+  const right = mapSourceCoordinate(layout, 'x', guides.content.right * layout.source.width);
+  const top = mapSourceCoordinate(layout, 'y', guides.content.top * layout.source.height);
+  const bottom = mapSourceCoordinate(layout, 'y', guides.content.bottom * layout.source.height);
+  return {
+    x: left,
+    y: top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
+export function singleLineLabelPlacement(
+  layout: NineSliceLayout,
+  guides: NinePatchGuides,
+  labelRect: SliceRect,
+): SingleLineLabelPlacement {
+  const contentFrame = contentFrameForNineSlice(layout, guides);
+  return {
+    contentFrame,
+    translate: {
+      x: contentFrame.x + contentFrame.width / 2 - (labelRect.x + labelRect.width / 2),
+      y: contentFrame.y + contentFrame.height / 2 - (labelRect.y + labelRect.height / 2),
+    },
+  };
 }

@@ -8,7 +8,8 @@ function sameAsset(left: ImageAsset, right: ImageAsset) {
     && left.height === right.height
     && left.sourceScale === right.sourceScale
     && left.rawNinePatch === right.rawNinePatch
-    && left.userSelected === right.userSelected;
+    && left.userSelected === right.userSelected
+    && left.mirroredFromPlatform === right.mirroredFromPlatform;
 }
 
 function sameGuides(left: NinePatchGuides, right: NinePatchGuides) {
@@ -49,6 +50,7 @@ function inferredSource(asset: ImageAsset): Platform | undefined {
 
 function legacyMirrorContext(project: ThemeProject, resourceId: string) {
   if (project.baseSample !== undefined) return undefined;
+  if (!bubbleAppearance(project, resourceId)) return undefined;
   const shared = project.resources?.[resourceId];
   if (!shared) return undefined;
   const source = inferredSource(shared);

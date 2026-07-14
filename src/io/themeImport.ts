@@ -226,13 +226,12 @@ function applyIosColors(project: ThemeProject, css: string) {
 function mirrorSemanticResources(project: ThemeProject, source: 'ios' | 'android') {
   const target = source === 'ios' ? 'android' : 'ios';
   for (const slot of KAKAO_RESOURCE_SLOTS) {
-    if (slot.id.startsWith('chat.bubble.')) continue;
     const sourceBinding = slot[source];
     const targetBinding = slot[target];
     if (!sourceBinding?.files.length || !targetBinding?.files.length) continue;
     const asset = project.platformResources[source][slot.id];
     if (!asset || project.platformResources[target][slot.id]) continue;
-    project.platformResources[target][slot.id] = { ...asset };
+    project.platformResources[target][slot.id] = { ...asset, mirroredFromPlatform: source };
   }
 }
 

@@ -11,6 +11,7 @@ import { previewFontFamily } from '../preview/fontFamily';
 import { getHostLayout } from '../preview/layout';
 import { NineSliceImage } from './NineSliceImage';
 import { IosBubbleArtwork } from './IosBubbleArtwork';
+import { IosBubbleLabel } from './IosBubbleLabel';
 
 export function MiniBubble({ project, platform, side, appearance, resourceId, children, grouped = false, pressed = false, exportSafe = false, contentMode = 'wrap' }: {
   project: ThemeProject;
@@ -97,7 +98,9 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     {render.source && platform === 'ios' && <IosBubbleArtwork image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} />}
     {render.source && exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
     {render.source && !exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
-    <span className="mini-bubble-copy" data-content-mode={contentMode}>{children}</span>
+    {platform === 'ios' && render.source && contentMode === 'single-line'
+      ? <IosBubbleLabel className="mini-bubble-copy" guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale}>{children}</IosBubbleLabel>
+      : <span className="mini-bubble-copy" data-content-mode={contentMode}>{children}</span>}
   </div>;
 }
 

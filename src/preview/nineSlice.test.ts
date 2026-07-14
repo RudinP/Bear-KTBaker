@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateNineSlice, contentInsetsPx } from './nineSlice';
+import { iosInsetGeometry } from './ninePatchStyle';
+import { calculateNineSlice, contentInsetsPx, singleLineLabelPlacement } from './nineSlice';
 
 const iosSend = {
   stretch: { x: [51 / 120, 54 / 120] as [number, number], y: [51 / 105, 54 / 105] as [number, number] },
@@ -75,5 +76,30 @@ describe('nine-slice bubble geometry', () => {
     expect(layout.cells[0].target.width).toBeCloseTo(17 * (38 / 39), 6);
     expect(layout.cells[2].target.width).toBeCloseTo(22 * (38 / 39), 6);
     expect(layout.cells.every((cell) => cell.target.x + cell.target.width <= 38.000001)).toBe(true);
+  });
+
+  it('centers a short label in the content frame after decorated iOS caps are compressed', () => {
+    const source = { width: 344, height: 375 };
+    const authoredGuides = {
+      stretch: { x: [99 / 344, 102 / 344] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
+      content: { left: 33 / 344, top: 225 / 375, right: 158 / 344, bottom: 344 / 375 },
+    };
+    const geometry = iosInsetGeometry(authoredGuides, source, 3);
+    const insets = contentInsetsPx(geometry.guides, source, geometry.scale);
+    const label = { x: insets.left, y: insets.top, width: 18, height: 18 };
+    const target = {
+      width: label.width + insets.left + insets.right,
+      height: label.height + insets.top + insets.bottom,
+    };
+    const layout = calculateNineSlice(geometry.guides, source, geometry.scale, target);
+    const placement = singleLineLabelPlacement(layout, geometry.guides, label);
+
+    expect(target).toEqual({ width: 91, height: 103 });
+    expect(placement.contentFrame.x).toBeCloseTo(8.8064516, 6);
+    expect(placement.contentFrame.y).toBeCloseTo(62.2983871, 6);
+    expect(placement.contentFrame.width).toBeCloseTo(32.5571848, 6);
+    expect(placement.contentFrame.height).toBeCloseTo(32.3951613, 6);
+    expect(placement.translate.x).toBeCloseTo(5.08504399, 6);
+    expect(placement.translate.y).toBeCloseTo(-5.50403226, 6);
   });
 });

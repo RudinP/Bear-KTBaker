@@ -149,7 +149,14 @@ function prepareFlexibleBubblePng(dataUrl: string, platform: 'ios' | 'android', 
   const sourceBuffer = sourceIsNinePatch ? Buffer.from(stripNinePatchBorder(rawSource)) : rawSource;
   const source = nativeImage.createFromBuffer(sourceBuffer);
   const sourceScale = asset.sourceScale ?? uploadSourceScale(platform, '', asset.fileName);
-  const size = flexibleBubbleTargetSize(platform, targetPath, rawImage.getSize(), sourceScale, sourceIsNinePatch);
+  const size = flexibleBubbleTargetSize(
+    platform,
+    targetPath,
+    rawImage.getSize(),
+    sourceScale,
+    sourceIsNinePatch,
+    asset.mirroredFromPlatform,
+  );
   return resizeForTarget(source, size.width, size.height, 'stretch').toPNG();
 }
 

@@ -35,9 +35,17 @@ export function flexibleBubbleTargetSize(
   source: PixelSize,
   sourceScale: number,
   sourceIsNinePatch: boolean,
+  mirroredFromPlatform?: Platform,
 ): PixelSize {
   const contentWidth = Math.max(1, source.width - (sourceIsNinePatch ? 2 : 0));
   const contentHeight = Math.max(1, source.height - (sourceIsNinePatch ? 2 : 0));
+  if (platform === 'android' && mirroredFromPlatform === 'ios') {
+    const logicalScale = sourceScale > 0 ? sourceScale : 3;
+    return {
+      width: Math.max(1, Math.round((contentWidth / logicalScale) * 3)),
+      height: Math.max(1, Math.round((contentHeight / logicalScale) * 3)),
+    };
+  }
   if (platform === 'android') return { width: contentWidth, height: contentHeight };
   const targetScale = /@2x\.png$/i.test(targetPath) ? 2 : 3;
   return {

@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import JSZip from 'jszip';
 import { PNG } from 'pngjs';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
 
@@ -12,11 +13,76 @@ const REFERENCE_FILE = path.join(process.cwd(), 'tests/fixtures/android-chatroom
 // KakaoTalk viewport is compared; no device/status UI is part of this crop.
 const REFERENCE_VIEWPORT: Crop = { x: 17, y: 27, width: 540, height: 1140 };
 const ACTUAL_VIEWPORT: Crop = { x: 0, y: 0, width: 540, height: 1140 };
+const DECORATED_IOS_BUBBLE = {
+  source: { width: 344, height: 375 },
+  stretch: { x: [99, 102] as const, y: [285, 288] as const },
+  content: { left: 33, right: 158, top: 225, bottom: 345 },
+  scale: 3,
+};
 
 function closeTo(actual: number, expected: number, label: string, tolerance = 3) {
   if (Math.abs(actual - expected) > tolerance) {
     throw new Error(`${label}: reference ${expected}px, preview ${actual}px (tolerance ${tolerance}px)`);
   }
+}
+
+async function createDecoratedIosTheme(file: string) {
+  const template = await JSZip.loadAsync(await readFile(path.join(process.cwd(), 'resources/templates/ios-base.ktheme')));
+  const image = new PNG(DECORATED_IOS_BUBBLE.source);
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const offset = (y * image.width + x) * 4;
+      const body = x >= 20 && x <= 175 && y >= 205 && y <= 360;
+      const decoration = x >= 145 && x <= 335 && y >= 25 && y <= 245;
+      if (!body && !decoration) continue;
+      image.data.set(body ? [215, 226, 207, 255] : [188, 209, 183, 255], offset);
+    }
+  }
+  const bubblePng = PNG.sync.write(image);
+  for (const name of [
+    'chatroomBubbleSend01@3x.png',
+    'chatroomBubbleSend01Selected@3x.png',
+    'chatroomBubbleSend02@3x.png',
+    'chatroomBubbleSend02Selected@3x.png',
+  ]) template.file(`Images/${name}`, bubblePng);
+  const cssFile = template.file('KakaoTalkTheme.css');
+  if (!cssFile) throw new Error('iOS runtime fixture is missing KakaoTalkTheme.css');
+  const css = (await cssFile.async('string'))
+    .replace(/('chatroomBubbleSend0[12](?:Selected)?\.png') 17px 17px/g, '$1 33px 95px')
+    .replace('-ios-title-edgeinsets: 10px 11px 7px 17px;', '-ios-title-edgeinsets: 75px 11px 10px 62px;')
+    .replace('-ios-group-title-edgeinsets: 10px 11px 7px 17px;', '-ios-group-title-edgeinsets: 75px 11px 10px 62px;');
+  template.file('KakaoTalkTheme.css', css);
+  await writeFile(file, await template.generateAsync({ type: 'nodebuffer' }));
+}
+
+function mappedAxisCoordinate(
+  sourceLength: number,
+  stretch: readonly [number, number],
+  targetLength: number,
+  sourceCoordinate: number,
+) {
+  const fixedLeading = stretch[0] / DECORATED_IOS_BUBBLE.scale;
+  const fixedTrailing = (sourceLength - stretch[1]) / DECORATED_IOS_BUBBLE.scale;
+  const fixed = fixedLeading + fixedTrailing;
+  const targetLeading = targetLength >= fixed ? fixedLeading : fixedLeading * targetLength / fixed;
+  const targetStretch = targetLength >= fixed ? targetLength - fixed : 0;
+  const sourceSegments = [0, stretch[0], stretch[1], sourceLength];
+  const targetSegments = [0, targetLeading, targetLeading + targetStretch, targetLength];
+  for (let index = 0; index < 3; index += 1) {
+    if (sourceCoordinate > sourceSegments[index + 1] && index < 2) continue;
+    const progress = (sourceCoordinate - sourceSegments[index]) / (sourceSegments[index + 1] - sourceSegments[index]);
+    return targetSegments[index] + progress * (targetSegments[index + 1] - targetSegments[index]);
+  }
+  return targetLength;
+}
+
+function decoratedContentCenter(target: { width: number; height: number }) {
+  const spec = DECORATED_IOS_BUBBLE;
+  const left = mappedAxisCoordinate(spec.source.width, spec.stretch.x, target.width, spec.content.left);
+  const right = mappedAxisCoordinate(spec.source.width, spec.stretch.x, target.width, spec.content.right);
+  const top = mappedAxisCoordinate(spec.source.height, spec.stretch.y, target.height, spec.content.top);
+  const bottom = mappedAxisCoordinate(spec.source.height, spec.stretch.y, target.height, spec.content.bottom);
+  return { x: (left + right) / 2, y: (top + bottom) / 2 };
 }
 
 function components(image: PNG, crop: Crop, predicate: PixelPredicate) {
@@ -483,7 +549,64 @@ async function verifyThemeSettingsZoomContainment(app: ElectronApplication, page
   }
 }
 
+async function verifyImportedBubbleMapping(app: ElectronApplication, page: Page, fixturePath: string) {
+  await app.evaluate(({ dialog }, importedTheme) => {
+    const replacement = Function(
+      'payload',
+      'return function showOpenDialogForRuntimeFixture() { return Promise.resolve(payload); };',
+    )({ canceled: false, filePaths: [importedTheme] });
+    Object.defineProperty(dialog, 'showOpenDialog', {
+      configurable: true,
+      value: replacement,
+    });
+  }, fixturePath);
+  await page.getByRole('button', { name: '불러오기', exact: true }).click();
+  await page.getByRole('button', { name: 'iPhone' }).click();
+  await page.getByRole('button', { name: '채팅방', exact: true }).click();
+  await page.getByLabel('보낸 첫 말풍선 꾸미기').click();
+
+  const shortBubble = page.locator('.state-cell').filter({ hasText: '짧은 글' }).locator('.mini-bubble');
+  await shortBubble.locator('[data-ios-label-placement="mapped-nine-slice"][data-ios-content-center-x]').waitFor();
+  const metric = await shortBubble.evaluate((bubble) => {
+    const copy = bubble.querySelector<HTMLElement>('.mini-bubble-copy');
+    const canvas = bubble.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
+    if (!copy || !canvas) return undefined;
+    const bubbleBounds = bubble.getBoundingClientRect();
+    const copyBounds = copy.getBoundingClientRect();
+    const scaleX = bubbleBounds.width / (bubble as HTMLElement).offsetWidth;
+    const scaleY = bubbleBounds.height / (bubble as HTMLElement).offsetHeight;
+    return {
+      target: { width: (bubble as HTMLElement).offsetWidth, height: (bubble as HTMLElement).offsetHeight },
+      copyCenter: {
+        x: ((copyBounds.left + copyBounds.right) / 2 - bubbleBounds.left) / scaleX,
+        y: ((copyBounds.top + copyBounds.bottom) / 2 - bubbleBounds.top) / scaleY,
+      },
+      transform: getComputedStyle(copy).transform,
+      sourceImage: canvas.dataset.sourceImage,
+      clipped: (bubble as HTMLElement).scrollWidth > (bubble as HTMLElement).offsetWidth
+        || (bubble as HTMLElement).scrollHeight > (bubble as HTMLElement).offsetHeight,
+    };
+  });
+  if (!metric) throw new Error('Decorated iOS short bubble geometry is missing.');
+  const expectedCenter = decoratedContentCenter(metric.target);
+  closeTo(metric.copyCenter.x, expectedCenter.x, 'decorated iOS short-label horizontal center', 0.2);
+  closeTo(metric.copyCenter.y, expectedCenter.y, 'decorated iOS short-label vertical center', 0.2);
+  if (metric.transform === 'none' || metric.clipped || !metric.sourceImage?.startsWith('data:image/png;base64,')) {
+    throw new Error(`Decorated iOS short bubble was not rendered safely: ${JSON.stringify(metric)}`);
+  }
+
+  await page.getByRole('button', { name: 'Android' }).click();
+  await page.locator('.bubble-states[data-platform="android"] [data-renderer="android-nine-patch"]').first().waitFor();
+  const androidSources = await page.locator('.bubble-states[data-platform="android"] [data-renderer="android-nine-patch"] .kt-nine-slice-canvas')
+    .evaluateAll((canvases) => canvases.map((canvas) => (canvas as HTMLCanvasElement).dataset.sourceImage));
+  if (androidSources.length !== 5 || androidSources.some((source) => !source?.startsWith('data:image/png;base64,'))) {
+    throw new Error(`Imported iOS bubble images did not populate Android states: ${JSON.stringify(androidSources)}`);
+  }
+}
+
 async function main() {
+  const decoratedFixture = path.join('/tmp', `kakao-decorated-import-${process.pid}.ktheme`);
+  await createDecoratedIosTheme(decoratedFixture);
   const app = await electron.launch({ args: ['.', `--user-data-dir=/tmp/kakao-theme-studio-visual-${process.pid}`] });
   try {
     const page = await app.firstWindow();
@@ -511,9 +634,11 @@ async function main() {
     compareBubbleSet(actualImage, referenceImage, 'me');
     await verifyAreaEditorAspectRatio(page, 'Android', { width: 122, height: 112 });
     await verifyAreaEditorAspectRatio(page, 'iPhone', { width: 120, height: 105 });
-    console.log('Android 26.5 chatroom matches the supplied real-screen bubble and padding reference.');
+    await verifyImportedBubbleMapping(app, page, decoratedFixture);
+    console.log('Android 26.5 reference and imported iOS/Android bubble runtime geometry are verified.');
   } finally {
     await app.close();
+    await rm(decoratedFixture, { force: true });
   }
 }
 

@@ -4,7 +4,11 @@ import JSZip from 'jszip';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
+import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
+import { resolveResourceAsset } from '../manifest/resourceResolver';
 import { buildIosCss } from './iosTheme';
+import { getMappedResourceWrites } from './resourceWrites';
+import { flexibleBubbleTargetSize } from './resourceGeometry';
 import { detectThemeImportKind, importAndroidSourceZip, importAndroidThemeArchive, importIosKtheme, inspectCompiledAndroidApk } from './themeImport';
 
 const templates = path.join(process.cwd(), 'resources/templates');
@@ -62,11 +66,29 @@ describe('manifest-driven theme import', () => {
 
     const project = await importIosKtheme(await zip.generateAsync({ type: 'nodebuffer' }), 'one-x.ktheme');
     const asset = project.platformResources.ios['chat.bubble.me.first.normal'];
+    const androidAsset = project.platformResources.android['chat.bubble.me.first.normal'];
     const send = buildIosCss(project, templateCss).match(/MessageCellStyle-Send\s*\{([\s\S]*?)\}/)?.[1] ?? '';
 
     expect(asset).toMatchObject({ fileName: 'chatroomBubbleSend01.png', width: 40, height: 35, sourceScale: 1 });
+    expect(androidAsset).toMatchObject({ width: 40, height: 35, sourceScale: 1, mirroredFromPlatform: 'ios' });
+    expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', {
+      width: androidAsset!.width!, height: androidAsset!.height!,
+    }, androidAsset!.sourceScale!, false, androidAsset!.mirroredFromPlatform)).toEqual({ width: 120, height: 105 });
     expect(send).toContain("-ios-background-image: 'chatroomBubbleSend01.png' 17px 17px;");
     expect(send).toContain('-ios-title-edgeinsets: 10px 11px 7px 17px;');
+  });
+
+  it('normalizes an @2x-only KTheme bubble to Android xxhdpi output dimensions', async () => {
+    const zip = await JSZip.loadAsync(await readFile(path.join(templates, 'ios-base.ktheme')));
+    zip.remove('Images/chatroomBubbleSend01@3x.png');
+
+    const project = await importIosKtheme(await zip.generateAsync({ type: 'nodebuffer' }), 'two-x.ktheme');
+    const asset = project.platformResources.android['chat.bubble.me.first.normal'];
+
+    expect(asset).toMatchObject({ width: 80, height: 70, sourceScale: 2, mirroredFromPlatform: 'ios' });
+    expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', {
+      width: asset!.width!, height: asset!.height!,
+    }, asset!.sourceScale!, false, asset!.mirroredFromPlatform)).toEqual({ width: 120, height: 105 });
   });
 
   it('uses legacy iOS Piccoma tab icons as Now fallbacks without replacing current Now icons', async () => {
@@ -134,7 +156,7 @@ describe('manifest-driven theme import', () => {
     expect(project.chat.bubbles.me.normal.stretch.stretch.x[0]).toBeCloseTo(51 / 120, 5);
   });
 
-  it('maps shared imported iOS resources and colors without reusing iOS bubble geometry on Android', async () => {
+  it('maps imported iOS images to Android slots without reusing iOS bubble geometry', async () => {
     const zip = await JSZip.loadAsync(await readFile(path.join(templates, 'ios-base.ktheme')));
     const css = await zip.file('KakaoTalkTheme.css')!.async('string');
     zip.file('KakaoTalkTheme.css', css
@@ -145,9 +167,22 @@ describe('manifest-driven theme import', () => {
 
     expect(project.platformResources.android['main.background']?.dataUrl)
       .toBe(project.platformResources.ios['main.background']?.dataUrl);
-    expect(project.platformResources.android['chat.bubble.me.first.normal']).toBeUndefined();
+    expect(resolveResourceAsset(project, 'android', 'main.background')?.dataUrl)
+      .toBe(project.platformResources.ios['main.background']?.dataUrl);
+    expect(project.platformResources.android['chat.bubble.me.first.normal']).toMatchObject({
+      dataUrl: project.platformResources.ios['chat.bubble.me.first.normal']?.dataUrl,
+      mirroredFromPlatform: 'ios',
+    });
+    expect(project.platformResources.android['chat.bubble.me.first.normal']?.userSelected).toBeUndefined();
+    expect(resolveResourceAsset(project, 'android', 'chat.bubble.me.first.normal')).toBeDefined();
     expect(project.platformResources.android['passcode.keypad.pressed']).toBeUndefined();
     expect(project.chat.bubbles.me.normal.stretchByPlatform?.android).toBeUndefined();
+    expect(resolveBubbleGuides(project, 'android', 'chat.bubble.me.first.normal')).toMatchObject({ source: 'official-sample' });
+    expect(resolveBubbleGuides(project, 'android', 'chat.bubble.me.first.normal').guides)
+      .not.toEqual(resolveBubbleGuides(project, 'ios', 'chat.bubble.me.first.normal').guides);
+    expect(getMappedResourceWrites(project, 'android')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceId: 'chat.bubble.me.first.normal', ninePatch: true }),
+    ]));
     expect(project.colorValues.android.theme_header_color).toBe('#123ABC');
     expect(project.colorValues.android.theme_body_cell_color).toBe('#00ABCDEF');
     expect(project.colorValues.ios['MainViewStyle-Primary|-ios-normal-background-alpha']).toBe('0.0');
@@ -226,7 +261,7 @@ describe('manifest-driven theme import', () => {
     expect(project.meta.name).toBe('복숭아 & 우체국');
   });
 
-  it('maps shared imported Android resources and colors without reusing Android bubble geometry on iOS', async () => {
+  it('maps imported Android images to iOS slots without reusing Android bubble geometry', async () => {
     const zip = await JSZip.loadAsync(await readFile(path.join(templates, 'android-source.zip')));
     const colors = await zip.file('src/main/theme/values/colors.xml')!.async('string');
     zip.file('src/main/theme/values/colors.xml', colors
@@ -237,9 +272,18 @@ describe('manifest-driven theme import', () => {
 
     expect(project.platformResources.ios['main.background']?.dataUrl)
       .toBe(project.platformResources.android['main.background']?.dataUrl);
-    expect(project.platformResources.ios['chat.bubble.me.first.normal']).toBeUndefined();
+    expect(resolveResourceAsset(project, 'ios', 'main.background')?.dataUrl)
+      .toBe(project.platformResources.android['main.background']?.dataUrl);
+    expect(project.platformResources.ios['chat.bubble.me.first.normal']).toMatchObject({
+      dataUrl: project.platformResources.android['chat.bubble.me.first.normal']?.dataUrl,
+      mirroredFromPlatform: 'android',
+    });
+    expect(resolveResourceAsset(project, 'ios', 'chat.bubble.me.first.normal')).toBeDefined();
     expect(project.platformResources.ios['splash.image']).toBeUndefined();
     expect(project.chat.bubbles.me.normal.stretchByPlatform?.ios).toBeUndefined();
+    expect(resolveBubbleGuides(project, 'ios', 'chat.bubble.me.first.normal')).toMatchObject({ source: 'official-sample' });
+    expect(resolveBubbleGuides(project, 'ios', 'chat.bubble.me.first.normal').guides)
+      .not.toEqual(resolveBubbleGuides(project, 'android', 'chat.bubble.me.first.normal').guides);
     expect(project.colorValues.ios['HeaderStyle-Main|-ios-text-color']).toBe('#123ABC');
     expect(project.colorValues.ios['MainViewStyle-Primary|-ios-normal-background-color']).toBe('#112233');
     expect(project.colorValues.ios['MainViewStyle-Primary|-ios-normal-background-alpha']).toBe('0.0');

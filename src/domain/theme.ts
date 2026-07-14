@@ -28,6 +28,7 @@ export interface ImageAsset {
   sourceScale?: number;
   rawNinePatch?: boolean;
   userSelected?: true;
+  mirroredFromPlatform?: Platform;
 }
 
 export type VisualFill =

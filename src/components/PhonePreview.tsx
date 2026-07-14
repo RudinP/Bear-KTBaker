@@ -17,6 +17,7 @@ import { contentInsetsPx } from '../preview/nineSlice';
 import { calculateImagePlacement, placementBackgroundStyle, resolveAssetScale } from '../preview/imagePlacement';
 import { NineSliceImage } from './NineSliceImage';
 import { IosBubbleArtwork } from './IosBubbleArtwork';
+import { IosBubbleLabel } from './IosBubbleLabel';
 
 interface PreviewProps {
   project: ThemeProject;
@@ -185,7 +186,9 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
     platformBubble="ios" contentMode="single-line"
     onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)}>
     {source && <IosBubbleArtwork image={source} guides={guides} sourceSize={renderSize} sourceScale={sourceScale} />}
-    <span className="kt-bubble-copy" data-content-mode="single-line">{children}</span>
+    {source
+      ? <IosBubbleLabel className="kt-bubble-copy" guides={guides} sourceSize={renderSize} sourceScale={sourceScale}>{children}</IosBubbleLabel>
+      : <span className="kt-bubble-copy" data-content-mode="single-line">{children}</span>}
   </Editable>;
 }
 

@@ -149,6 +149,9 @@ describe('BubbleStates', () => {
     expect(bubbles.every((bubble) => bubble.style.minHeight === '')).toBe(true);
     expect(bubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset-nine-slice"]'))).toBe(true);
     expect(bubbles.every((bubble) => bubble.querySelector('.kt-nine-slice-canvas'))).toBe(true);
+    expect(bubbles.filter((bubble) => bubble.dataset.contentMode === 'single-line').every((bubble) => (
+      bubble.querySelector('[data-ios-label-placement="mapped-nine-slice"]')
+    ))).toBe(true);
     expect(bubbles.map((bubble) => bubble.dataset.contentMode)).toEqual([
       'single-line', 'wrap', 'wrap', 'single-line', 'single-line',
     ]);

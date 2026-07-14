@@ -272,6 +272,7 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(bubble.style.minHeight).toBe('');
     expect(bubble.querySelector('[data-renderer="ios-inset-nine-slice"]')).toBeInTheDocument();
     expect(bubble.querySelector('.kt-nine-slice-canvas')).toBeInTheDocument();
+    expect(bubble.querySelector('.kt-bubble-copy')).toHaveAttribute('data-ios-label-placement', 'mapped-nine-slice');
   });
 
   it('matches exported iOS integer-point inset metrics for non-aligned source guides', () => {
