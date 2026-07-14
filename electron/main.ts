@@ -21,6 +21,7 @@ import {
 } from '../src/io/themeImport';
 import { ANDROID_SAMPLE_COLORS } from '../src/manifest/kakaoColors';
 import { getResourceSlot, type ResourceRenderMode } from '../src/manifest/kakaoResources';
+import { resolveBubbleGuides } from '../src/manifest/bubbleGuideResolver';
 import { createDefaultTheme, parseThemeProject, serializeThemeProject, type ThemeProject } from '../src/domain/theme';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
@@ -107,12 +108,8 @@ function dataUrlBuffer(dataUrl: string) {
 }
 
 function bubbleGuides(project: ThemeProject, platform: 'ios' | 'android', resourceId: string) {
-  const match = resourceId.match(/^chat\.bubble\.(me|you)\.(first|grouped)\.(normal|pressed)$/);
-  if (!match) return undefined;
-  const [, side, sequence, state] = match as [string, 'me' | 'you', 'first' | 'grouped', 'normal' | 'pressed'];
-  const key = sequence === 'grouped' ? (state === 'pressed' ? 'groupedPressed' : 'grouped') : state;
-  const appearance = project.chat.bubbles[side][key];
-  return appearance.stretchByPlatform?.[platform] ?? appearance.stretch;
+  if (!/^chat\.bubble\./.test(resourceId)) return undefined;
+  return resolveBubbleGuides(project, platform, resourceId).guides;
 }
 
 function resizeForTarget(source: Electron.NativeImage, width: number, height: number, mode: ResourceRenderMode) {

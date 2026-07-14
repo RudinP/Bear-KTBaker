@@ -10,7 +10,7 @@ export function NineSliceImage({ image, guides, sourceSize, sourceScale, targetS
   sourceScale: number;
   targetSize?: Size;
   className?: string;
-  renderer?: 'nine-slice' | 'android-nine-patch' | 'poster-nine-slice' | 'ios-inset-export';
+  renderer?: 'nine-slice' | 'android-nine-patch' | 'poster-nine-slice' | 'ios-inset-nine-slice';
 }) {
   const layer = useRef<HTMLSpanElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);

@@ -1,10 +1,103 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { updateBubbleGuides } from '../domain/bubbleGuideUpdate';
 import { createDefaultTheme } from '../domain/theme';
 import { setColorSlot } from '../manifest/colorResolver';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from './androidTheme';
 import { buildIosCss } from './iosTheme';
 
+async function bundledIosTemplateCss() {
+  const archive = await JSZip.loadAsync(
+    await readFile(path.join(process.cwd(), 'resources/templates/ios-base.ktheme')),
+  );
+  const css = archive.file('KakaoTalkTheme.css');
+  if (!css) throw new Error('Bundled iOS template CSS is missing.');
+  return css.async('string');
+}
+
+function cssBlock(css: string, name: string) {
+  return css.match(new RegExp(`${name}\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? '';
+}
+
+function withSentinelBubbleMetrics(css: string) {
+  return css.replace(/(MessageCellStyle-(?:Send|Receive)\s*\{)([\s\S]*?)(\})/g, (_match, open: string, body: string, close: string) => {
+    const sentinel = body
+      .replace(/(-ios(?:-group)?(?:-selected)?-background-image:\s*'[^']+')\s+\d+px\s+\d+px/g, '$1 1px 2px')
+      .replace(/(-ios(?:-group)?-title-edgeinsets:)\s+\d+px\s+\d+px\s+\d+px\s+\d+px/g, '$1 1px 2px 3px 4px');
+    return `${open}${sentinel}${close}`;
+  });
+}
+
 describe('platform exporters', () => {
+  it('preserves the official untouched iOS sample bubble metrics', async () => {
+    const css = buildIosCss(createDefaultTheme(), withSentinelBubbleMetrics(await bundledIosTemplateCss()));
+    const send = cssBlock(css, 'MessageCellStyle-Send');
+    const receive = cssBlock(css, 'MessageCellStyle-Receive');
+
+    for (const property of [
+      '-ios-background-image',
+      '-ios-selected-background-image',
+      '-ios-group-background-image',
+      '-ios-group-selected-background-image',
+    ]) {
+      expect(send).toMatch(new RegExp(`${property}:\\s*'[^']+'\\s+17px\\s+17px;`));
+      expect(receive).toMatch(new RegExp(`${property}:\\s*'[^']+'\\s+22px\\s+17px;`));
+    }
+    expect(send).toContain('-ios-title-edgeinsets: 10px 11px 7px 17px;');
+    expect(send).toContain('-ios-group-title-edgeinsets: 10px 11px 7px 17px;');
+    expect(receive).toContain('-ios-title-edgeinsets: 10px 17px 7px 11px;');
+    expect(receive).toContain('-ios-group-title-edgeinsets: 10px 17px 7px 11px;');
+  });
+
+  it('exports an explicitly edited iOS guide instead of the official sample metric', async () => {
+    const project = createDefaultTheme();
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: {
+      stretch: { x: [30 / 120, 33 / 120], y: [45 / 105, 48 / 105] },
+      content: { left: 15 / 120, top: 12 / 105, right: 90 / 120, bottom: 84 / 105 },
+    } };
+
+    const send = cssBlock(buildIosCss(project, await bundledIosTemplateCss()), 'MessageCellStyle-Send');
+
+    expect(send).toContain("-ios-background-image: 'chatroomBubbleSend01.png' 10px 15px;");
+    expect(send).toContain('-ios-title-edgeinsets: 4px 5px 7px 10px;');
+    expect(send).not.toContain("-ios-background-image: 'chatroomBubbleSend01.png' 17px 17px;");
+  });
+
+  it('does not corrupt the untouched selected state when the normal iOS guide is edited in the UI', async () => {
+    const edited = {
+      stretch: { x: [30 / 120, 33 / 120] as [number, number], y: [45 / 105, 48 / 105] as [number, number] },
+      content: { left: 15 / 120, top: 12 / 105, right: 90 / 120, bottom: 84 / 105 },
+    };
+    const project = updateBubbleGuides(createDefaultTheme(), 'me', 'normal', 'ios', edited);
+    const send = cssBlock(buildIosCss(project, withSentinelBubbleMetrics(await bundledIosTemplateCss())), 'MessageCellStyle-Send');
+
+    expect(send).toContain("-ios-background-image: 'chatroomBubbleSend01.png' 10px 15px;");
+    expect(send).toContain("-ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 17px 17px;");
+    expect(send).not.toContain("-ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 16px 14px;");
+  });
+
+  it('does not export a legacy automatic Android mirror as iOS bubble metrics', async () => {
+    const project = createDefaultTheme('예전 Android import', false);
+    const id = 'chat.bubble.me.first.normal';
+    const asset = { fileName: 'theme_chatroom_bubble_me_01_image.png', dataUrl: 'data:image/png;base64,YW5kcm9pZA==', width: 122, height: 112, sourceScale: 3 };
+    const androidGuides = {
+      stretch: { x: [54 / 122, 56 / 122] as [number, number], y: [55 / 112, 57 / 112] as [number, number] },
+      content: { left: 20 / 122, top: 12 / 112, right: 92 / 122, bottom: 100 / 112 },
+    };
+    project.resources[id] = { ...asset };
+    project.platformResources.ios[id] = { fileName: 'new-ios@3x.png', dataUrl: 'data:image/png;base64,aW9z', width: 120, height: 105, sourceScale: 3 };
+    project.platformResources.android[id] = { ...asset };
+    project.chat.bubbles.me.normal.stretch = structuredClone(androidGuides);
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: structuredClone(androidGuides), android: structuredClone(androidGuides) };
+
+    const send = cssBlock(buildIosCss(project, withSentinelBubbleMetrics(await bundledIosTemplateCss())), 'MessageCellStyle-Send');
+
+    expect(send).toContain("-ios-background-image: 'chatroomBubbleSend01.png' 17px 17px;");
+    expect(send).toContain('-ios-title-edgeinsets: 10px 11px 7px 17px;');
+  });
+
   it('writes project metadata, colors, and bubble metrics into iOS CSS', () => {
     const project = createDefaultTheme('여름 편지');
     project.meta.author = '테마 작가';
@@ -26,10 +119,14 @@ MessageCellStyle-Send { -ios-background-image: 'chatroomBubbleSend01.png' 17px 1
 
   it('writes first, grouped, normal, and pressed iOS bubble metrics independently', () => {
     const project = createDefaultTheme();
-    project.chat.bubbles.me.normal.stretch.stretch.x[0] = 0.3;
-    project.chat.bubbles.me.pressed.stretch.stretch.x[0] = 0.35;
-    project.chat.bubbles.me.grouped.stretch.stretch.x[0] = 0.4;
-    project.chat.bubbles.me.groupedPressed.stretch.stretch.x[0] = 0.45;
+    const starts = { normal: 0.3, pressed: 0.35, grouped: 0.4, groupedPressed: 0.45 } as const;
+    for (const [variant, start] of Object.entries(starts) as [keyof typeof starts, number][]) {
+      const appearance = project.chat.bubbles.me[variant];
+      appearance.stretchByPlatform = { ios: {
+        stretch: { x: [start, appearance.stretch.stretch.x[1]], y: [...appearance.stretch.stretch.y] },
+        content: { ...appearance.stretch.content },
+      } };
+    }
     const template = `MessageCellStyle-Send {
       -ios-background-image: 'chatroomBubbleSend01.png' 17px 17px;
       -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 17px 17px;
@@ -48,7 +145,10 @@ MessageCellStyle-Send { -ios-background-image: 'chatroomBubbleSend01.png' 17px 1
 
   it('calculates the iOS pressed receive stretch point from its official 121px source width', () => {
     const project = createDefaultTheme();
-    project.chat.bubbles.you.pressed.stretch.stretch.x[0] = 66 / 121;
+    project.chat.bubbles.you.pressed.stretchByPlatform = { ios: {
+      stretch: { x: [66 / 121, 69 / 121], y: [51 / 105, 54 / 105] },
+      content: { left: 51 / 121, top: 30 / 105, right: 88 / 121, bottom: 84 / 105 },
+    } };
     const template = `MessageCellStyle-Receive {
       -ios-background-image: 'chatroomBubbleReceive01.png' 22px 17px;
       -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 22px 17px;

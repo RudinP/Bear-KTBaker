@@ -1,45 +1,15 @@
 import { guidesToIosMetrics, type NinePatchGuides } from '../domain/ninePatch';
 import type { Size } from './layout';
 
-export type BubbleSide = 'me' | 'you';
+export { officialSampleBubbleGuides } from '../manifest/bubbleGuideResolver';
+export type { BubbleSide } from '../manifest/bubbleGuideResolver';
 
-const IOS_SAMPLE_GUIDES: Record<BubbleSide, NinePatchGuides> = {
-  me: {
-    stretch: { x: [51 / 120, 54 / 120], y: [51 / 105, 54 / 105] },
-    content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
-  },
-  you: {
-    stretch: { x: [66 / 120, 69 / 120], y: [51 / 105, 54 / 105] },
-    content: { left: 51 / 120, top: 30 / 105, right: 87 / 120, bottom: 84 / 105 },
-  },
-};
-
-const IOS_PRESSED_RECEIVE_GUIDES: NinePatchGuides = {
-  stretch: { x: [66 / 121, 69 / 121], y: [51 / 105, 54 / 105] },
-  content: { left: 51 / 121, top: 30 / 105, right: 88 / 121, bottom: 84 / 105 },
-};
-
-const ANDROID_SAMPLE_GUIDES: Record<BubbleSide, NinePatchGuides> = {
-  me: {
-    stretch: { x: [54 / 122, 56 / 122], y: [55 / 112, 57 / 112] },
-    content: { left: 20 / 122, top: 12 / 112, right: 92 / 122, bottom: 100 / 112 },
-  },
-  you: {
-    stretch: { x: [66 / 122, 68 / 122], y: [55 / 112, 57 / 112] },
-    content: { left: 30 / 122, top: 12 / 112, right: 102 / 122, bottom: 100 / 112 },
-  },
-};
-
-export function officialSampleBubbleGuides(platform: 'ios' | 'android', side: BubbleSide, pressed = false) {
-  if (platform === 'ios' && side === 'you' && pressed) return IOS_PRESSED_RECEIVE_GUIDES;
-  return platform === 'ios' ? IOS_SAMPLE_GUIDES[side] : ANDROID_SAMPLE_GUIDES[side];
+function iosExportScale(sourceScale: number): 1 | 2 | 3 {
+  if (sourceScale === 1 || sourceScale === 2) return sourceScale;
+  return 3;
 }
 
-function iosExportScale(sourceScale: number): 2 | 3 {
-  return sourceScale === 2 ? 2 : 3;
-}
-
-function iosOnePointRange(point: number, sourceScale: 2 | 3): [number, number] {
+function iosOnePointRange(point: number, sourceScale: 1 | 2 | 3): [number, number] {
   const start = point * sourceScale;
   return [start, start + sourceScale];
 }

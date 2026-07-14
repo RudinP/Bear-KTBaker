@@ -53,4 +53,28 @@ describe('desktop workspace responsiveness', () => {
       expect(css).toMatch(new RegExp(`\\.guide\\.horizontal\\[data-label-lane=["']${lane}["']\\]:before\\s*\\{[^}]*translateY\\(calc\\(-50% \\+ ${offset.replace('-', '\\-')}\\)\\)`, 'i'));
     }
   });
+
+  it('centers short iOS labels as a two-axis frame instead of text-align alone', () => {
+    expect(css).toMatch(/\[data-platform-bubble=["']ios["']\]\[data-content-mode=["']single-line["']\]\s*\{[^}]*display:\s*(?:inline-)?grid[^}]*place-items:\s*center/i);
+    expect(css).toMatch(/\[data-platform-bubble=["']ios["']\]\[data-content-mode=["']single-line["']\]\s*>\s*\[data-content-mode=["']single-line["']\]\s*\{[^}]*white-space:\s*nowrap/i);
+    expect(css).not.toMatch(/--bubble-center-[xy]/i);
+  });
+
+  it('removes the unused inspector track from settings screens at every desktop breakpoint', () => {
+    expect(css).toMatch(/\.editor-layout\.is-settings-layout\s*\{[^}]*grid-template-columns:\s*182px\s+minmax\(0,\s*1fr\)/i);
+    expect(css).toMatch(/@media\s*\(max-width:\s*1210px\)[\s\S]*?\.editor-layout\.is-settings-layout\s*\{[^}]*grid-template-columns:\s*160px\s+minmax\(0,\s*1fr\)/i);
+    expect(css).toMatch(/@media\s*\(max-width:\s*980px\)[\s\S]*?\.editor-layout\.is-settings-layout\s*\{[^}]*grid-template-columns:\s*132px\s+minmax\(0,\s*1fr\)/i);
+  });
+
+  it('collapses settings cards and form labels before zoom can create horizontal overflow', () => {
+    expect(css).toMatch(/\.theme-settings-workspace\s*\{[^}]*container-type:\s*inline-size/i);
+    expect(css).toMatch(/@container\s*\(max-width:\s*620px\)[\s\S]*?\.settings-card\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/i);
+    expect(css).toMatch(/@container\s*\(max-width:\s*400px\)[\s\S]*?\.settings-form\s+label\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/i);
+    expect(css).toMatch(/\.adaptive-icon-settings\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*grid-template-columns:\s*minmax\(220px,\s*1fr\)\s+auto/i);
+  });
+
+  it('gives the actual inset-editor close button a 44px minimum hit target', () => {
+    expect(css).toMatch(/\.close-button\s*\{[^}]*min-height:\s*44px/i);
+    expect(css).not.toMatch(/\.close-button\s*\{[^}]*height:\s*34px/i);
+  });
 });

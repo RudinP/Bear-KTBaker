@@ -1,7 +1,5 @@
-import { guidesToIosMetrics } from '../domain/ninePatch';
 import type { ThemeProject } from '../domain/theme';
-import { getResourceSlot } from '../manifest/kakaoResources';
-import { resolveResourceAsset } from '../manifest/resourceResolver';
+import { resolveIosBubbleMetrics } from '../manifest/bubbleGuideResolver';
 
 function safeCssText(value: string) {
   return value.replace(/[\\']/g, '').replace(/[;{}]/g, '');
@@ -49,29 +47,19 @@ export function buildIosCss(project: ThemeProject, template: string) {
   }
 
   const updateBubbles = (side: 'me' | 'you', block: 'MessageCellStyle-Send' | 'MessageCellStyle-Receive', direction: 'Send' | 'Receive') => {
-    const set = project.chat.bubbles[side];
-    const metricsFor = (resourceId: string, appearance: typeof set.normal) => {
-      const asset = resolveResourceAsset(project, 'ios', resourceId);
-      const binding = getResourceSlot(resourceId).ios;
-      const sampleSize = binding?.sampleContentSize ?? binding?.samplePixelSize ?? [120, 105];
-      const width = asset?.width ?? sampleSize[0];
-      const height = asset?.height ?? sampleSize[1];
-      const suffixScale = asset?.fileName.match(/@(2|3)x(?=\.[^.]+$)/i)?.[1];
-      const scale = (asset?.sourceScale === 2 || asset?.sourceScale === 3 ? asset.sourceScale : suffixScale ? Number(suffixScale) : 3) as 2 | 3;
-      return guidesToIosMetrics(appearance.stretchByPlatform?.ios ?? appearance.stretch, width, height, scale);
-    };
+    const metricsFor = (resourceId: string) => resolveIosBubbleMetrics(project, resourceId).metrics;
     const states = [
-      ['-ios-background-image', `chatroomBubble${direction}01.png`, set.normal, `chat.bubble.${side}.first.normal`],
-      ['-ios-selected-background-image', `chatroomBubble${direction}01Selected.png`, set.pressed, `chat.bubble.${side}.first.pressed`],
-      ['-ios-group-background-image', `chatroomBubble${direction}02.png`, set.grouped, `chat.bubble.${side}.grouped.normal`],
-      ['-ios-group-selected-background-image', `chatroomBubble${direction}02Selected.png`, set.groupedPressed, `chat.bubble.${side}.grouped.pressed`],
+      ['-ios-background-image', `chatroomBubble${direction}01.png`, `chat.bubble.${side}.first.normal`],
+      ['-ios-selected-background-image', `chatroomBubble${direction}01Selected.png`, `chat.bubble.${side}.first.pressed`],
+      ['-ios-group-background-image', `chatroomBubble${direction}02.png`, `chat.bubble.${side}.grouped.normal`],
+      ['-ios-group-selected-background-image', `chatroomBubble${direction}02Selected.png`, `chat.bubble.${side}.grouped.pressed`],
     ] as const;
-    for (const [property, fileName, appearance, resourceId] of states) {
-      const metrics = metricsFor(resourceId, appearance);
+    for (const [property, fileName, resourceId] of states) {
+      const metrics = metricsFor(resourceId);
       css = replaceInBlock(css, block, property, `'${fileName}' ${metrics.stretchPoint[0]}px ${metrics.stretchPoint[1]}px`);
     }
-    const first = metricsFor(`chat.bubble.${side}.first.normal`, set.normal);
-    const grouped = metricsFor(`chat.bubble.${side}.grouped.normal`, set.grouped);
+    const first = metricsFor(`chat.bubble.${side}.first.normal`);
+    const grouped = metricsFor(`chat.bubble.${side}.grouped.normal`);
     css = replaceInBlock(css, block, '-ios-title-edgeinsets', `${first.edgeInsets.join('px ')}px`);
     css = replaceInBlock(css, block, '-ios-group-title-edgeinsets', `${grouped.edgeInsets.join('px ')}px`);
   };

@@ -54,4 +54,46 @@ describe('manifest-driven resource writes', () => {
       { resourceId: 'chat.bubble.me.first.normal', ninePatch: true, path: 'src/main/theme/drawable-xxhdpi/theme_chatroom_bubble_me_01_image.9.png' },
     ]);
   });
+
+  it('does not write an old automatic iOS bubble mirror into an Android package', () => {
+    const project = createDefaultTheme('예전 iOS import', false);
+    const id = 'chat.bubble.me.first.normal';
+    const asset = { fileName: 'chatroomBubbleSend01@3x.png', dataUrl: 'data:image/png;base64,aW9z', width: 120, height: 105, sourceScale: 3 };
+    const guides = {
+      stretch: { x: [51 / 120, 54 / 120] as [number, number], y: [51 / 105, 54 / 105] as [number, number] },
+      content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
+    };
+    project.resources[id] = { ...asset };
+    project.platformResources.ios[id] = { ...asset };
+    project.platformResources.android[id] = { ...asset };
+    project.chat.bubbles.me.normal.stretch = structuredClone(guides);
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: structuredClone(guides), android: structuredClone(guides) };
+
+    expect(getMappedResourceWrites(project, 'ios').filter((write) => write.resourceId === id)).toHaveLength(2);
+    expect(getMappedResourceWrites(project, 'android').filter((write) => write.resourceId === id)).toEqual([]);
+    expect(project.platformResources.android[id]).toEqual(asset);
+
+    project.platformResources.android[id] = { ...asset, userSelected: true };
+    expect(getMappedResourceWrites(project, 'android').filter((write) => write.resourceId === id)).toHaveLength(1);
+  });
+
+  it('does not expose the untouched Android mirror when only the iOS source is edited', () => {
+    const project = createDefaultTheme('예전 iOS import', false);
+    const id = 'chat.bubble.me.first.normal';
+    const imported = { fileName: 'myBubble@3x.png', dataUrl: 'data:image/png;base64,aW9z', width: 120, height: 105, sourceScale: 3 };
+    const original = {
+      stretch: { x: [51 / 120, 54 / 120] as [number, number], y: [51 / 105, 54 / 105] as [number, number] },
+      content: { left: 33 / 120, top: 30 / 105, right: 69 / 120, bottom: 84 / 105 },
+    };
+    const edited = structuredClone(original);
+    edited.content.left = 0.2;
+    project.resources[id] = { ...imported };
+    project.platformResources.ios[id] = { fileName: 'edited@3x.png', dataUrl: 'data:image/png;base64,ZWRpdGVk', width: 120, height: 105, sourceScale: 3 };
+    project.platformResources.android[id] = { ...imported };
+    project.chat.bubbles.me.normal.stretch = structuredClone(edited);
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: structuredClone(edited), android: structuredClone(original) };
+
+    expect(getMappedResourceWrites(project, 'ios').filter((write) => write.resourceId === id)).toHaveLength(2);
+    expect(getMappedResourceWrites(project, 'android').filter((write) => write.resourceId === id)).toEqual([]);
+  });
 });

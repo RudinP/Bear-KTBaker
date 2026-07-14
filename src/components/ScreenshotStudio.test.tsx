@@ -67,7 +67,7 @@ describe('promotional image studio', () => {
     expect(container.querySelector('[data-poster-bubble="sent"]')).toHaveTextContent('보내는 문구를 직접 입력');
     expect(container.querySelector('.poster-chat-crop')).not.toBeInTheDocument();
     expect(container.querySelector('.poster-bubbles .device-frame')).not.toBeInTheDocument();
-    const renderer = platform === 'ios' ? 'ios-inset-export' : 'poster-nine-slice';
+    const renderer = platform === 'ios' ? 'ios-inset-nine-slice' : 'poster-nine-slice';
     expect(container.querySelectorAll(`.poster-bubbles [data-renderer="${renderer}"]`)).toHaveLength(2);
   });
 
@@ -144,7 +144,7 @@ describe('promotional image studio', () => {
     expect(passcodeTitle).toHaveStyle({ color: '#654321' });
   });
 
-  it('uses the non-compressing iOS inset renderer in promotion bubbles', () => {
+  it('uses the same compressible iOS inset renderer in promotion bubbles', () => {
     const project = createDefaultTheme();
     for (const id of ['chat.bubble.me.first.normal', 'chat.bubble.you.first.normal']) {
       project.platformResources.ios[id] = {
@@ -156,9 +156,9 @@ describe('promotional image studio', () => {
     const bubbles = [...container.querySelectorAll<HTMLElement>('.poster-bubbles .mini-bubble')];
 
     expect(bubbles).toHaveLength(2);
-    expect(bubbles.every((bubble) => bubble.style.minWidth === '115px')).toBe(true);
-    expect(bubbles.every((bubble) => bubble.style.minHeight === '125px')).toBe(true);
-    expect(container.querySelectorAll('[data-renderer="ios-inset-export"]')).toHaveLength(2);
+    expect(bubbles.every((bubble) => bubble.style.minWidth === '')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minHeight === '')).toBe(true);
+    expect(container.querySelectorAll('[data-renderer="ios-inset-nine-slice"]')).toHaveLength(2);
     expect(container.querySelectorAll('[data-renderer="poster-nine-slice"]')).toHaveLength(0);
   });
 

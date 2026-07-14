@@ -1,5 +1,7 @@
 import type { NinePatchGuides } from './ninePatch';
 import type { Platform, ThemeProject } from './theme';
+import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
+import { legacyExplicitBubbleGuidePlatform } from '../manifest/bubblePlatformIsolation';
 
 export type BubbleVariant = 'normal' | 'pressed' | 'grouped' | 'groupedPressed';
 
@@ -10,10 +12,26 @@ const pairedVariant: Record<BubbleVariant, BubbleVariant> = {
   groupedPressed: 'grouped',
 };
 
+function bubbleResourceId(side: 'me' | 'you', variant: BubbleVariant) {
+  const sequence = variant === 'grouped' || variant === 'groupedPressed' ? 'grouped' : 'first';
+  const state = variant === 'pressed' || variant === 'groupedPressed' ? 'pressed' : 'normal';
+  return `chat.bubble.${side}.${sequence}.${state}`;
+}
+
 function copyGuides(guides: NinePatchGuides): NinePatchGuides {
   return {
     stretch: { x: [...guides.stretch.x], y: [...guides.stretch.y] },
     content: { ...guides.content },
+  };
+}
+
+function editMarkers(project: ThemeProject, side: 'me' | 'you', variant: BubbleVariant, platform: Platform) {
+  const appearance = project.chat.bubbles[side][variant];
+  const inferred = legacyExplicitBubbleGuidePlatform(project, bubbleResourceId(side, variant));
+  return {
+    ...appearance.guideEditedByPlatform,
+    ...(inferred ? { [inferred]: true as const } : {}),
+    [platform]: true as const,
   };
 }
 
@@ -33,17 +51,19 @@ export function updateBubbleGuides(
       ...appearance,
       stretch: nextGuides,
       stretchByPlatform: { ...appearance.stretchByPlatform, [platform]: nextGuides },
+      guideEditedByPlatform: editMarkers(project, side, variant, platform),
     },
   };
 
   if (platform === 'ios') {
     const pair = pairedVariant[variant];
     const pairedAppearance = set[pair];
-    const pairedGuides = copyGuides(pairedAppearance.stretchByPlatform?.ios ?? pairedAppearance.stretch);
+    const pairedGuides = copyGuides(resolveBubbleGuides(project, 'ios', bubbleResourceId(side, pair)).guides);
     pairedGuides.content = { ...guides.content };
     nextSet[pair] = {
       ...pairedAppearance,
       stretchByPlatform: { ...pairedAppearance.stretchByPlatform, ios: pairedGuides },
+      guideEditedByPlatform: editMarkers(project, side, pair, 'ios'),
     };
   }
 

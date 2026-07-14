@@ -70,6 +70,7 @@ describe('manifest-driven inspector', () => {
     const updated = onProject.mock.calls.at(-1)?.[0];
     expect(updated.platformResources.android['main.profile.01'].fileName).toBe('my-profile.png');
     expect(updated.platformResources.android['main.profile.01'].sourceScale).toBe(3);
+    expect(updated.platformResources.android['main.profile.01'].userSelected).toBe(true);
   });
 
   it('shows the original pixel dimensions next to an attached image name', () => {
@@ -111,6 +112,7 @@ describe('manifest-driven inspector', () => {
     const asset = onProject.mock.calls.at(-1)?.[0].platformResources.android['chat.bubble.me.first.normal'];
     expect(asset.rawNinePatch).toBe(true);
     expect(asset.sourceScale).toBe(3);
+    expect(asset.userSelected).toBe(true);
   });
 
   it('shows only the two normal bubble images that exist in the Android APK', () => {

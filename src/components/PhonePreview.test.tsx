@@ -232,26 +232,29 @@ describe('guide-faithful KakaoTalk preview', () => {
     expect(container.querySelector('.kt-chat-send')).toBeInTheDocument();
   });
 
-  it('uses the iOS CSS cap inset as a single border image and preserves the logical source size', () => {
+  it('uses the canonical iOS nine-slice renderer with the official content insets', () => {
     const { container } = render(<PhonePreview {...baseProps} platform="ios" screen="chatroom" />);
     const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
-    const layer = bubble.querySelector<HTMLElement>('.kt-ios-inset-layer');
+    const layer = bubble.querySelector<HTMLElement>('[data-renderer="ios-inset-nine-slice"]');
+    const copy = bubble.querySelector<HTMLElement>('.kt-bubble-copy');
 
     expect(bubble.style.backgroundColor).toBe('transparent');
     expect(bubble.style.borderImageSource).toBe('');
     expect(layer).toBeInTheDocument();
-    expect(layer).toHaveAttribute('data-renderer', 'ios-inset');
+    expect(layer).toHaveAttribute('data-renderer', 'ios-inset-nine-slice');
     expect(layer?.querySelectorAll('.kt-nine-slice-cell')).toHaveLength(0);
-    expect(layer?.style.borderImageSource).toContain('chatroomBubbleSend01');
+    expect(layer?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas')?.dataset.sourceImage)
+      .toContain('chatroomBubbleSend01');
     expect(bubble.style.paddingTop).toBe('10px');
     expect(bubble.style.paddingRight).toBe('17px');
     expect(Number.parseFloat(bubble.style.paddingLeft)).toBeCloseTo(11, 5);
-    expect(bubble.style.minWidth).toBe('40px');
-    expect(bubble.style.minHeight).toBe('35px');
-    expect(container.querySelector('.kt-bubble-copy')).toBeInTheDocument();
+    expect(bubble.style.minWidth).toBe('');
+    expect(bubble.style.minHeight).toBe('');
+    expect(copy).toHaveAttribute('data-content-mode', 'single-line');
+    expect(container.querySelector('.kt-ios-inset-layer')).not.toBeInTheDocument();
   });
 
-  it('never compresses decorated iOS caps below a custom asset logical size', () => {
+  it('allows decorated iOS caps to compress to the content-derived target size', () => {
     const project = createDefaultTheme();
     const guides = {
       stretch: { x: [99 / 345, 102 / 345] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
@@ -265,9 +268,10 @@ describe('guide-faithful KakaoTalk preview', () => {
     render(<PhonePreview {...baseProps} project={project} platform="ios" screen="chatroom" />);
     const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
 
-    expect(bubble.style.minWidth).toBe('115px');
-    expect(bubble.style.minHeight).toBe('125px');
-    expect(bubble.querySelector('[data-renderer="ios-inset"]')).toBeInTheDocument();
+    expect(bubble.style.minWidth).toBe('');
+    expect(bubble.style.minHeight).toBe('');
+    expect(bubble.querySelector('[data-renderer="ios-inset-nine-slice"]')).toBeInTheDocument();
+    expect(bubble.querySelector('.kt-nine-slice-canvas')).toBeInTheDocument();
   });
 
   it('matches exported iOS integer-point inset metrics for non-aligned source guides', () => {
@@ -282,15 +286,15 @@ describe('guide-faithful KakaoTalk preview', () => {
 
     render(<PhonePreview {...baseProps} project={project} platform="ios" screen="chatroom" />);
     const bubble = screen.getByLabelText('보낸 첫 말풍선 꾸미기');
-    const layer = bubble.querySelector<HTMLElement>('[data-renderer="ios-inset"]');
+    const layer = bubble.querySelector<HTMLElement>('[data-renderer="ios-inset-nine-slice"]');
 
     expect(bubble.style.paddingTop).toBe('10px');
     expect(bubble.style.paddingRight).toBe('17px');
     expect(bubble.style.paddingBottom).toBe('7px');
     expect(bubble.style.paddingLeft).toBe('11px');
-    expect(bubble.style.minWidth).toBe('40px');
-    expect(bubble.style.minHeight).toBe('35px');
-    expect(layer?.style.borderImageSlice).toBe('51 69 51 48 fill');
+    expect(bubble.style.minWidth).toBe('');
+    expect(bubble.style.minHeight).toBe('');
+    expect(layer?.querySelector('.kt-nine-slice-canvas')).toBeInTheDocument();
   });
 
   it('uses only the Android .9.png marker renderer for Android bubbles', () => {

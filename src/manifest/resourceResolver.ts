@@ -1,4 +1,5 @@
 import type { Platform, ThemeProject } from '../domain/theme';
+import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from './bubblePlatformIsolation';
 import { getResourceSlot } from './kakaoResources';
 
 function preferredFile(platform: Platform, files: readonly string[]) {
@@ -9,6 +10,7 @@ function preferredFile(platform: Platform, files: readonly string[]) {
 }
 
 export function resolveResourceAsset(project: ThemeProject, platform: Platform, resourceId: string) {
+  if (shouldIgnoreLegacyMirroredBubbleAssetTarget(project, platform, resourceId)) return undefined;
   return project.platformResources?.[platform]?.[resourceId];
 }
 

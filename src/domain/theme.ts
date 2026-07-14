@@ -27,6 +27,7 @@ export interface ImageAsset {
   height?: number;
   sourceScale?: number;
   rawNinePatch?: boolean;
+  userSelected?: true;
 }
 
 export type VisualFill =
@@ -44,6 +45,7 @@ export interface BubbleAppearance {
   textColor: string;
   stretch: NinePatchGuides;
   stretchByPlatform?: Partial<Record<Platform, NinePatchGuides>>;
+  guideEditedByPlatform?: Partial<Record<Platform, true>>;
 }
 
 export interface BubbleSet {

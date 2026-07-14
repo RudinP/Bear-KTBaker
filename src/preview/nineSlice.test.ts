@@ -60,4 +60,20 @@ describe('nine-slice bubble geometry', () => {
       && cell.target.y + cell.target.height <= 32.000001
     ))).toBe(true);
   });
+
+  it('builds a short iOS target from intrinsic text plus insets and proportionally compresses fixed caps', () => {
+    const intrinsicText = { width: 10, height: 18 };
+    const insets = contentInsetsPx(iosSend, { width: 120, height: 105 }, 3);
+    const target = {
+      width: intrinsicText.width + insets.left + insets.right,
+      height: intrinsicText.height + insets.top + insets.bottom,
+    };
+    const layout = calculateNineSlice(iosSend, { width: 120, height: 105 }, 3, target);
+
+    expect(target).toEqual({ width: 38, height: 35 });
+    expect(layout.cells[4].target.width).toBe(0);
+    expect(layout.cells[0].target.width).toBeCloseTo(17 * (38 / 39), 6);
+    expect(layout.cells[2].target.width).toBeCloseTo(22 * (38 / 39), 6);
+    expect(layout.cells.every((cell) => cell.target.x + cell.target.width <= 38.000001)).toBe(true);
+  });
 });

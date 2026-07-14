@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { BubbleAppearance, Platform, ThemeProject } from '../domain/theme';
+import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
 import { colorValue, cssColor } from '../manifest/colorResolver';
 import { resolveResourceAsset, resolveResourceUrl } from '../manifest/resourceResolver';
 import { getResourceSlot } from '../manifest/kakaoResources';
-import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
+import { iosInsetGeometry } from '../preview/ninePatchStyle';
 import { contentInsetsPx } from '../preview/nineSlice';
 import { resolveAssetScale } from '../preview/imagePlacement';
 import { previewFontFamily } from '../preview/fontFamily';
 import { getHostLayout } from '../preview/layout';
 import { NineSliceImage } from './NineSliceImage';
+import { IosBubbleArtwork } from './IosBubbleArtwork';
 
-export function MiniBubble({ project, platform, side, appearance, resourceId, children, grouped = false, pressed = false, exportSafe = false }: {
+export function MiniBubble({ project, platform, side, appearance, resourceId, children, grouped = false, pressed = false, exportSafe = false, contentMode = 'wrap' }: {
   project: ThemeProject;
   platform: Platform;
   side: 'me' | 'you';
@@ -20,6 +22,7 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
   grouped?: boolean;
   pressed?: boolean;
   exportSafe?: boolean;
+  contentMode?: 'single-line' | 'wrap';
 }) {
   const source = resolveResourceUrl(project, platform, resourceId);
   const asset = resolveResourceAsset(project, platform, resourceId);
@@ -60,7 +63,7 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
     };
   }, [asset?.height, asset?.width, rawNinePatch, sampleSize[0], sampleSize[1], source]);
 
-  const guides = appearance.stretchByPlatform?.[platform] ?? (asset ? appearance.stretch : officialSampleBubbleGuides(platform, side, pressed));
+  const guides = resolveBubbleGuides(project, platform, resourceId).guides;
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, platform);
   const iosGeometry = platform === 'ios' && render.source
     ? iosInsetGeometry(guides, { width: render.width, height: render.height }, sourceScale)
@@ -70,27 +73,31 @@ export function MiniBubble({ project, platform, side, appearance, resourceId, ch
   const insets = contentInsetsPx(renderGuides, { width: render.width, height: render.height }, renderScale, platform === 'android' ? 'android' : 'css');
   const chatLayout = getHostLayout(platform, 'chatroom').chat!;
   const hostInsets = chatLayout.bubbleContentInset;
+  const paddedInsets = {
+    top: insets.top + hostInsets.top,
+    right: insets.right + hostInsets.right,
+    bottom: insets.bottom + hostInsets.bottom,
+    left: insets.left + hostInsets.left,
+  };
   const typography = platform === 'android'
     ? { fontSize: 15, fontWeight: 300, lineHeight: '24px' }
     : { fontSize: 14, fontWeight: 400, lineHeight: '18px' };
   const textSlot = `chat.bubble.${side}.text${pressed && platform === 'ios' ? '.pressed' : ''}`;
   const textColor = cssColor(colorValue(project, platform, textSlot));
-  return <div className={`mini-bubble ${side} ${grouped ? 'grouped' : ''}`} style={{
+  return <div className={`mini-bubble ${side} ${grouped ? 'grouped' : ''}`} data-platform-bubble={platform} data-content-mode={contentMode} style={{
     '--bubble-color': appearance.color,
     '--bubble-text': textColor,
     backgroundColor: render.source ? 'transparent' : appearance.color,
-    padding: `${insets.top + hostInsets.top}px ${insets.right + hostInsets.right}px ${insets.bottom + hostInsets.bottom}px ${insets.left + hostInsets.left}px`,
+    padding: `${paddedInsets.top}px ${paddedInsets.right}px ${paddedInsets.bottom}px ${paddedInsets.left}px`,
     fontSize: typography.fontSize,
     fontWeight: typography.fontWeight,
     lineHeight: typography.lineHeight,
     maxWidth: chatLayout.maxBubbleWidth,
-    ...(iosGeometry ? { minWidth: iosGeometry.minimumSize.width, minHeight: iosGeometry.minimumSize.height } : {}),
   } as React.CSSProperties}>
-    {render.source && exportSafe && platform === 'ios' && <NineSliceImage image={render.source} guides={renderGuides} sourceSize={{ width: render.width, height: render.height }} sourceScale={renderScale} renderer="ios-inset-export" />}
+    {render.source && platform === 'ios' && <IosBubbleArtwork image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} />}
     {render.source && exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="poster-nine-slice" />}
-    {render.source && !exportSafe && platform === 'ios' && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(render.source, guides, render.width, render.height, sourceScale, 'ios')} />}
     {render.source && !exportSafe && platform === 'android' && <NineSliceImage image={render.source} guides={guides} sourceSize={{ width: render.width, height: render.height }} sourceScale={sourceScale} renderer="android-nine-patch" />}
-    <span className="mini-bubble-copy">{children}</span>
+    <span className="mini-bubble-copy" data-content-mode={contentMode}>{children}</span>
   </div>;
 }
 
@@ -106,11 +113,11 @@ export function BubbleStates({ project, platform, side }: { project: ThemeProjec
   return <section className="bubble-states" aria-label="말풍선 모든 상태" data-platform={platform} style={{ fontFamily: previewFontFamily(platform, project.font?.family) }}>
     <div className="state-head"><div><span className="panel-kicker">실제 리소스 상태</span><h3>말풍선의 모든 모습</h3></div></div>
     <div className="state-grid">
-      <div className="state-cell" data-resource-id={normalId}><span>짧은 글</span><MiniBubble key={`${platform}:${normalId}:short`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId}>네!</MiniBubble></div>
-      <div className="state-cell long" data-layout="full-width" data-resource-id={normalId}><span>긴 글</span><MiniBubble key={`${platform}:${normalId}:long`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId}>글이 길어져도 모양이 자연스러운지 확인해요.</MiniBubble></div>
-      <div className="state-cell reply" data-layout="full-width" data-resource-id={normalId}><span>답장</span><MiniBubble key={`${platform}:${normalId}:reply`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId}><span className="reply-content"><span className="reply-reference"><b data-reply-title>나에게 답장</b><span data-reply-original>답장 원문이 길어져도 자연스럽게 표시돼요.</span></span><span className="reply-divider" data-reply-divider /><span className="reply-body" data-reply-body>답장하면 이렇게 돼</span></span></MiniBubble></div>
-      <div className="state-cell" data-resource-id={groupedId}><span>연속 메시지</span><MiniBubble key={`${platform}:${groupedId}:grouped`} project={project} platform={platform} side={side} appearance={set.grouped} resourceId={groupedId} grouped>두 번째 말풍선</MiniBubble></div>
-      <div className="state-cell pressed" data-resource-id={pressedResourceId}><span>꾹 눌렀을 때</span><MiniBubble key={`${platform}:${pressedResourceId}:pressed`} project={project} platform={platform} side={side} appearance={pressedAppearance} resourceId={pressedResourceId} pressed>선택된 모습</MiniBubble></div>
+      <div className="state-cell" data-resource-id={normalId}><span>짧은 글</span><MiniBubble key={`${platform}:${normalId}:short`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="single-line">네!</MiniBubble></div>
+      <div className="state-cell long" data-layout="full-width" data-resource-id={normalId}><span>긴 글</span><MiniBubble key={`${platform}:${normalId}:long`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="wrap">글이 길어져도 모양이 자연스러운지 확인해요.</MiniBubble></div>
+      <div className="state-cell reply" data-layout="full-width" data-resource-id={normalId}><span>답장</span><MiniBubble key={`${platform}:${normalId}:reply`} project={project} platform={platform} side={side} appearance={set.normal} resourceId={normalId} contentMode="wrap"><span className="reply-content"><span className="reply-reference"><b data-reply-title>나에게 답장</b><span data-reply-original>답장 원문이 길어져도 자연스럽게 표시돼요.</span></span><span className="reply-divider" data-reply-divider /><span className="reply-body" data-reply-body>답장하면 이렇게 돼</span></span></MiniBubble></div>
+      <div className="state-cell" data-resource-id={groupedId}><span>연속 메시지</span><MiniBubble key={`${platform}:${groupedId}:grouped`} project={project} platform={platform} side={side} appearance={set.grouped} resourceId={groupedId} grouped contentMode="single-line">두 번째 말풍선</MiniBubble></div>
+      <div className="state-cell pressed" data-resource-id={pressedResourceId}><span>꾹 눌렀을 때</span><MiniBubble key={`${platform}:${pressedResourceId}:pressed`} project={project} platform={platform} side={side} appearance={pressedAppearance} resourceId={pressedResourceId} pressed contentMode="single-line">선택된 모습</MiniBubble></div>
     </div>
   </section>;
 }

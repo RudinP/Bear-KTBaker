@@ -47,4 +47,17 @@ describe('nine-patch preview style', () => {
     });
     expect(geometry.minimumSize).toEqual({ width: 40, height: 35 });
   });
+
+  it('preserves suffixless imported iOS artwork at its authored 1x scale', () => {
+    const guides = {
+      stretch: { x: [17 / 40, 18 / 40] as [number, number], y: [17 / 35, 18 / 35] as [number, number] },
+      content: { left: 11 / 40, top: 10 / 35, right: 23 / 40, bottom: 28 / 35 },
+    };
+
+    const geometry = iosInsetGeometry(guides, { width: 40, height: 35 }, 1);
+
+    expect(geometry.scale).toBe(1);
+    expect(geometry.guides).toEqual(guides);
+    expect(geometry.minimumSize).toEqual({ width: 40, height: 35 });
+  });
 });

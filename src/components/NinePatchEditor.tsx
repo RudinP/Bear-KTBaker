@@ -230,7 +230,7 @@ export function NinePatchEditor({ platform, guides, color, image, imageSize, ima
   const dialogLabel = platform === 'android' ? 'Android 9-patch 영역 조정' : 'iOS Inset 영역 조정';
   return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={dialogLabel}>
     <div className="nine-modal">
-      <div className="modal-title"><div><span className="panel-kicker">{platform === 'android' ? 'Android 말풍선 · .9.png' : 'iPhone 말풍선 · CSS inset'}</span><h2>{platform === 'android' ? '9-patch 영역 조정' : 'Inset 영역 조정'}</h2><p>{sourceSize.width} × {sourceSize.height}px 원본{platform === 'ios' ? ` · @${iosScale}x 기준` : ' 기준'}</p></div><button className="close-button" onClick={onClose}>완료</button></div>
+      <div className="modal-title"><div><span className="panel-kicker">{platform === 'android' ? 'Android 말풍선 · .9.png' : 'iPhone 말풍선 · CSS inset'}</span><h2>{platform === 'android' ? '9-patch 영역 조정' : 'Inset 영역 조정'}</h2><p>{sourceSize.width} × {sourceSize.height}px 원본{platform === 'ios' ? ` · @${iosScale}x 기준` : ' 기준'}</p></div><button type="button" className="close-button" onClick={onClose}>완료</button></div>
       <div className="patch-stage" data-editor-mode={platform === 'android' ? 'android-nine-patch' : 'ios-inset'}>
         <div className="patch-canvas" ref={area} style={{
           width: `${boundedCanvasWidth}px`,

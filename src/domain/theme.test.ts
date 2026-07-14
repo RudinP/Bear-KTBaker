@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTheme, parseThemeProject, serializeThemeProject } from './theme';
+import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
 
 describe('theme project', () => {
   it('creates a project that targets iOS and Android together', () => {
@@ -31,6 +32,7 @@ describe('theme project', () => {
         content: { left: 0.2, top: 0.3, right: 0.7, bottom: 0.8 },
       },
     };
+    project.chat.bubbles.me.normal.guideEditedByPlatform = { ios: true, android: true };
     project.font = {
       family: '내 글씨',
       fileName: 'my-font.otf',
@@ -38,7 +40,7 @@ describe('theme project', () => {
     };
     project.platformResources.ios['main.background'] = {
       fileName: 'ios-background@3x.png', dataUrl: 'data:image/png;base64,aW9z',
-      width: 1125, height: 2250, sourceScale: 3,
+      width: 1125, height: 2250, sourceScale: 3, userSelected: true,
     };
     project.platformResources.android['main.background'] = {
       fileName: 'android-background.png', dataUrl: 'data:image/png;base64,YW5kcm9pZA==',
@@ -51,6 +53,7 @@ describe('theme project', () => {
 
     expect(restored.chat.bubbles.me.normal.stretch.stretch.x).toEqual([0.31, 0.68]);
     expect(restored.chat.bubbles.me.normal.stretchByPlatform).toEqual(project.chat.bubbles.me.normal.stretchByPlatform);
+    expect(restored.chat.bubbles.me.normal.guideEditedByPlatform).toEqual({ ios: true, android: true });
     expect(restored.font?.fileName).toBe('my-font.otf');
     expect(restored.platformResources).toEqual(project.platformResources);
     expect(restored.colorValues.ios['HeaderStyle-Main|-ios-text-color']).toBe('#123456');
@@ -113,5 +116,28 @@ describe('theme project', () => {
 
     expect(restored.platformResources.ios['main.tab.now.normal']).toEqual(iosLegacy);
     expect(restored.platformResources.android['main.tab.now.normal']).toEqual(androidCurrent);
+  });
+
+  it('quarantines a legacy mirrored bubble without deleting saved project data', () => {
+    const project = createDefaultTheme('예전 Android import', false);
+    const id = 'chat.bubble.me.first.normal';
+    const asset = { fileName: 'theme_chatroom_bubble_me_01_image.png', dataUrl: 'data:image/png;base64,YW5kcm9pZA==', width: 122, height: 112, sourceScale: 3 };
+    const guides = {
+      stretch: { x: [54 / 122, 56 / 122] as [number, number], y: [55 / 112, 57 / 112] as [number, number] },
+      content: { left: 20 / 122, top: 12 / 112, right: 92 / 122, bottom: 100 / 112 },
+    };
+    project.resources[id] = { ...asset };
+    project.platformResources.ios[id] = { ...asset };
+    project.platformResources.android[id] = { ...asset };
+    project.chat.bubbles.me.normal.stretch = structuredClone(guides);
+    project.chat.bubbles.me.normal.stretchByPlatform = { ios: structuredClone(guides), android: structuredClone(guides) };
+
+    const restored = parseThemeProject(serializeThemeProject(project));
+
+    expect(restored.resources[id]).toEqual(asset);
+    expect(restored.platformResources.ios[id]).toEqual(asset);
+    expect(restored.platformResources.android[id]).toEqual(asset);
+    expect(restored.chat.bubbles.me.normal.stretchByPlatform).toEqual(project.chat.bubbles.me.normal.stretchByPlatform);
+    expect(shouldIgnoreLegacyMirroredBubbleAssetTarget(restored, 'ios', id)).toBe(true);
   });
 });

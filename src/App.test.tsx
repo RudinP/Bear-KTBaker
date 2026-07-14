@@ -54,6 +54,7 @@ describe('theme editor', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '테마 정보' }));
     expect(screen.getByRole('heading', { name: '테마 정보' })).toBeInTheDocument();
+    expect(document.querySelector('.editor-layout')).toHaveClass('is-settings-layout');
     expect(screen.getByLabelText('버전')).toHaveValue('1.0.0');
     expect((screen.getByLabelText('테마 식별자') as HTMLInputElement).value).toContain('studio.theme.');
     expect(screen.getByLabelText('iPhone 테마 목록 아이콘 이미지')).toBeInTheDocument();
@@ -210,7 +211,7 @@ describe('theme editor', () => {
     expect(screen.getByText('선택된 모습').closest('.state-cell')).toHaveAttribute('data-resource-id', 'chat.bubble.me.first.pressed');
     const miniBubbles = [...document.querySelectorAll('.mini-bubble')];
     expect(miniBubbles).toHaveLength(5);
-    expect(miniBubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset"]'))).toBe(true);
+    expect(miniBubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset-nine-slice"]'))).toBe(true);
     expect(miniBubbles.every((bubble) => !bubble.querySelector('[data-renderer="android-nine-patch"]'))).toBe(true);
   });
 
@@ -342,7 +343,9 @@ describe('theme editor', () => {
   it('keeps Space-drag panning attached after leaving and reopening the work canvas', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: '테마 정보' }));
+    expect(document.querySelector('.editor-layout')).toHaveClass('is-settings-layout');
     fireEvent.click(screen.getByRole('button', { name: '채팅방' }));
+    expect(document.querySelector('.editor-layout')).not.toHaveClass('is-settings-layout');
     const stage = screen.getByTestId('preview-stage');
     Object.defineProperties(stage, {
       scrollLeft: { value: 0, writable: true },

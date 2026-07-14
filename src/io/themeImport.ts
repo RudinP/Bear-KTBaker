@@ -1,7 +1,7 @@
 import path from 'node:path';
 import JSZip from 'jszip';
 import { PNG } from 'pngjs';
-import { createDefaultTheme, migrateLegacyNowTabAssets, type BubbleAppearance, type ThemeProject } from '../domain/theme';
+import { createDefaultTheme, migrateLegacyNowTabAssets, type ThemeProject } from '../domain/theme';
 import type { NinePatchGuides } from '../domain/ninePatch';
 import { KAKAO_RESOURCE_SLOTS, type PlatformResourceBinding } from '../manifest/kakaoResources';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS, KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
@@ -223,39 +223,16 @@ function applyIosColors(project: ThemeProject, css: string) {
   return parsedBindings;
 }
 
-function copyGuides(guides: NinePatchGuides): NinePatchGuides {
-  return {
-    stretch: { x: [...guides.stretch.x] as [number, number], y: [...guides.stretch.y] as [number, number] },
-    content: { ...guides.content },
-  };
-}
-
-function bubbleAppearance(project: ThemeProject, resourceId: string): BubbleAppearance | undefined {
-  const match = resourceId.match(/^chat\.bubble\.(me|you)\.(first|grouped)\.(normal|pressed)$/);
-  if (!match) return undefined;
-  const [, side, sequence, state] = match as [string, 'me' | 'you', 'first' | 'grouped', 'normal' | 'pressed'];
-  const key: keyof ThemeProject['chat']['bubbles']['me'] = sequence === 'grouped'
-    ? (state === 'pressed' ? 'groupedPressed' : 'grouped')
-    : state;
-  return project.chat.bubbles[side][key];
-}
-
 function mirrorSemanticResources(project: ThemeProject, source: 'ios' | 'android') {
   const target = source === 'ios' ? 'android' : 'ios';
   for (const slot of KAKAO_RESOURCE_SLOTS) {
+    if (slot.id.startsWith('chat.bubble.')) continue;
     const sourceBinding = slot[source];
     const targetBinding = slot[target];
     if (!sourceBinding?.files.length || !targetBinding?.files.length) continue;
     const asset = project.platformResources[source][slot.id];
     if (!asset || project.platformResources[target][slot.id]) continue;
     project.platformResources[target][slot.id] = { ...asset };
-
-    const appearance = bubbleAppearance(project, slot.id);
-    const guides = appearance?.stretchByPlatform?.[source] ?? appearance?.stretch;
-    if (appearance && guides) {
-      const mirrored = copyGuides(guides);
-      appearance.stretchByPlatform = { ...appearance.stretchByPlatform, [target]: mirrored };
-    }
   }
 }
 

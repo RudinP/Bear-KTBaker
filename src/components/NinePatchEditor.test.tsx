@@ -6,6 +6,16 @@ import { NinePatchEditor } from './NinePatchEditor';
 
 describe('nine-patch area editor', () => {
   beforeEach(() => clearNinePatchClipboard());
+  it('uses the complete 44px-or-taller close button as the real click target', () => {
+    const onClose = vi.fn();
+    render(<NinePatchEditor platform="ios" guides={DEFAULT_NINE_PATCH} color="#ff7f7f" imageSize={{ width: 120, height: 105 }} onChange={vi.fn()} onClose={onClose} />);
+
+    const close = screen.getByRole('button', { name: '완료' });
+    expect(close).toHaveClass('close-button');
+    fireEvent.click(close, { clientX: 2, clientY: 22 });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('renders Android as a four-edge 9-patch marker editor, not as the iOS inset editor', () => {
     render(<NinePatchEditor platform="android" guides={DEFAULT_NINE_PATCH} color="#ff7f7f" imageSize={{ width: 122, height: 112 }} onChange={vi.fn()} onClose={vi.fn()} />);
 

@@ -4,6 +4,7 @@ import type {
 } from '../domain/theme';
 import { resolveResourceAsset, resolveResourceUrl } from '../manifest/resourceResolver';
 import { colorValue, cssColor } from '../manifest/colorResolver';
+import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
 import { getColorSlot } from '../manifest/kakaoColors';
 import { getResourceSlot } from '../manifest/kakaoResources';
 import { KAKAO_PREVIEW_VERSION, getScreenBlueprint } from '../preview/blueprints';
@@ -11,10 +12,11 @@ import { getHostLayout } from '../preview/layout';
 import { previewFontFamily } from '../preview/fontFamily';
 import { ANDROID_CHAT_ACTIONS_PATH, ANDROID_CHAT_ACTIONS_VIEWBOX, ANDROID_CHAT_SEND_VECTOR, IOS_CHAT_SEND_VECTOR, OFFICIAL_CHATROOM_VECTORS } from '../preview/officialUiVectors';
 import { OFFICIAL_CHAT_FILTER_VECTORS, OFFICIAL_MAIN_ACTION_VECTORS, OFFICIAL_MORE_SERVICE_VECTORS } from '../preview/officialMainUiVectors';
-import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from '../preview/ninePatchStyle';
+import { iosInsetGeometry } from '../preview/ninePatchStyle';
 import { contentInsetsPx } from '../preview/nineSlice';
 import { calculateImagePlacement, placementBackgroundStyle, resolveAssetScale } from '../preview/imagePlacement';
 import { NineSliceImage } from './NineSliceImage';
+import { IosBubbleArtwork } from './IosBubbleArtwork';
 
 interface PreviewProps {
   project: ThemeProject;
@@ -105,13 +107,15 @@ function profileImage(project: ThemeProject, platform: Platform, resourceId: Pro
     ?? (resourceId === PROFILE_RESOURCE_IDS[0] ? undefined : resolveResourceUrl(project, platform, PROFILE_RESOURCE_IDS[0]));
 }
 
-function Editable({ id, selected, label, children, className = '', style, onSelect, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave }: {
+function Editable({ id, selected, label, children, className = '', style, platformBubble, contentMode, onSelect, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave }: {
   id: EditableElementId;
   selected: EditableElementId;
   label: string;
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  platformBubble?: Platform;
+  contentMode?: 'single-line' | 'wrap';
   onSelect: (id: EditableElementId) => void;
   onPointerDown?: React.PointerEventHandler<HTMLButtonElement>;
   onPointerUp?: React.PointerEventHandler<HTMLButtonElement>;
@@ -120,6 +124,7 @@ function Editable({ id, selected, label, children, className = '', style, onSele
 }) {
   return (
     <button type="button" className={`editable ${className}`} data-selected={selected === id}
+      data-platform-bubble={platformBubble} data-content-mode={contentMode}
       data-testid={id} style={style} aria-label={`${label} 꾸미기`}
       onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerCancel} onPointerLeave={onPointerLeave}
       onClick={(event) => { event.stopPropagation(); onSelect(id); }}>
@@ -167,7 +172,7 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
     image.src = source;
   }, [source]);
 
-  const guides = appearance.stretchByPlatform?.ios ?? (asset ? appearance.stretch : officialSampleBubbleGuides('ios', side));
+  const guides = resolveBubbleGuides(project, 'ios', resourceId).guides;
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, 'ios');
   const geometry = iosInsetGeometry(guides, renderSize, sourceScale);
   const insets = contentInsetsPx(geometry.guides, renderSize, geometry.scale);
@@ -175,13 +180,12 @@ function IosInsetBubble({ project, side, grouped, appearance, selected, onSelect
   const style: React.CSSProperties = source ? {
     backgroundColor: 'transparent', color: textColor,
     paddingTop: insets.top, paddingRight: insets.right, paddingBottom: insets.bottom, paddingLeft: insets.left,
-    minWidth: geometry.minimumSize.width,
-    minHeight: geometry.minimumSize.height,
   } : { backgroundColor: appearance.color, color: textColor };
   return <Editable id={side === 'me' ? 'bubble-me' : 'bubble-you'} label={`${side === 'me' ? '보낸' : '받은'} ${grouped ? '연속' : '첫'} 말풍선`} selected={selected} onSelect={onSelect} className={`kt-bubble ${side === 'me' ? 'sent' : 'received'}-${grouped ? 'group' : 'first'}`} style={style}
+    platformBubble="ios" contentMode="single-line"
     onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerCancel={() => setPressed(false)} onPointerLeave={() => setPressed(false)}>
-    {source && <span className="kt-ninepatch-layer kt-ios-inset-layer" data-renderer="ios-inset" style={ninePatchBorderStyle(source, guides, renderSize.width, renderSize.height, sourceScale, 'ios')} />}
-    <span className="kt-bubble-copy">{children}</span>
+    {source && <IosBubbleArtwork image={source} guides={guides} sourceSize={renderSize} sourceScale={sourceScale} />}
+    <span className="kt-bubble-copy" data-content-mode="single-line">{children}</span>
   </Editable>;
 }
 
@@ -212,7 +216,7 @@ function AndroidNinePatchBubble({ project, side, grouped, appearance, selected, 
     image.src = source;
   }, [rawNinePatch, source]);
 
-  const guides = appearance.stretchByPlatform?.android ?? (asset ? appearance.stretch : officialSampleBubbleGuides('android', side));
+  const guides = resolveBubbleGuides(project, 'android', resourceId).guides;
   const sourceScale = asset?.sourceScale ?? resolveAssetScale({ fileName: asset?.fileName ?? source ?? '' }, 'android');
   const insets = contentInsetsPx(guides, { width: render.width, height: render.height }, sourceScale, 'android');
   const hostInsets = getHostLayout('android', 'chatroom').chat!.bubbleContentInset;

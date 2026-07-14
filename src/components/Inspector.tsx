@@ -30,6 +30,7 @@ function readFile(file: File, platform: Platform, resourceId: string, callback: 
       ...dimensions,
       sourceScale: uploadSourceScale(platform, resourceId, file.name),
       rawNinePatch: platform === 'android' && /\.9\.png$/i.test(file.name),
+      userSelected: true,
     };
     callback(asset);
     if (dimensions) return;

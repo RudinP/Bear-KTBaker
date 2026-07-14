@@ -23,7 +23,7 @@ export function pngDimensionsFromDataUrl(dataUrl: string): PixelSize | undefined
 }
 
 export function uploadSourceScale(platform: Platform, resourceId: string, fileName: string) {
-  const iosSuffix = fileName.match(/@(2|3)x(?=\.[^.]+$)/i)?.[1];
+  const iosSuffix = fileName.match(/@(1|2|3)x(?=\.[^.]+$)/i)?.[1];
   if (platform === 'ios') return iosSuffix ? Number(iosSuffix) : 3;
   if (resourceId === 'main.tab.background') return 4;
   return 3;

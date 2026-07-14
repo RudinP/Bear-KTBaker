@@ -202,14 +202,34 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
   await page.getByRole('button', { name: '채팅방', exact: true }).click();
   const mainMetrics = await page.locator('.kt-bubble.sent-first').evaluate((bubble) => {
     const style = getComputedStyle(bubble);
+    const copy = bubble.querySelector<HTMLElement>('.kt-bubble-copy');
+    const bubbleBounds = bubble.getBoundingClientRect();
+    const copyBounds = copy?.getBoundingClientRect();
+    const scaleX = bubbleBounds.width / (bubble as HTMLElement).offsetWidth;
+    const scaleY = bubbleBounds.height / (bubble as HTMLElement).offsetHeight;
+    const contentCenter = {
+      x: (bubbleBounds.left + Number.parseFloat(style.paddingLeft) * scaleX
+        + bubbleBounds.right - Number.parseFloat(style.paddingRight) * scaleX) / 2,
+      y: (bubbleBounds.top + Number.parseFloat(style.paddingTop) * scaleY
+        + bubbleBounds.bottom - Number.parseFloat(style.paddingBottom) * scaleY) / 2,
+    };
     return {
       height: (bubble as HTMLElement).offsetHeight,
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
       lineHeight: style.lineHeight,
       maxWidth: style.maxWidth,
+      copyContentCenterOffset: copyBounds ? {
+        x: (copyBounds.left + copyBounds.right) / 2 - contentCenter.x,
+        y: (copyBounds.top + copyBounds.bottom) / 2 - contentCenter.y,
+      } : undefined,
     };
   });
+  if (platform === 'iPhone') {
+    if (!mainMetrics.copyContentCenterOffset) throw new Error('iPhone short bubble copy bounds are missing.');
+    closeTo(mainMetrics.copyContentCenterOffset.x, 0, 'iPhone short bubble content-frame horizontal center', 0.2);
+    closeTo(mainMetrics.copyContentCenterOffset.y, 0, 'iPhone short bubble content-frame vertical center', 0.2);
+  }
   const groupedHeight = await page.locator('.kt-bubble.sent-group').first().evaluate((bubble) => (bubble as HTMLElement).offsetHeight);
   await page.locator('.kt-bubble.sent-first').click();
   const stateMetrics = await page.locator('.bubble-states').evaluate((panel) => (
@@ -290,7 +310,15 @@ async function verifyAreaEditorAspectRatio(page: Page, platform: 'iPhone' | 'And
   ) {
     throw new Error(`iOS editor is not an inset editor: ${JSON.stringify(editorContract)}`);
   }
-  await page.getByRole('button', { name: '완료' }).click();
+  const closeButton = page.getByRole('button', { name: '완료' });
+  const closeBounds = await closeButton.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+  });
+  if (closeBounds.height < 44) {
+    throw new Error(`${platform} area editor close target is smaller than 44px: ${JSON.stringify(closeBounds)}`);
+  }
+  await closeButton.click({ position: { x: 3, y: closeBounds.height / 2 } });
 }
 
 async function selectAndroidChatroom(page: Page) {
@@ -380,6 +408,81 @@ async function verifyApplicationZoomContainment(app: ElectronApplication, page: 
   await page.waitForTimeout(120);
 }
 
+async function verifyThemeSettingsZoomContainment(app: ElectronApplication, page: Page) {
+  const originalBounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getBounds());
+  await page.getByRole('button', { name: 'Android' }).click();
+  await page.getByRole('button', { name: '테마 정보' }).click();
+
+  try {
+    for (const zoomFactor of [1, 1.3, 1.5, 2]) {
+      await app.evaluate(({ BrowserWindow }, factor) => {
+        const window = BrowserWindow.getAllWindows()[0]!;
+        window.setSize(1060, 710);
+        window.webContents.setZoomFactor(factor);
+      }, zoomFactor);
+      await page.waitForTimeout(120);
+
+      const metrics = await page.evaluate(() => {
+        const layout = document.querySelector<HTMLElement>('.editor-layout');
+        const workspace = document.querySelector<HTMLElement>('.theme-settings-workspace');
+        const cards = [...document.querySelectorAll<HTMLElement>('.settings-card')];
+        const inputs = [...document.querySelectorAll<HTMLElement>('.settings-form input')];
+        const adaptiveCopy = document.querySelector('.adaptive-icon-copy');
+        const adaptiveLayers = document.querySelector('.adaptive-icon-layers');
+        const workspaceBounds = workspace?.getBoundingClientRect();
+        const copyBounds = adaptiveCopy?.getBoundingClientRect();
+        const layerBounds = adaptiveLayers?.getBoundingClientRect();
+        const overlapWidth = copyBounds && layerBounds
+          ? Math.max(0, Math.min(copyBounds.right, layerBounds.right) - Math.max(copyBounds.left, layerBounds.left))
+          : -1;
+        const overlapHeight = copyBounds && layerBounds
+          ? Math.max(0, Math.min(copyBounds.bottom, layerBounds.bottom) - Math.max(copyBounds.top, layerBounds.top))
+          : -1;
+        return {
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+          settingsLayout: layout?.classList.contains('is-settings-layout') ?? false,
+          gridColumns: layout ? getComputedStyle(layout).gridTemplateColumns.split(/\s+/).filter(Boolean).length : 0,
+          rootOverflow: Math.max(
+            document.documentElement.scrollWidth - window.innerWidth,
+            document.body.scrollWidth - window.innerWidth,
+          ),
+          workspaceOverflow: workspace ? workspace.scrollWidth - workspace.clientWidth : -1,
+          cardOverflows: cards.map((card) => card.scrollWidth - card.clientWidth),
+          inputsOutsideWorkspace: inputs.filter((input) => {
+            const bounds = input.getBoundingClientRect();
+            return !bounds || !workspaceBounds || bounds.left < workspaceBounds.left - 0.5 || bounds.right > workspaceBounds.right + 0.5;
+          }).length,
+          adaptiveOverlap: overlapWidth * overlapHeight,
+          legacyLabelPresent: document.body.textContent?.includes('Android 기본 앱 아이콘') ?? false,
+          retiredLabelPresent: document.body.textContent?.includes('Android 기본 앱 아이콘 (구형 기기)') ?? false,
+        };
+      });
+
+      if (
+        !metrics.settingsLayout
+        || metrics.gridColumns !== 2
+        || metrics.rootOverflow > 1
+        || metrics.workspaceOverflow > 1
+        || metrics.cardOverflows.some((overflow) => overflow > 1)
+        || metrics.inputsOutsideWorkspace
+        || metrics.adaptiveOverlap > 1
+        || !metrics.legacyLabelPresent
+        || metrics.retiredLabelPresent
+      ) {
+        throw new Error(`Android settings overflow at ${zoomFactor * 100}% zoom: ${JSON.stringify(metrics)}`);
+      }
+    }
+  } finally {
+    await app.evaluate(({ BrowserWindow }, restoreBounds) => {
+      const window = BrowserWindow.getAllWindows()[0]!;
+      window.webContents.setZoomFactor(1);
+      window.setBounds(restoreBounds);
+    }, originalBounds);
+    await page.waitForTimeout(120);
+    await page.getByRole('button', { name: '채팅방', exact: true }).click();
+  }
+}
+
 async function main() {
   const app = await electron.launch({ args: ['.', `--user-data-dir=/tmp/kakao-theme-studio-visual-${process.pid}`] });
   try {
@@ -396,6 +499,7 @@ async function main() {
 
     await verifyWorkspaceZoomContainment(page);
     await verifyApplicationZoomContainment(app, page);
+    await verifyThemeSettingsZoomContainment(app, page);
 
     const actualBuffer = await page.locator('.kt-android-chatroom').screenshot({ path: '/tmp/kakao-android-chatroom-actual.png' });
     const actualImage = PNG.sync.read(actualBuffer);

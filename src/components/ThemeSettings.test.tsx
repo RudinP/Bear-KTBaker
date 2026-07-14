@@ -9,8 +9,12 @@ describe('guide-faithful theme icon settings', () => {
     const onProject = vi.fn();
     render(<ThemeSettings project={project} platform="android" onProject={onProject} />);
 
-    expect(screen.getByLabelText('Android 기본 앱 아이콘 (구형 기기) 이미지')).toBeInTheDocument();
+    expect(screen.getByLabelText('Android 기본 앱 아이콘 이미지')).toBeInTheDocument();
+    expect(screen.queryByText(/Android 기본 앱 아이콘 \(구형 기기\)/)).not.toBeInTheDocument();
     const adaptive = screen.getByRole('group', { name: 'Android 8 이상 적응형 앱 아이콘' });
+    expect(adaptive).toHaveClass('adaptive-icon-settings');
+    expect(adaptive.parentElement).toHaveClass('settings-card');
+    expect(adaptive.parentElement).not.toHaveClass('settings-icon-column');
     expect(within(adaptive).getByText('전경과 배경 두 레이어가 함께 표시됩니다.')).toBeInTheDocument();
     expect(within(adaptive).getByLabelText('Android 적응형 전경 이미지')).toBeInTheDocument();
     expect(within(adaptive).getByLabelText('Android 적응형 배경 이미지')).toBeInTheDocument();
@@ -22,6 +26,8 @@ describe('guide-faithful theme icon settings', () => {
     await waitFor(() => expect(onProject).toHaveBeenCalled());
     expect(onProject.mock.calls.at(-1)?.[0].platformResources.android['common.app-icon.background'].fileName)
       .toBe('background.png');
+    expect(onProject.mock.calls.at(-1)?.[0].platformResources.android['common.app-icon.background'].userSelected)
+      .toBe(true);
   });
 
   it('uses the official commonIcoTheme slot for iPhone', () => {

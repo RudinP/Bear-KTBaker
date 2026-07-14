@@ -47,7 +47,7 @@ export function guidesToIosMetrics(
   guides: NinePatchGuides,
   width: number,
   height: number,
-  scale: 2 | 3,
+  scale: 1 | 2 | 3,
 ) {
   return {
     stretchPoint: [

@@ -64,18 +64,19 @@ describe('BubbleStates', () => {
     expect(reply.querySelector('[data-reply-body]')).toHaveTextContent('답장하면 이렇게 돼');
 
     if (platform === 'ios') {
-      expect(reply.querySelector('[data-renderer="ios-inset"]')).toBeInTheDocument();
+      expect(reply.querySelector('[data-renderer="ios-inset-nine-slice"]')).toBeInTheDocument();
       expect(reply.querySelector('[data-renderer="android-nine-patch"]')).not.toBeInTheDocument();
+      expect(reply.querySelector('.mini-bubble')).toHaveAttribute('data-content-mode', 'wrap');
     } else {
       expect(reply.querySelector('[data-renderer="android-nine-patch"]')).toBeInTheDocument();
-      expect(reply.querySelector('[data-renderer="ios-inset"]')).not.toBeInTheDocument();
+      expect(reply.querySelector('[data-renderer="ios-inset-nine-slice"]')).not.toBeInTheDocument();
     }
   });
 
   it('reuses the Android normal nine-patch for the pressed preview without retaining the iOS asset', () => {
     const project = createDefaultTheme();
     const { container, rerender } = render(<BubbleStates project={project} platform="ios" side="me" />);
-    expect(container.querySelector('.state-cell.pressed [data-renderer="ios-inset"]')).toBeInTheDocument();
+    expect(container.querySelector('.state-cell.pressed [data-renderer="ios-inset-nine-slice"]')).toBeInTheDocument();
 
     rerender(<BubbleStates project={project} platform="android" side="me" />);
 
@@ -117,11 +118,11 @@ describe('BubbleStates', () => {
     previous.naturalHeight = 105;
     act(() => previous.onload?.());
 
-    const layer = screen.getByText('네!').closest('.mini-bubble')?.querySelector<HTMLElement>('.kt-ios-inset-layer');
-    expect(layer?.style.borderImageSource).toContain(replacementUrl);
+    const canvas = screen.getByText('네!').closest('.mini-bubble')?.querySelector<HTMLCanvasElement>('.kt-nine-slice-canvas');
+    expect(canvas?.dataset.sourceImage).toBe(replacementUrl);
   });
 
-  it('preserves iOS fixed caps for short, long, reply, grouped, and pressed states', () => {
+  it('lets every iOS state compress fixed caps through the canonical renderer', () => {
     const project = createDefaultTheme();
     const guides = {
       stretch: { x: [99 / 345, 102 / 345] as [number, number], y: [285 / 375, 288 / 375] as [number, number] },
@@ -144,9 +145,13 @@ describe('BubbleStates', () => {
     const bubbles = [...container.querySelectorAll<HTMLElement>('.mini-bubble')];
 
     expect(bubbles).toHaveLength(5);
-    expect(bubbles.every((bubble) => bubble.style.minWidth === '115px')).toBe(true);
-    expect(bubbles.every((bubble) => bubble.style.minHeight === '125px')).toBe(true);
-    expect(bubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset"]'))).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minWidth === '')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.style.minHeight === '')).toBe(true);
+    expect(bubbles.every((bubble) => bubble.querySelector('[data-renderer="ios-inset-nine-slice"]'))).toBe(true);
+    expect(bubbles.every((bubble) => bubble.querySelector('.kt-nine-slice-canvas'))).toBe(true);
+    expect(bubbles.map((bubble) => bubble.dataset.contentMode)).toEqual([
+      'single-line', 'wrap', 'wrap', 'single-line', 'single-line',
+    ]);
   });
 
   it('does not impose bitmap-derived minimum dimensions on color-only iOS bubbles', () => {
@@ -158,6 +163,6 @@ describe('BubbleStates', () => {
     expect(bubbles).toHaveLength(5);
     expect(bubbles.every((bubble) => bubble.style.minWidth === '')).toBe(true);
     expect(bubbles.every((bubble) => bubble.style.minHeight === '')).toBe(true);
-    expect(container.querySelector('[data-renderer="ios-inset"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-renderer="ios-inset-nine-slice"]')).not.toBeInTheDocument();
   });
 });
