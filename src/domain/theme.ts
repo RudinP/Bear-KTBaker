@@ -1,5 +1,9 @@
 import { DEFAULT_NINE_PATCH, type NinePatchGuides } from './ninePatch';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from '../manifest/kakaoColors';
+import {
+  collectLegacyProjectImageCandidates,
+  normalizeLegacyProjectImages,
+} from './legacyProjectImages';
 
 export type Platform = 'ios' | 'android';
 export type ScreenId = 'friends' | 'chats' | 'chatroom' | 'notification' | 'now' | 'more' | 'passcode' | 'splash';
@@ -194,16 +198,16 @@ export function parseThemeProject(source: string): ThemeProject {
   ) {
     throw new Error('테마 스튜디오 프로젝트 파일이 아닙니다.');
   }
+  const candidates = collectLegacyProjectImageCandidates(value);
   const project = value as ThemeProject;
   const defaults = createDefaultTheme(project.meta?.name ?? '새 카카오톡 테마');
   project.meta = { ...defaults.meta, ...(project.meta ?? {}) };
   project.targets = { ...defaults.targets, ...(project.targets ?? {}) };
   project.resources ??= {};
   project.platformResources = {
-    ios: project.platformResources?.ios ?? {},
-    android: project.platformResources?.android ?? {},
+    ios: { ...candidates.currentPlatformResources.ios },
+    android: { ...candidates.currentPlatformResources.android },
   };
-  migrateLegacyNowTabAssets(project);
   project.colorValues ??= { ios: { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS }, android: { ...ANDROID_SAMPLE_COLORS } };
   project.colorValues.ios = { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS, ...project.colorValues.ios };
   project.colorValues.android = { ...ANDROID_SAMPLE_COLORS, ...project.colorValues.android };
@@ -228,5 +232,7 @@ export function parseThemeProject(source: string): ThemeProject {
       set[variant].stretch ??= cloneGuides();
     }
   }
+  normalizeLegacyProjectImages(project, candidates);
+  migrateLegacyNowTabAssets(project);
   return project;
 }

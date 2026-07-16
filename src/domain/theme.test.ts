@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTheme, parseThemeProject, serializeThemeProject } from './theme';
 import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
+import { resolveResourceAsset } from '../manifest/resourceResolver';
+import { getMappedResourceWrites } from '../io/resourceWrites';
 import {
   collectLegacyProjectImageCandidates,
   isUsableImageAsset,
 } from './legacyProjectImages';
 import {
+  flatResourcesV1Fixture,
   inlineImagesV1Fixture,
   legacyAsset,
 } from '../test/fixtures/legacyThemeProjects';
@@ -151,6 +154,94 @@ describe('theme project', () => {
 });
 
 describe('legacy schema-v1 image migration', () => {
+  it('recovers flat-only and 0.1.1 empty-bucket projects on both platforms', () => {
+    for (const raw of [
+      flatResourcesV1Fixture(),
+      flatResourcesV1Fixture({ ios: {}, android: {} }),
+    ]) {
+      const restored = parseThemeProject(JSON.stringify(raw));
+      for (const platform of ['ios', 'android'] as const) {
+        expect(restored.platformResources[platform]['common.theme-icon']).toMatchObject({
+          fileName: 'shared-theme-icon.png', userSelected: true,
+        });
+        expect(restored.platformResources[platform]['main.background']).toMatchObject({
+          fileName: 'shared-main-background.png', userSelected: true,
+        });
+      }
+      expect(restored.resources['common.theme-icon']?.fileName).toBe('shared-theme-icon.png');
+      expect(restored.resources['main.background']?.fileName).toBe('shared-main-background.png');
+    }
+  });
+
+  it('applies one-sided shared-resource rules without overwriting the existing platform', () => {
+    const mirroredShared = legacyAsset('mirrored-shared');
+    const selectedShared = legacyAsset('selected-shared');
+    const sameShared = legacyAsset('same-shared');
+    const ambiguousShared = legacyAsset('ambiguous-shared');
+    const bothShared = legacyAsset('both-shared');
+    const keypadShared = legacyAsset('keypad-shared');
+    const raw = {
+      schema: 'kakao-theme-studio', schemaVersion: 1, meta: { name: 'one-sided' },
+      resources: {
+        'main.background': mirroredShared,
+        'chat.background': selectedShared,
+        'passcode.background': sameShared,
+        'common.theme-icon': ambiguousShared,
+        'main.tab.background': bothShared,
+        'passcode.keypad.pressed': keypadShared,
+      },
+      platformResources: { ios: {
+        'main.background': { ...legacyAsset('android-mirror'), mirroredFromPlatform: 'android' as const },
+        'chat.background': { ...legacyAsset('ios-selected'), userSelected: true as const },
+        'passcode.background': { ...sameShared },
+        'common.theme-icon': legacyAsset('unrelated-current'),
+        'main.tab.background': legacyAsset('ios-tab-current'),
+      }, android: {
+        'main.tab.background': legacyAsset('android-tab-current'),
+      } },
+    };
+    const restored = parseThemeProject(JSON.stringify(raw));
+    expect(restored.platformResources.ios['main.background']?.fileName).toBe('android-mirror.png');
+    expect(restored.platformResources.ios['main.background']?.mirroredFromPlatform).toBe('android');
+    expect(restored.platformResources.android['main.background']?.fileName).toBe('mirrored-shared.png');
+    expect(restored.platformResources.android['main.background']?.mirroredFromPlatform).toBeUndefined();
+    expect(restored.platformResources.ios['chat.background']?.fileName).toBe('ios-selected.png');
+    expect(restored.platformResources.ios['chat.background']?.userSelected).toBe(true);
+    expect(restored.platformResources.android['chat.background']).toMatchObject({
+      fileName: 'selected-shared.png', userSelected: true,
+    });
+    expect(restored.platformResources.android['passcode.background']).toMatchObject({
+      fileName: 'same-shared.png', mirroredFromPlatform: 'ios',
+    });
+    expect(restored.platformResources.android['common.theme-icon']).toBeUndefined();
+    expect(restored.platformResources.ios['main.tab.background']?.fileName).toBe('ios-tab-current.png');
+    expect(restored.platformResources.android['main.tab.background']?.fileName).toBe('android-tab-current.png');
+    expect(restored.platformResources.ios['passcode.keypad.pressed']).toMatchObject({
+      fileName: 'keypad-shared.png', userSelected: true,
+    });
+    expect(restored.platformResources.android['passcode.keypad.pressed']).toBeUndefined();
+  });
+
+  it('marks a one-sided shared bubble mirror without quarantining its target', () => {
+    const id = 'chat.bubble.me.first.normal';
+    const shared = legacyAsset('chatroomBubbleSend01@3x', { sourceScale: 3 });
+    const raw = {
+      schema: 'kakao-theme-studio', schemaVersion: 1, meta: { name: 'mixed-bubble' },
+      resources: { [id]: shared },
+      platformResources: { ios: { [id]: { ...shared } } },
+    };
+    const restored = parseThemeProject(JSON.stringify(raw));
+    expect(restored.platformResources.ios[id]?.mirroredFromPlatform).toBeUndefined();
+    expect(restored.platformResources.android[id]).toMatchObject({
+      fileName: 'chatroomBubbleSend01@3x.png', mirroredFromPlatform: 'ios',
+    });
+    expect(resolveResourceAsset(restored, 'android', id)).toBeDefined();
+    expect(getMappedResourceWrites(restored, 'android'))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ resourceId: id })]));
+    const reparsed = parseThemeProject(serializeThemeProject(restored));
+    expect(reparsed.platformResources.android[id]?.mirroredFromPlatform).toBe('ios');
+  });
+
   it('accepts only image assets with non-empty file names and data URLs', () => {
     expect(isUsableImageAsset(legacyAsset('valid'))).toBe(true);
     expect(isUsableImageAsset({ fileName: '', dataUrl: 'data:image/png;base64,eA==' })).toBe(false);

@@ -1,4 +1,5 @@
-import type { ImageAsset, Platform } from './theme';
+import type { ImageAsset, Platform, ThemeProject } from './theme';
+import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
 
 export type LegacyImageMap = Record<string, ImageAsset>;
 
@@ -59,6 +60,71 @@ function screenImage(source: unknown, screen: string) {
 
 function sameCandidateImageData(left: ImageAsset, right: ImageAsset) {
   return left.dataUrl === right.dataUrl;
+}
+
+function cleanLegacyProvenance(asset: ImageAsset): ImageAsset {
+  const { userSelected: _userSelected, mirroredFromPlatform: _mirrored, ...value } = asset;
+  return { ...value };
+}
+
+function selected(asset: ImageAsset): ImageAsset {
+  return { ...cleanLegacyProvenance(asset), userSelected: true };
+}
+
+function mirrored(asset: ImageAsset, source: Platform): ImageAsset {
+  return { ...cleanLegacyProvenance(asset), mirroredFromPlatform: source };
+}
+
+function sameAssetContent(left: ImageAsset, right: ImageAsset) {
+  return left.fileName === right.fileName
+    && left.dataUrl === right.dataUrl
+    && left.width === right.width
+    && left.height === right.height
+    && left.sourceScale === right.sourceScale
+    && left.rawNinePatch === right.rawNinePatch;
+}
+
+function supportedPlatforms(resourceId: string) {
+  const slot = KAKAO_RESOURCE_SLOTS.find(({ id }) => id === resourceId);
+  return platforms.filter((platform) => (slot?.[platform]?.files.length ?? 0) > 0);
+}
+
+function normalizeSharedResource(
+  project: ThemeProject,
+  resourceId: string,
+  shared: ImageAsset,
+) {
+  const supported = supportedPlatforms(resourceId);
+  if (supported.length === 0) return;
+  if (supported.length === 1) {
+    const platform = supported[0];
+    project.platformResources[platform][resourceId] ??= selected(shared);
+    return;
+  }
+
+  const ios = project.platformResources.ios[resourceId];
+  const android = project.platformResources.android[resourceId];
+  if (!ios && !android) {
+    project.platformResources.ios[resourceId] = selected(shared);
+    project.platformResources.android[resourceId] = selected(shared);
+    return;
+  }
+  if (ios && android) return;
+
+  const source: Platform = ios ? 'ios' : 'android';
+  const target: Platform = source === 'ios' ? 'android' : 'ios';
+  const current = ios ?? android!;
+  if (current.mirroredFromPlatform === target) {
+    project.platformResources[target][resourceId] = cleanLegacyProvenance(shared);
+    return;
+  }
+  if (current.userSelected) {
+    project.platformResources[target][resourceId] = selected(shared);
+    return;
+  }
+  if (sameAssetContent(current, shared)) {
+    project.platformResources[target][resourceId] = mirrored(shared, source);
+  }
 }
 
 export function collectLegacyProjectImageCandidates(
@@ -142,4 +208,15 @@ export function collectLegacyProjectImageCandidates(
     nestedAssets,
     inlineAssets,
   };
+}
+
+export function normalizeLegacyProjectImages(
+  project: ThemeProject,
+  candidates: LegacyProjectImageCandidates,
+) {
+  for (const slot of KAKAO_RESOURCE_SLOTS) {
+    const shared = candidates.sharedResources[slot.id];
+    if (shared) normalizeSharedResource(project, slot.id, shared);
+  }
+  return project;
 }
