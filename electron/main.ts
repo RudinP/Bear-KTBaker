@@ -14,6 +14,7 @@ import { getMappedResourceWrites } from '../src/io/resourceWrites';
 import { flexibleBubbleTargetSize, uploadSourceScale } from '../src/io/resourceGeometry';
 import {
   detectThemeImportKind,
+  importAndroidSourceZip,
   importAndroidThemeArchive,
   importIosKtheme,
   inspectCompiledAndroidApk,
@@ -358,8 +359,17 @@ async function importTheme() {
   if (kind === 'ios') {
     return { kind: 'ios' as const, project: await importIosKtheme(await readFile(file), path.basename(file)) };
   }
-  const metadata = kind === 'android-apk' ? await inspectAndroidApk(file) : undefined;
-  return { kind: 'android' as const, project: await importAndroidThemeArchive(await readFile(file), path.basename(file), metadata) };
+  if (kind === 'android-apk') {
+    const metadata = await inspectAndroidApk(file);
+    return {
+      kind: 'android' as const,
+      project: await importAndroidThemeArchive(await readFile(file), path.basename(file), metadata),
+    };
+  }
+  return {
+    kind: 'android' as const,
+    project: await importAndroidSourceZip(await readFile(file), path.basename(file)),
+  };
 }
 
 function registerIpc() {

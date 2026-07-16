@@ -1,10 +1,20 @@
 import path from 'node:path';
 import JSZip from 'jszip';
 import { PNG } from 'pngjs';
-import { createDefaultTheme, migrateLegacyNowTabAssets, type ThemeProject } from '../domain/theme';
+import { createDefaultTheme, migrateLegacyNowTabAssets, type ImageAsset, type ThemeProject } from '../domain/theme';
 import type { NinePatchGuides } from '../domain/ninePatch';
-import { KAKAO_RESOURCE_SLOTS, type PlatformResourceBinding } from '../manifest/kakaoResources';
+import {
+  KAKAO_RESOURCE_SLOTS,
+  type KakaoResourceSlot,
+  type PlatformResourceBinding,
+} from '../manifest/kakaoResources';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS, KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
+import {
+  androidPngCandidates,
+  androidResourceIdentity,
+  createAndroidArchiveIndex,
+  isAndroidPngPath,
+} from './androidArchiveResources';
 import {
   inspectCompiledAndroidApk,
   type AndroidCompiledMetadata,
@@ -35,18 +45,6 @@ function preferredFile(binding: PlatformResourceBinding, platform: 'ios' | 'andr
   return binding.files.find((file) => file.includes('/mipmap-xxhdpi/'))
     ?? binding.files.find((file) => file.includes('/drawable-xxhdpi/'))
     ?? binding.files[0];
-}
-
-function compiledAndroidPath(sourcePath: string) {
-  const theme = sourcePath.match(/^src\/main\/theme\/([^/]+)\/(.+)$/);
-  if (theme) {
-    const [, qualifier, name] = theme;
-    const version = qualifier.includes('sw600dp') ? '-v13' : qualifier.startsWith('drawable-') ? '-v4' : '';
-    return `res/${qualifier}${version}/${name}`;
-  }
-  const res = sourcePath.match(/^src\/main\/res\/(mipmap-[^/]+)\/(.+)$/);
-  if (res) return `res/${res[1]}-v4/${res[2]}`;
-  return undefined;
 }
 
 function orderedFiles(binding: PlatformResourceBinding, platform: 'ios' | 'android') {
@@ -129,65 +127,159 @@ function iosReferencedFiles(resourceId: string, binding: PlatformResourceBinding
   return names.map((name) => `Images/${name}`);
 }
 
+interface MappedImageImportResult {
+  mappedIds: Set<string>;
+  failedResources: FailedAndroidResource[];
+}
+
+interface FailedAndroidResource {
+  resourceKey: string;
+  referencedPaths: string[];
+  errors: string[];
+}
+
+interface MappedImageCandidate {
+  path: string;
+  entry: JSZip.JSZipObject;
+  compiled: boolean;
+}
+
+interface DecodedMappedImage {
+  asset: ImageAsset;
+  guides?: NinePatchGuides;
+}
+
+function iosImageCandidates(
+  zip: JSZip,
+  resourceId: string,
+  binding: PlatformResourceBinding,
+  iosCss?: string,
+): MappedImageCandidate[] {
+  return [...new Set([
+    ...iosReferencedFiles(resourceId, binding, iosCss),
+    ...orderedFiles(binding, 'ios'),
+  ])].flatMap((candidate) => {
+    const entry = zip.file(candidate);
+    return entry ? [{ path: candidate, entry, compiled: false }] : [];
+  });
+}
+
+async function decodeMappedImage(
+  platform: 'ios' | 'android',
+  slot: KakaoResourceSlot,
+  candidate: MappedImageCandidate,
+): Promise<DecodedMappedImage> {
+  const binding = slot[platform]!;
+  const source = await candidate.entry.async('nodebuffer');
+  if (platform === 'android' && binding.ninePatch) {
+    const png = PNG.sync.read(source);
+    const parsed = candidate.compiled && slot.id.startsWith('chat.bubble.')
+      ? parseCompiledNinePatchPng(source)
+      : candidate.compiled
+        ? { width: png.width, height: png.height, guides: undefined }
+        : parseNinePatchPng(source);
+    const preview = candidate.compiled ? source : stripNinePatchBorder(source);
+    return {
+      asset: {
+        fileName: path.basename(candidate.path).replace('.9.png', '.png'),
+        dataUrl: dataUrl(preview),
+        width: parsed.width,
+        height: parsed.height,
+        sourceScale: importedSourceScale(slot.id, platform, candidate.path),
+        rawNinePatch: false,
+      },
+      guides: parsed.guides,
+    };
+  }
+  const png = PNG.sync.read(source);
+  return {
+    asset: {
+      fileName: path.basename(candidate.path),
+      dataUrl: dataUrl(source),
+      width: png.width,
+      height: png.height,
+      sourceScale: importedSourceScale(slot.id, platform, candidate.path),
+      rawNinePatch: false,
+    },
+  };
+}
+
+function applyDecodedMappedImage(
+  project: ThemeProject,
+  platform: 'ios' | 'android',
+  resourceId: string,
+  decoded: DecodedMappedImage,
+) {
+  if (decoded.guides) setBubbleGuides(project, resourceId, decoded.guides, platform);
+  project.resources[resourceId] = decoded.asset;
+  project.platformResources[platform][resourceId] = decoded.asset;
+}
+
 async function importMappedImages(
   zip: JSZip,
   project: ThemeProject,
   platform: 'ios' | 'android',
-  iosCss?: string,
-) {
+  options: {
+    archiveKind: 'ios' | 'source' | 'apk';
+    resourceFiles?: Record<string, string[]>;
+    iosCss?: string;
+  },
+): Promise<MappedImageImportResult> {
+  const mappedIds = new Set<string>();
+  const failedResources: FailedAndroidResource[] = [];
+  const androidIndex = platform === 'android'
+    ? createAndroidArchiveIndex(zip, options.archiveKind === 'apk' ? 'apk' : 'source')
+    : undefined;
+
   for (const slot of KAKAO_RESOURCE_SLOTS) {
     const binding = slot[platform];
     if (!binding || binding.files.length === 0) continue;
-    let file: string | undefined;
-    let entry: JSZip.JSZipObject | null = null;
-    let compiled = false;
-    const candidates = platform === 'ios'
-      ? [...iosReferencedFiles(slot.id, binding, iosCss), ...orderedFiles(binding, platform)]
-      : orderedFiles(binding, platform);
-    for (const candidate of [...new Set(candidates)]) {
-      entry = zip.file(candidate);
-      file = candidate;
-      if (entry) break;
-      const apkPath = platform === 'android' ? compiledAndroidPath(candidate) : undefined;
-      if (apkPath) {
-        entry = zip.file(apkPath);
-        if (entry) { file = apkPath; compiled = true; break; }
+    const candidates = platform === 'android'
+      ? androidPngCandidates({
+        index: androidIndex!,
+        kind: options.archiveKind === 'apk' ? 'apk' : 'source',
+        bindingFiles: orderedFiles(binding, platform),
+        resourceFiles: options.resourceFiles,
+      })
+      : iosImageCandidates(zip, slot.id, binding, options.iosCss);
+    const decodeErrors: string[] = [];
+    let restored = false;
+    for (const candidate of candidates) {
+      let decoded: DecodedMappedImage;
+      try {
+        decoded = await decodeMappedImage(platform, slot, candidate);
+      } catch (error) {
+        decodeErrors.push(`${candidate.path}: ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+      applyDecodedMappedImage(project, platform, slot.id, decoded);
+      mappedIds.add(slot.id);
+      restored = true;
+      break;
+    }
+    if (!restored && platform === 'android') {
+      const referencesByKey = new Map<string, string[]>();
+      for (const file of binding.files) {
+        const key = androidResourceIdentity(file)?.key;
+        if (!key) continue;
+        const paths = (options.resourceFiles?.[key] ?? []).filter(isAndroidPngPath);
+        if (paths.length) referencesByKey.set(key, paths);
+      }
+      for (const [resourceKey, referencedPaths] of referencesByKey) {
+        failedResources.push({
+          resourceKey,
+          referencedPaths,
+          errors: [
+            ...referencedPaths
+              .filter((candidatePath) => !androidIndex!.find(candidatePath))
+              .map((candidatePath) => `${candidatePath}: ZIP 엔트리 없음`),
+            ...decodeErrors,
+          ],
+        });
       }
     }
-    if (!file || !entry) continue;
-    const source = await entry.async('nodebuffer');
-    if (platform === 'android' && binding.ninePatch) {
-      const png = PNG.sync.read(source);
-      const parsed = compiled && slot.id.startsWith('chat.bubble.')
-        ? parseCompiledNinePatchPng(source)
-        : compiled ? { width: png.width, height: png.height, guides: undefined }
-          : parseNinePatchPng(source);
-      if (parsed.guides) setBubbleGuides(project, slot.id, parsed.guides, platform);
-      const preview = compiled ? source : stripNinePatchBorder(source);
-      const asset = {
-        fileName: path.basename(file).replace('.9.png', '.png'),
-        dataUrl: dataUrl(preview),
-        width: parsed.width,
-        height: parsed.height,
-        sourceScale: importedSourceScale(slot.id, platform, file),
-        rawNinePatch: false,
-      };
-      project.resources[slot.id] = asset;
-      project.platformResources[platform][slot.id] = asset;
-    } else {
-      const png = PNG.sync.read(source);
-      const asset = {
-        fileName: path.basename(file),
-        dataUrl: dataUrl(source),
-        width: png.width,
-        height: png.height,
-        sourceScale: importedSourceScale(slot.id, platform, file),
-        rawNinePatch: false,
-      };
-      project.resources[slot.id] = asset;
-      project.platformResources[platform][slot.id] = asset;
-    }
   }
+  return { mappedIds, failedResources };
 }
 
 function applyIosColors(project: ThemeProject, css: string) {
@@ -294,7 +386,7 @@ export async function importIosKtheme(source: Buffer, suggestedName: string) {
   project.meta.themeId = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-id')) ?? project.meta.themeId;
   project.meta.appearance = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-style')) === 'dark' ? 'dark' : 'light';
   const importedColors = applyIosColors(project, css);
-  await importMappedImages(zip, project, 'ios', css);
+  await importMappedImages(zip, project, 'ios', { archiveKind: 'ios', iosCss: css });
   migrateLegacyNowTabAssets(project);
   applyIosBubbleGuides(project, css);
   mirrorSemanticResources(project, 'ios');
@@ -344,57 +436,107 @@ function applyAndroidColors(project: ThemeProject, values: Record<string, string
   return parsedBindings;
 }
 
-export async function importAndroidSourceZip(source: Buffer, suggestedName: string, compiledMetadata?: AndroidCompiledMetadata) {
+interface AndroidArchiveImport {
+  zip: JSZip;
+  project: ThemeProject;
+  images: MappedImageImportResult;
+  archiveKind: 'apk' | 'source';
+  compiledMetadata?: AndroidCompiledMetadata;
+}
+
+async function importAndroidArchive(
+  source: Buffer,
+  suggestedName: string,
+  archiveKind: 'apk' | 'source',
+  compiledMetadata?: AndroidCompiledMetadata,
+) {
   const zip = await JSZip.loadAsync(source);
   const project = createDefaultTheme(suggestedName.replace(/\.(zip|apk)$/i, ''), false);
-  await importMappedImages(zip, project, 'android');
+  const images = await importMappedImages(zip, project, 'android', {
+    archiveKind,
+    resourceFiles: compiledMetadata?.resourceFiles,
+  });
+  return { zip, project, images, archiveKind, compiledMetadata } satisfies AndroidArchiveImport;
+}
+
+async function finishAndroidImport({
+  zip,
+  project,
+  archiveKind,
+  compiledMetadata,
+}: AndroidArchiveImport): Promise<ThemeProject> {
   migrateLegacyNowTabAssets(project);
   let importedColors = new Set<string>();
-  const manifest = await zip.file('src/main/AndroidManifest.xml')?.async('string');
-  project.meta.appearance = manifest && /<meta-data\b(?=[^>]*android:name=["']com\.kakao\.talk\.theme_style["'])(?=[^>]*android:value=["']dark["'])[^>]*\/>/i.test(manifest)
-    ? 'dark'
-    : 'light';
-  if (compiledMetadata?.appearance) project.meta.appearance = compiledMetadata.appearance;
-  const colors = await zip.file('src/main/theme/values/colors.xml')?.async('string');
-  if (colors) {
-    const parsedColors: Record<string, string> = {};
-    for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
-      const parsed = xmlColor(colors, name);
-      if (parsed) parsedColors[name] = parsed;
+
+  if (archiveKind === 'apk') {
+    if (compiledMetadata?.appearance) project.meta.appearance = compiledMetadata.appearance;
+    if (compiledMetadata?.colors) {
+      importedColors = applyAndroidColors(project, compiledMetadata.colors);
     }
-    importedColors = applyAndroidColors(project, parsedColors);
-  } else if (compiledMetadata?.colors) {
-    importedColors = applyAndroidColors(project, compiledMetadata.colors);
+    if (compiledMetadata?.name) project.meta.name = compiledMetadata.name;
+    if (compiledMetadata?.version) project.meta.version = compiledMetadata.version;
+    if (compiledMetadata?.themeId) project.meta.themeId = compiledMetadata.themeId;
+  } else {
+    const manifest = await zip.file('src/main/AndroidManifest.xml')?.async('string');
+    project.meta.appearance = manifest
+      && /<meta-data\b(?=[^>]*android:name=["']com\.kakao\.talk\.theme_style["'])(?=[^>]*android:value=["']dark["'])[^>]*\/>/i.test(manifest)
+      ? 'dark'
+      : 'light';
+    const colors = await zip.file('src/main/theme/values/colors.xml')?.async('string');
+    if (colors) {
+      const parsedColors: Record<string, string> = {};
+      for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
+        const parsed = xmlColor(colors, name);
+        if (parsed) parsedColors[name] = parsed;
+      }
+      importedColors = applyAndroidColors(project, parsedColors);
+    }
+    const strings = await zip.file('src/main/theme/values/strings.xml')?.async('string');
+    const title = decodeXmlText(
+      strings?.match(/<string\s+name=["']theme_title["']>([^<]+)</)?.[1],
+    );
+    const gradle = await (zip.file('build.gradle.kts') ?? zip.file('build.gradle'))?.async('string');
+    const sourceVersion = gradle?.match(/\bversionName\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
+      ?? manifest?.match(/\bandroid:versionName=["']([^"']+)["']/)?.[1];
+    const sourceThemeId = gradle?.match(/\bapplicationId\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
+      ?? manifest?.match(/\bpackage=["']([^"']+)["']/)?.[1]
+      ?? gradle?.match(/\bnamespace\s*(?:=\s*)?["']([^"']+)["']/)?.[1];
+    if (title) project.meta.name = title;
+    if (sourceVersion) project.meta.version = sourceVersion;
+    if (sourceThemeId) project.meta.themeId = sourceThemeId;
   }
-  const strings = await zip.file('src/main/theme/values/strings.xml')?.async('string');
-  const title = decodeXmlText(strings?.match(/<string\s+name=["']theme_title["']>([^<]+)</)?.[1]);
-  const gradle = await (zip.file('build.gradle.kts') ?? zip.file('build.gradle'))?.async('string');
-  const sourceVersion = gradle?.match(/\bversionName\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
-    ?? manifest?.match(/\bandroid:versionName=["']([^"']+)["']/)?.[1];
-  const sourceThemeId = gradle?.match(/\bapplicationId\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
-    ?? manifest?.match(/\bpackage=["']([^"']+)["']/)?.[1]
-    ?? gradle?.match(/\bnamespace\s*(?:=\s*)?["']([^"']+)["']/)?.[1];
-  if (title || compiledMetadata?.name) project.meta.name = title ?? compiledMetadata!.name!;
-  if (compiledMetadata?.version || sourceVersion) project.meta.version = compiledMetadata?.version ?? sourceVersion!;
-  if (compiledMetadata?.themeId || sourceThemeId) project.meta.themeId = compiledMetadata?.themeId ?? sourceThemeId!;
+
   mirrorSemanticResources(project, 'android');
   mirrorSemanticColors(project, 'android', importedColors);
   return project;
 }
 
-export async function importAndroidThemeArchive(source: Buffer, suggestedName: string, compiledMetadata?: AndroidCompiledMetadata) {
-  const project = await importAndroidSourceZip(source, suggestedName, compiledMetadata);
-  const hasMappedImage = Object.keys(project.platformResources.android).length > 0;
-  const hasCompiledThemeColor = Object.keys(compiledMetadata?.colors ?? {})
-    .some((name) => name in ANDROID_SAMPLE_COLORS);
-  let hasSourceThemeColor = false;
-  if (!hasMappedImage && !hasCompiledThemeColor) {
-    const zip = await JSZip.loadAsync(source);
-    const colors = await zip.file('src/main/theme/values/colors.xml')?.async('string');
-    hasSourceThemeColor = Object.keys(ANDROID_SAMPLE_COLORS)
-      .some((name) => new RegExp(`<color\\s+name=["']${name}["']`).test(colors ?? ''));
+export async function importAndroidSourceZip(
+  source: Buffer,
+  suggestedName: string,
+) {
+  const imported = await importAndroidArchive(source, suggestedName, 'source');
+  return finishAndroidImport(imported);
+}
+
+export async function importAndroidThemeArchive(
+  source: Buffer,
+  suggestedName: string,
+  compiledMetadata?: AndroidCompiledMetadata,
+) {
+  const imported = await importAndroidArchive(source, suggestedName, 'apk', compiledMetadata);
+  const project = await finishAndroidImport(imported);
+  if (imported.images.failedResources.length) {
+    const details = imported.images.failedResources.map(({ resourceKey, referencedPaths, errors }) =>
+      `${resourceKey} [${referencedPaths.join(', ')}]${errors.length ? `: ${errors.join(' | ')}` : ''}`);
+    throw new Error(`Android APK 이미지 리소스를 읽지 못했습니다: ${details.join('; ')}`);
   }
-  if (!hasMappedImage && !hasCompiledThemeColor && !hasSourceThemeColor) {
+  if (imported.images.mappedIds.size === 0) {
+    const hasCompiledThemeColor = Object.keys(compiledMetadata?.colors ?? {})
+      .some((name) => name in ANDROID_SAMPLE_COLORS);
+    if (hasCompiledThemeColor) {
+      throw new Error('Android APK에서 테마 색상은 읽었지만 이미지 리소스를 복원하지 못했습니다. 원본 APK를 확인해 주세요.');
+    }
     throw new Error('카카오톡 Android 테마 리소스를 찾지 못했습니다. APK 또는 Android 테마 소스 ZIP을 확인해 주세요.');
   }
   return project;

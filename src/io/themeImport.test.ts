@@ -229,7 +229,18 @@ describe('manifest-driven theme import', () => {
       );
     }
 
-    const project = await importAndroidSourceZip(await apk.generateAsync({ type: 'nodebuffer' }), 'legacy.apk');
+    const project = await importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'legacy.apk',
+      { resourceFiles: {
+        'drawable/theme_maintab_ico_piccoma_image': [
+          'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_image.png',
+        ],
+        'drawable/theme_maintab_ico_piccoma_focused_image': [
+          'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_focused_image.png',
+        ],
+      } },
+    );
     expect(project.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_piccoma_image.png');
     expect(project.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_piccoma_focused_image.png');
   });
@@ -289,6 +300,100 @@ describe('manifest-driven theme import', () => {
     expect(project.colorValues.ios['MainViewStyle-Primary|-ios-normal-background-alpha']).toBe('0.0');
   });
 
+  it('uses resources.arsc paths across qualifier, case, and separator differences', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
+    const apk = new JSZip();
+    apk.file('RES\\DRAWABLE-XXHDPI-V31\\THEME_BACKGROUND_IMAGE.PNG', image);
+    const project = await importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'variant.apk',
+      {
+        colors: { theme_background_color: '#123456' },
+        resourceFiles: {
+          'drawable/theme_background_image': [
+            'res/drawable/theme_background_image.xml',
+            'res/drawable-xxhdpi-v31/theme_background_image.png',
+          ],
+        },
+      },
+    );
+    expect(project.platformResources.android['main.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${image.toString('base64')}`);
+  });
+
+  it('tries every referenced PNG after XML, missing, and corrupt candidates', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
+    const apk = new JSZip();
+    apk.file('res/drawable-xxhdpi-v31/theme_background_image.png', Buffer.from('not a png'));
+    apk.file('res/drawable-sw600dp-v31/theme_background_image.png', image);
+    const project = await importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'candidate-exhaustion.apk',
+      { resourceFiles: { 'drawable/theme_background_image': [
+        'res/drawable/theme_background_image.xml',
+        'res/drawable-xhdpi-v4/theme_background_image.png',
+        'res/drawable-xxhdpi-v31/theme_background_image.png',
+        'res/drawable-sw600dp-v31/theme_background_image.png',
+      ] } },
+    );
+    expect(project.platformResources.android['main.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${image.toString('base64')}`);
+  });
+
+  it('names the advertised resource after every APK candidate fails', async () => {
+    const apk = new JSZip();
+    apk.file('res/drawable-xxhdpi-v31/theme_background_image.png', Buffer.from('broken'));
+    await expect(importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'broken.apk',
+      { resourceFiles: { 'drawable/theme_background_image': [
+        'res/drawable-xxhdpi-v31/theme_background_image.png',
+      ] } },
+    )).rejects.toThrow('drawable/theme_background_image');
+  });
+
+  it('does not report an XML-only compiled reference as a failed PNG', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
+    const apk = new JSZip();
+    apk.file('res/drawable-xxhdpi-v31/theme_background_image.png', image);
+    await expect(importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'xml-wrapper.apk',
+      { resourceFiles: {
+        'drawable/theme_background_image': ['res/drawable-xxhdpi-v31/theme_background_image.png'],
+        'mipmap/ic_launcher_foreground': ['res/mipmap-anydpi-v26/ic_launcher_foreground.xml'],
+      } },
+    )).resolves.toMatchObject({ meta: { name: 'xml-wrapper' } });
+  });
+
+  it('imports source images below exactly one common wrapper directory', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
+    const source = new JSZip();
+    source.file('theme-project/src/main/theme/drawable-xxhdpi/theme_background_image.png', image);
+    const project = await importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'wrapped.zip',
+    );
+    expect(project.platformResources.android['main.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${image.toString('base64')}`);
+  });
+
+  it('rejects an APK when colors load but no image can be restored', async () => {
+    const apk = await new JSZip().generateAsync({ type: 'nodebuffer' });
+    await expect(importAndroidThemeArchive(apk, 'colors-only.apk', {
+      colors: { theme_background_color: '#123456' },
+    })).rejects.toThrow('색상은 읽었지만 이미지 리소스를 복원하지 못했습니다');
+  });
+
+  it('keeps color-only Android source ZIP support', async () => {
+    const source = new JSZip();
+    source.file('src/main/theme/values/colors.xml', '<resources><color name="theme_background_color">#123456</color></resources>');
+    await expect(importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'colors-only.zip',
+    )).resolves.toMatchObject({ screens: { friends: { background: { color: '#123456' } } } });
+  });
+
   it('imports images from compiled APK resource paths instead of treating an APK like a source zip', async () => {
     const source = await JSZip.loadAsync(await readFile(path.join(templates, 'android-source.zip')));
     const apk = new JSZip();
@@ -301,7 +406,18 @@ describe('manifest-driven theme import', () => {
       await source.file('src/main/theme/drawable-xxhdpi/theme_profile_01_image.png')!.async('nodebuffer'),
     );
 
-    const project = await importAndroidSourceZip(await apk.generateAsync({ type: 'nodebuffer' }), 'sample.apk');
+    const project = await importAndroidThemeArchive(
+      await apk.generateAsync({ type: 'nodebuffer' }),
+      'sample.apk',
+      { resourceFiles: {
+        'drawable/theme_background_image': [
+          'res/drawable-xxhdpi-v4/theme_background_image.png',
+        ],
+        'drawable/theme_profile_01_image': [
+          'res/drawable-xxhdpi-v4/theme_profile_01_image.png',
+        ],
+      } },
+    );
 
     expect(project.resources['main.background'].fileName).toBe('theme_background_image.png');
     expect(project.resources['main.profile.01'].fileName).toBe('theme_profile_01_image.png');
@@ -330,9 +446,19 @@ describe('manifest-driven theme import', () => {
     apk.file('res/mipmap-xxhdpi-v4/ic_launcher_foreground.png', xxhdpi);
     apk.file('res/mipmap-mdpi-v4/ic_launcher_background.png', mdpi);
     apk.file('res/mipmap-xxhdpi-v4/ic_launcher_background.png', xxhdpi);
-    const apkProject = await importAndroidSourceZip(
+    const apkProject = await importAndroidThemeArchive(
       await apk.generateAsync({ type: 'nodebuffer' }),
       'adaptive.apk',
+      { resourceFiles: {
+        'mipmap/ic_launcher_foreground': [
+          'res/mipmap-mdpi-v4/ic_launcher_foreground.png',
+          'res/mipmap-xxhdpi-v4/ic_launcher_foreground.png',
+        ],
+        'mipmap/ic_launcher_background': [
+          'res/mipmap-mdpi-v4/ic_launcher_background.png',
+          'res/mipmap-xxhdpi-v4/ic_launcher_background.png',
+        ],
+      } },
     );
     expect(apkProject.platformResources.android['common.app-icon.foreground']?.dataUrl)
       .toBe(`data:image/png;base64,${xxhdpi.toString('base64')}`);
@@ -341,27 +467,44 @@ describe('manifest-driven theme import', () => {
   });
 
   it('restores compiled APK dark-mode metadata supplied by the Android inspector', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
     const apk = new JSZip();
-    const project = await importAndroidSourceZip(
+    apk.file('res/drawable-xxhdpi-v31/theme_background_image.png', image);
+    const resourceFiles = {
+      'drawable/theme_background_image': [
+        'res/drawable-xxhdpi-v31/theme_background_image.png',
+      ],
+    };
+    const project = await importAndroidThemeArchive(
       await apk.generateAsync({ type: 'nodebuffer' }),
       'dark.apk',
-      { appearance: 'dark' },
+      { appearance: 'dark', resourceFiles },
     );
     expect(project.meta.appearance).toBe('dark');
   });
 
   it('applies compiled APK colors to both canonical values and project background state', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
     const apk = new JSZip();
-    const project = await importAndroidSourceZip(
+    apk.file('res/drawable-xxhdpi-v31/theme_background_image.png', image);
+    const resourceFiles = {
+      'drawable/theme_background_image': [
+        'res/drawable-xxhdpi-v31/theme_background_image.png',
+      ],
+    };
+    const project = await importAndroidThemeArchive(
       await apk.generateAsync({ type: 'nodebuffer' }),
       'colors.apk',
-      { colors: {
-        theme_header_color: '#102030',
-        theme_background_color: '#203040',
-        theme_chatroom_background_color: '#304050',
-        theme_passcode_background_color: '#405060',
-        theme_chatroom_input_bar_send_button_color: '#506070',
-      } },
+      {
+        resourceFiles,
+        colors: {
+          theme_header_color: '#102030',
+          theme_background_color: '#203040',
+          theme_chatroom_background_color: '#304050',
+          theme_passcode_background_color: '#405060',
+          theme_chatroom_input_bar_send_button_color: '#506070',
+        },
+      },
     );
 
     expect(project.colorValues.android.theme_header_color).toBe('#102030');
@@ -370,6 +513,14 @@ describe('manifest-driven theme import', () => {
     expect(project.screens.friends.background).toEqual({ kind: 'color', color: '#203040' });
     expect(project.screens.chatroom.background).toEqual({ kind: 'color', color: '#304050' });
     expect(project.screens.passcode.background).toEqual({ kind: 'color', color: '#405060' });
+  });
+
+  it('rejects an empty APK without compiled theme colors', async () => {
+    await expect(importAndroidThemeArchive(
+      await new JSZip().generateAsync({ type: 'nodebuffer' }),
+      'empty.apk',
+      {},
+    )).rejects.toThrow('카카오톡 Android 테마 리소스를 찾지 못했습니다');
   });
 
   it('extracts compiled APK metadata and colors without Android SDK tools', async () => {
