@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme, parseThemeProject, serializeThemeProject } from '../domain/theme';
 import { getMappedResourceWrites } from './resourceWrites';
 
 describe('manifest-driven resource writes', () => {
@@ -95,5 +95,37 @@ describe('manifest-driven resource writes', () => {
 
     expect(getMappedResourceWrites(project, 'ios').filter((write) => write.resourceId === id)).toHaveLength(2);
     expect(getMappedResourceWrites(project, 'android').filter((write) => write.resourceId === id)).toEqual([]);
+  });
+
+  it('preserves valid unknown platform images without enumerating them as mapped writes', () => {
+    const resourceId = 'future.platform.image';
+    const asset = {
+      fileName: 'future.png',
+      dataUrl: 'data:image/png;base64,ZnV0dXJl',
+      width: 24,
+      height: 24,
+    };
+    const parsed = parseThemeProject(JSON.stringify({
+      schema: 'kakao-theme-studio',
+      schemaVersion: 1,
+      meta: { name: '미래 리소스' },
+      platformResources: {
+        ios: { [resourceId]: asset },
+        android: { [resourceId]: asset },
+      },
+    }));
+
+    expect(parsed.platformResources.ios[resourceId]).toEqual(asset);
+    expect(parsed.platformResources.android[resourceId]).toEqual(asset);
+
+    const reparsed = parseThemeProject(serializeThemeProject(parsed));
+    expect(reparsed.platformResources.ios[resourceId]).toEqual(asset);
+    expect(reparsed.platformResources.android[resourceId]).toEqual(asset);
+
+    for (const platform of ['ios', 'android'] as const) {
+      expect(() => getMappedResourceWrites(reparsed, platform)).not.toThrow();
+      expect(getMappedResourceWrites(reparsed, platform).map(({ resourceId: id }) => id))
+        .not.toContain(resourceId);
+    }
   });
 });

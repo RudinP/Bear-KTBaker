@@ -378,6 +378,72 @@ describe('manifest-driven theme import', () => {
       .toBe(`data:image/png;base64,${image.toString('base64')}`);
   });
 
+  it('loads colors from a case-varied color-only source below one wrapper directory', async () => {
+    const source = new JSZip();
+    source.file(
+      'Theme-Project/SRC/MAIN/THEME/VALUES/COLORS.XML',
+      '<resources><color name="theme_header_color">#102030</color><color name="theme_background_color">#203040</color></resources>',
+    );
+
+    const project = await importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'wrapped-colors.zip',
+    );
+
+    expect(project.colorValues.android.theme_header_color).toBe('#102030');
+    expect(project.colors.header).toBe('#102030');
+    expect(project.screens.friends.background).toEqual({ kind: 'color', color: '#203040' });
+  });
+
+  it('loads case-varied metadata and images through one wrapped source index', async () => {
+    const image = solidPng(12, 34, 56, 4, 8);
+    const source = new JSZip();
+    source.file('Wrapped-Theme/SRC/MAIN/ANDROIDMANIFEST.XML', `
+      <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        <application>
+          <meta-data android:name="com.kakao.talk.theme_style" android:value="dark" />
+        </application>
+      </manifest>
+    `);
+    source.file(
+      'Wrapped-Theme/SRC/MAIN/THEME/VALUES/STRINGS.XML',
+      '<resources><string name="theme_title">감싼 &amp; 테마</string></resources>',
+    );
+    source.file(
+      'Wrapped-Theme/SRC/MAIN/THEME/VALUES/COLORS.XML',
+      '<resources><color name="theme_header_color">#314159</color><color name="theme_background_color">#271828</color></resources>',
+    );
+    source.file('Wrapped-Theme/BUILD.GRADLE.KTS', `
+      android {
+        namespace = "com.example.wrapped.namespace"
+        defaultConfig {
+          applicationId = "com.example.wrapped.theme"
+          versionName = "4.5.6"
+        }
+      }
+    `);
+    source.file(
+      'Wrapped-Theme/SRC/MAIN/THEME/DRAWABLE-XXHDPI/THEME_BACKGROUND_IMAGE.PNG',
+      image,
+    );
+
+    const project = await importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'wrapped-metadata.zip',
+    );
+
+    expect(project.meta).toMatchObject({
+      appearance: 'dark',
+      name: '감싼 & 테마',
+      version: '4.5.6',
+      themeId: 'com.example.wrapped.theme',
+    });
+    expect(project.colorValues.android.theme_header_color).toBe('#314159');
+    expect(project.screens.friends.background).toEqual({ kind: 'color', color: '#271828' });
+    expect(project.platformResources.android['main.background']?.dataUrl)
+      .toBe(`data:image/png;base64,${image.toString('base64')}`);
+  });
+
   it('rejects an APK when colors load but no image can be restored', async () => {
     const apk = await new JSZip().generateAsync({ type: 'nodebuffer' });
     await expect(importAndroidThemeArchive(apk, 'colors-only.apk', {

@@ -130,7 +130,7 @@ export function createAndroidArchiveIndex(
     const prefix = wrapper ? `${wrapper}/` : '';
     const canonical = kind === 'source'
       && prefix
-      && path.toLowerCase().startsWith(`${prefix}src/main/`)
+      && path.toLowerCase().startsWith(prefix)
       ? path.slice(prefix.length)
       : path;
     const record = { path, entry, identity: androidResourceIdentity(canonical) };

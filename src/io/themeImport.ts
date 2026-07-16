@@ -14,6 +14,7 @@ import {
   androidResourceIdentity,
   createAndroidArchiveIndex,
   isAndroidPngPath,
+  type AndroidArchiveIndex,
 } from './androidArchiveResources';
 import {
   inspectCompiledAndroidApk,
@@ -221,15 +222,14 @@ async function importMappedImages(
   platform: 'ios' | 'android',
   options: {
     archiveKind: 'ios' | 'source' | 'apk';
+    androidIndex?: AndroidArchiveIndex;
     resourceFiles?: Record<string, string[]>;
     iosCss?: string;
   },
 ): Promise<MappedImageImportResult> {
   const mappedIds = new Set<string>();
   const failedResources: FailedAndroidResource[] = [];
-  const androidIndex = platform === 'android'
-    ? createAndroidArchiveIndex(zip, options.archiveKind === 'apk' ? 'apk' : 'source')
-    : undefined;
+  const androidIndex = options.androidIndex;
 
   for (const slot of KAKAO_RESOURCE_SLOTS) {
     const binding = slot[platform];
@@ -437,7 +437,7 @@ function applyAndroidColors(project: ThemeProject, values: Record<string, string
 }
 
 interface AndroidArchiveImport {
-  zip: JSZip;
+  index: AndroidArchiveIndex;
   project: ThemeProject;
   images: MappedImageImportResult;
   archiveKind: 'apk' | 'source';
@@ -451,16 +451,18 @@ async function importAndroidArchive(
   compiledMetadata?: AndroidCompiledMetadata,
 ) {
   const zip = await JSZip.loadAsync(source);
+  const index = createAndroidArchiveIndex(zip, archiveKind);
   const project = createDefaultTheme(suggestedName.replace(/\.(zip|apk)$/i, ''), false);
   const images = await importMappedImages(zip, project, 'android', {
     archiveKind,
+    androidIndex: index,
     resourceFiles: compiledMetadata?.resourceFiles,
   });
-  return { zip, project, images, archiveKind, compiledMetadata } satisfies AndroidArchiveImport;
+  return { index, project, images, archiveKind, compiledMetadata } satisfies AndroidArchiveImport;
 }
 
 async function finishAndroidImport({
-  zip,
+  index,
   project,
   archiveKind,
   compiledMetadata,
@@ -477,12 +479,12 @@ async function finishAndroidImport({
     if (compiledMetadata?.version) project.meta.version = compiledMetadata.version;
     if (compiledMetadata?.themeId) project.meta.themeId = compiledMetadata.themeId;
   } else {
-    const manifest = await zip.file('src/main/AndroidManifest.xml')?.async('string');
+    const manifest = await index.find('src/main/AndroidManifest.xml')?.async('string');
     project.meta.appearance = manifest
       && /<meta-data\b(?=[^>]*android:name=["']com\.kakao\.talk\.theme_style["'])(?=[^>]*android:value=["']dark["'])[^>]*\/>/i.test(manifest)
       ? 'dark'
       : 'light';
-    const colors = await zip.file('src/main/theme/values/colors.xml')?.async('string');
+    const colors = await index.find('src/main/theme/values/colors.xml')?.async('string');
     if (colors) {
       const parsedColors: Record<string, string> = {};
       for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
@@ -491,11 +493,11 @@ async function finishAndroidImport({
       }
       importedColors = applyAndroidColors(project, parsedColors);
     }
-    const strings = await zip.file('src/main/theme/values/strings.xml')?.async('string');
+    const strings = await index.find('src/main/theme/values/strings.xml')?.async('string');
     const title = decodeXmlText(
       strings?.match(/<string\s+name=["']theme_title["']>([^<]+)</)?.[1],
     );
-    const gradle = await (zip.file('build.gradle.kts') ?? zip.file('build.gradle'))?.async('string');
+    const gradle = await (index.find('build.gradle.kts') ?? index.find('build.gradle'))?.async('string');
     const sourceVersion = gradle?.match(/\bversionName\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
       ?? manifest?.match(/\bandroid:versionName=["']([^"']+)["']/)?.[1];
     const sourceThemeId = gradle?.match(/\bapplicationId\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
