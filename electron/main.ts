@@ -17,7 +17,7 @@ import { buildIosCss } from '../src/io/iosTheme';
 import { generateCleanIosThemeArchive } from '../src/io/archiveHygiene';
 import { buildNinePatchPng, replaceNinePatchInterior, stripNinePatchBorder } from '../src/io/ninePatchPng';
 import { getMappedResourceWrites } from '../src/io/resourceWrites';
-import { flexibleBubbleTargetSize, uploadSourceScale } from '../src/io/resourceGeometry';
+import { flexibleBubbleTargetSize, sourceHasNinePatchBorder, uploadSourceScale } from '../src/io/resourceGeometry';
 import {
   detectThemeImportKind,
   importAndroidSourceZip,
@@ -150,7 +150,8 @@ function preparePngAtSize(dataUrl: string, width: number, height: number, mode: 
 
 function prepareFlexibleBubblePng(dataUrl: string, platform: 'ios' | 'android', targetPath: string, asset: ThemeProject['platformResources']['ios'][string]) {
   const rawSource = dataUrlBuffer(dataUrl);
-  const sourceIsNinePatch = platform === 'android' && Boolean(asset.rawNinePatch || /\.9\.png$/i.test(asset.fileName));
+  const sourceIsNinePatch = platform === 'android'
+    && sourceHasNinePatchBorder(asset.rawNinePatch, asset.fileName);
   const rawImage = nativeImage.createFromBuffer(rawSource);
   if (rawImage.isEmpty()) throw new Error('말풍선 이미지를 읽을 수 없습니다. PNG, JPG 또는 WebP 파일을 사용해 주세요.');
   const sourceBuffer = sourceIsNinePatch ? Buffer.from(stripNinePatchBorder(rawSource)) : rawSource;
@@ -211,7 +212,13 @@ async function replaceMappedAndroidImages(buildDir: string, project: ThemeProjec
     const png = flexibleBubble
       ? prepareFlexibleBubblePng(write.asset.dataUrl, 'android', write.path, write.asset)
       : target
-      ? preparePng(write.asset.dataUrl, target, mode, write.ninePatch, /\.9\.png$/i.test(write.asset.fileName))
+      ? preparePng(
+        write.asset.dataUrl,
+        target,
+        mode,
+        write.ninePatch,
+        sourceHasNinePatchBorder(write.asset.rawNinePatch, write.asset.fileName),
+      )
       : preparePngAtSize(write.asset.dataUrl, outputSize![0], outputSize![1], mode);
     const guides = bubbleGuides(project, 'android', write.resourceId);
     const output = write.ninePatch ? (guides ? buildNinePatchPng(png, guides) : replaceNinePatchInterior(target!, png)) : png;

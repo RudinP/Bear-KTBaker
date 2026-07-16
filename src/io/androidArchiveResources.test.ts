@@ -50,6 +50,59 @@ describe('Android archive resource lookup', () => {
       .toThrow('안전하지 않은 Android 압축 경로');
   });
 
+  it.each([
+    {
+      kind: 'source' as const,
+      archivePath: 'res/drawable-xxhdpi-v4/theme_background_image.png',
+      bindingPath: 'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+    },
+    {
+      kind: 'apk' as const,
+      archivePath: 'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+      bindingPath: 'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+    },
+  ])('does not return $archivePath from a $kind index', ({ kind, archivePath, bindingPath }) => {
+    const zip = new JSZip();
+    zip.file(archivePath, 'wrong archive representation');
+    const index = createAndroidArchiveIndex(zip, kind);
+
+    expect(androidPngCandidates({ index, kind, bindingFiles: [bindingPath] })).toEqual([]);
+    expect(index.identity(archivePath)).toBeUndefined();
+  });
+
+  it('indexes one wrapped source while excluding Finder metadata from roots and lookup', () => {
+    const zip = new JSZip();
+    const resource = 'theme-project/src/main/theme/drawable-xxhdpi/theme_background_image.png';
+    const macosx = '__MACOSX/theme-project/src/main/theme/drawable-xxhdpi/._theme_background_image.png';
+    const appleDouble = 'theme-project/src/main/theme/drawable-xxhdpi/._theme_background_image.png';
+    const appleDoubleDirectory = 'theme-project/.AppleDouble/src/main/theme/drawable-xxhdpi/theme_background_image.png';
+    zip.file(resource, 'png');
+    zip.file(macosx, 'finder metadata');
+    zip.file(appleDouble, 'finder metadata');
+    zip.file(appleDoubleDirectory, 'finder metadata');
+
+    const index = createAndroidArchiveIndex(zip, 'source');
+
+    expect(index.find('src/main/theme/drawable-xxhdpi/theme_background_image.png')).toBeDefined();
+    expect(index.find(macosx)).toBeUndefined();
+    expect(index.find(appleDouble)).toBeUndefined();
+    expect(index.find(appleDoubleDirectory)).toBeUndefined();
+    expect(index.resourceEntries('drawable', 'theme_background_image').map(({ path }) => path))
+      .toEqual([resource]);
+  });
+
+  it('rejects unsafeOriginalName traversal before excluding Finder metadata', async () => {
+    const source = new JSZip();
+    source.file(
+      '../__MACOSX/theme-project/src/main/theme/drawable-xxhdpi/._theme_background_image.png',
+      'unsafe finder metadata',
+    );
+    const loaded = await JSZip.loadAsync(await source.generateAsync({ type: 'nodebuffer' }));
+
+    expect(() => createAndroidArchiveIndex(loaded, 'source'))
+      .toThrow('안전하지 않은 Android 압축 경로');
+  });
+
   it('finds a case-varied backslash entry through a metadata path', async () => {
     const zip = new JSZip();
     zip.file('RES\\DRAWABLE-XXHDPI-V31\\THEME_BACKGROUND_IMAGE.PNG', Buffer.from('png'));

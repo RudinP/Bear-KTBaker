@@ -84,17 +84,29 @@ interface IndexedAndroidEntry {
   identity?: AndroidResourceIdentity;
 }
 
+function indexedResourceIdentity(input: string, kind: AndroidArchiveKind) {
+  const path = normalizeAndroidArchivePath(input);
+  const matchesKind = kind === 'source' ? /^src\/main\//i.test(path) : /^res\//i.test(path);
+  return matchesKind ? androidResourceIdentity(path) : undefined;
+}
+
+function isFinderMetadataPath(input: string) {
+  return normalizeAndroidArchivePath(input).split('/').some((segment) => {
+    const lower = segment.toLowerCase();
+    return lower === '__macosx' || lower === '.appledouble' || lower.startsWith('._');
+  });
+}
+
 export function createAndroidArchiveIndex(
   zip: JSZip,
   kind: AndroidArchiveKind,
 ): AndroidArchiveIndex {
-  const files = Object.values(zip.files).filter((entry) => !entry.dir);
-  const normalized = files.map((entry) => {
+  const normalized = Object.values(zip.files).map((entry) => {
     const unsafe = (entry as JSZip.JSZipObject & { unsafeOriginalName?: string })
       .unsafeOriginalName;
     if (unsafe !== undefined) normalizeAndroidArchivePath(unsafe);
     return { entry, path: normalizeAndroidArchivePath(entry.name) };
-  });
+  }).filter(({ entry, path }) => !entry.dir && (kind !== 'source' || !isFinderMetadataPath(path)));
   const sourceRoots = new Set<string>();
   if (kind === 'source') {
     for (const { path } of normalized) {
@@ -123,7 +135,7 @@ export function createAndroidArchiveIndex(
     if (existing && existing.entry !== entry) {
       throw new Error(`Android 압축 경로가 충돌합니다: ${path}`);
     }
-    lookup.set(key, { path, entry, identity: androidResourceIdentity(identityPath) });
+    lookup.set(key, { path, entry, identity: indexedResourceIdentity(identityPath, kind) });
   };
 
   for (const { entry, path } of normalized) {
@@ -133,7 +145,7 @@ export function createAndroidArchiveIndex(
       && path.toLowerCase().startsWith(prefix)
       ? path.slice(prefix.length)
       : path;
-    const record = { path, entry, identity: androidResourceIdentity(canonical) };
+    const record = { path, entry, identity: indexedResourceIdentity(canonical, kind) };
     resourceRecords.push(record);
     add(path, entry, canonical);
     if (canonical !== path) add(canonical, entry, canonical);
@@ -210,7 +222,7 @@ export function androidPngCandidates({
       if (seen.has(normalizedKey)) return [];
       seen.add(normalizedKey);
       const entry = index.find(path);
-      const identity = index.identity(path) ?? androidResourceIdentity(path);
+      const identity = index.identity(path);
       return entry && identity ? [{
         path: normalizeAndroidArchivePath(entry.name),
         entry,

@@ -182,7 +182,7 @@ async function decodeMappedImage(
     const preview = candidate.compiled ? source : stripNinePatchBorder(source);
     return {
       asset: {
-        fileName: path.basename(candidate.path).replace('.9.png', '.png'),
+        fileName: path.basename(candidate.path).replace(/\.9\.png$/i, '.png'),
         dataUrl: dataUrl(preview),
         width: parsed.width,
         height: parsed.height,

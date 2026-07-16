@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PNG } from 'pngjs';
 import { buildNinePatchPng, parseNinePatchPng } from './ninePatchPng';
-import { flexibleBubbleTargetSize, pngDimensionsFromDataUrl, uploadSourceScale } from './resourceGeometry';
+import { flexibleBubbleTargetSize, pngDimensionsFromDataUrl, sourceHasNinePatchBorder, uploadSourceScale } from './resourceGeometry';
 
 describe('arbitrary-size uploaded resource geometry', () => {
   it('keeps the uploaded iOS logical bubble size while generating @2x and @3x variants', () => {
@@ -18,6 +18,19 @@ describe('arbitrary-size uploaded resource geometry', () => {
   it('preserves an arbitrary Android bubble interior instead of forcing the sample dimensions', () => {
     expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', { width: 247, height: 133 }, 3, false)).toEqual({ width: 247, height: 133 });
     expect(flexibleBubbleTargetSize('android', 'theme_chatroom_bubble_me_01_image.9.png', { width: 249, height: 135 }, 3, true)).toEqual({ width: 247, height: 133 });
+  });
+
+  it('lets explicit borderless metadata override legacy nine-patch filename inference', () => {
+    const sourceIsNinePatch = sourceHasNinePatchBorder(false, 'bubble.9.PNG');
+    expect(sourceIsNinePatch).toBe(false);
+    expect(flexibleBubbleTargetSize(
+      'android',
+      'theme_chatroom_bubble_me_01_image.9.png',
+      { width: 7, height: 5 },
+      3,
+      sourceIsNinePatch,
+    )).toEqual({ width: 7, height: 5 });
+    expect(sourceHasNinePatchBorder(undefined, 'legacy.9.PNG')).toBe(true);
   });
 
   it.each([

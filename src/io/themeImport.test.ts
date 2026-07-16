@@ -7,6 +7,7 @@ import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
 import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
 import { resolveResourceAsset } from '../manifest/resourceResolver';
 import { buildIosCss } from './iosTheme';
+import { buildNinePatchPng } from './ninePatchPng';
 import { getMappedResourceWrites } from './resourceWrites';
 import { flexibleBubbleTargetSize } from './resourceGeometry';
 import { detectThemeImportKind, importAndroidSourceZip, importAndroidThemeArchive, importIosKtheme, inspectCompiledAndroidApk } from './themeImport';
@@ -201,6 +202,36 @@ describe('manifest-driven theme import', () => {
     expect(project.resources['main.tab.background'].sourceScale).toBe(4);
     expect(project.chat.bubbles.me.normal.stretch.stretch.x[0]).toBeCloseTo(54 / 122, 5);
     expect(project.chat.bubbles.me.normal.stretch.content.right).toBeCloseTo(92 / 122, 5);
+  });
+
+  it('normalizes a mixed-case source nine-patch to one borderless import representation', async () => {
+    const interior = solidPng(12, 34, 56, 7, 5);
+    const ninePatch = buildNinePatchPng(interior, {
+      stretch: { x: [1 / 7, 6 / 7], y: [1 / 5, 4 / 5] },
+      content: { left: 1 / 7, top: 1 / 5, right: 6 / 7, bottom: 4 / 5 },
+    });
+    const source = new JSZip();
+    source.file(
+      'src/main/theme/drawable-xxhdpi/theme_chatroom_bubble_me_01_image.9.PNG',
+      ninePatch,
+    );
+
+    const project = await importAndroidSourceZip(
+      await source.generateAsync({ type: 'nodebuffer' }),
+      'mixed-case-nine-patch.zip',
+    );
+    const asset = project.platformResources.android['chat.bubble.me.first.normal']!;
+    const preview = PNG.sync.read(Buffer.from(asset.dataUrl.split(',')[1], 'base64'));
+    const expected = PNG.sync.read(interior);
+
+    expect(asset).toMatchObject({
+      fileName: 'theme_chatroom_bubble_me_01_image.png',
+      width: 7,
+      height: 5,
+      rawNinePatch: false,
+    });
+    expect([preview.width, preview.height]).toEqual([7, 5]);
+    expect(Buffer.from(preview.data)).toEqual(Buffer.from(expected.data));
   });
 
   it('uses legacy Android source Piccoma tab icons as Now fallbacks while current Now icons win', async () => {

@@ -29,6 +29,10 @@ export function uploadSourceScale(platform: Platform, resourceId: string, fileNa
   return 3;
 }
 
+export function sourceHasNinePatchBorder(rawNinePatch: boolean | undefined, fileName: string) {
+  return rawNinePatch ?? /\.9\.png$/i.test(fileName);
+}
+
 export function flexibleBubbleTargetSize(
   platform: Platform,
   targetPath: string,
