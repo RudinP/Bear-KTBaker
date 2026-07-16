@@ -5,6 +5,7 @@ release/
 coverage/
 .DS_Store
 .superpowers/
+.worktrees/
 docs/superpowers/
 *.log
 *.tsbuildinfo
