@@ -235,6 +235,7 @@ export function parseThemeProject(source: string): ThemeProject {
 
   const rawColorValues = objectRecord(project.colorValues);
   project.colorValues = {
+    ...(rawColorValues ?? {}),
     ios: {
       ...defaults.colorValues.ios,
       ...(objectRecord(rawColorValues?.ios) ?? {}),
@@ -256,23 +257,27 @@ export function parseThemeProject(source: string): ThemeProject {
     if (objectRecord(existing?.background)) continue;
     const chatroom = objectRecord(rawScreens.chatroom);
     const chatroomBackground = objectRecord(chatroom?.background);
-    project.screens[screen] = screen === 'notification' && chatroomBackground
-      ? { background: structuredClone(chatroomBackground) as VisualFill }
-      : structuredClone(defaults.screens[screen]);
+    const background = screen === 'notification' && chatroomBackground
+      ? structuredClone(chatroomBackground) as VisualFill
+      : structuredClone(defaults.screens[screen].background);
+    project.screens[screen] = {
+      ...(existing ?? {}),
+      background,
+    } as ThemeProject['screens'][ScreenId];
   }
 
   const rawChat = objectRecord(project.chat) ?? {};
   const rawBubbles = objectRecord(rawChat.bubbles) ?? {};
   project.chat = {
     ...rawChat,
-    bubbles: {} as ThemeProject['chat']['bubbles'],
+    bubbles: { ...rawBubbles } as ThemeProject['chat']['bubbles'],
     unreadColor: typeof rawChat.unreadColor === 'string'
       ? rawChat.unreadColor
       : defaults.chat.unreadColor,
   } as ThemeProject['chat'];
   for (const side of ['me', 'you'] as const) {
     const rawSet = objectRecord(rawBubbles[side]) ?? {};
-    const repairedSet = {} as BubbleSet;
+    const repairedSet = { ...rawSet } as unknown as BubbleSet;
     for (const variant of ['normal', 'pressed', 'grouped', 'groupedPressed'] as const) {
       const fallback = defaults.chat.bubbles[side][variant];
       const appearance = {

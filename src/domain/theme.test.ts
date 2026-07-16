@@ -115,6 +115,68 @@ describe('theme project', () => {
     expect(restored.screens.chatroom.background).toBeDefined();
   });
 
+  it('preserves unknown nested legacy fields while repairing required structures', () => {
+    const raw = {
+      schema: 'kakao-theme-studio',
+      schemaVersion: 1,
+      meta: { name: '중첩 레거시 보존' },
+      colorValues: {
+        legacyDesktop: { legacyAccent: '#123456' },
+      },
+      screens: {
+        friends: { legacyScreenField: { keep: 'screen' } },
+      },
+      chat: {
+        bubbles: {
+          legacyBubbleContainer: { keep: 'container' },
+          me: {
+            legacySideField: { keep: 'me' },
+            normal: {
+              color: 123,
+              textColor: null,
+              stretch: [],
+              legacyVariantField: { keep: 'variant' },
+            },
+          },
+          you: {
+            legacySideField: { keep: 'you' },
+          },
+        },
+      },
+    };
+    const expected = createDefaultTheme();
+    const parsed = parseThemeProject(JSON.stringify(raw));
+    const reparsed = parseThemeProject(serializeThemeProject(parsed));
+
+    for (const project of [parsed, reparsed]) {
+      const legacy = project as unknown as {
+        colorValues: { legacyDesktop: unknown };
+        screens: { friends: { legacyScreenField: unknown } };
+        chat: {
+          bubbles: {
+            legacyBubbleContainer: unknown;
+            me: {
+              legacySideField: unknown;
+              normal: { legacyVariantField: unknown };
+            };
+            you: { legacySideField: unknown };
+          };
+        };
+      };
+
+      expect(legacy.colorValues.legacyDesktop).toEqual({ legacyAccent: '#123456' });
+      expect(legacy.screens.friends.legacyScreenField).toEqual({ keep: 'screen' });
+      expect(project.screens.friends.background).toEqual(expected.screens.friends.background);
+      expect(legacy.chat.bubbles.legacyBubbleContainer).toEqual({ keep: 'container' });
+      expect(legacy.chat.bubbles.me.legacySideField).toEqual({ keep: 'me' });
+      expect(legacy.chat.bubbles.you.legacySideField).toEqual({ keep: 'you' });
+      expect(legacy.chat.bubbles.me.normal.legacyVariantField).toEqual({ keep: 'variant' });
+      expect(project.chat.bubbles.me.normal.color).toBe(expected.chat.bubbles.me.normal.color);
+      expect(project.chat.bubbles.me.normal.textColor).toBe(expected.chat.bubbles.me.normal.textColor);
+      expect(project.chat.bubbles.me.normal.stretch).toEqual(expected.chat.bubbles.me.normal.stretch);
+    }
+  });
+
   it('migrates legacy Piccoma tab assets to missing Now slots per platform without replacing current Now assets', () => {
     const project = createDefaultTheme('예전 Piccoma 프로젝트');
     const iosLegacy = { fileName: 'maintabIcoPiccoma@3x.png', dataUrl: 'data:image/png;base64,aW9z' };
