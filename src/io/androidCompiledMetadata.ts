@@ -3,6 +3,7 @@ import { ANDROID_SAMPLE_COLORS } from '../manifest/kakaoColors';
 
 export interface AndroidCompiledMetadata {
   colors?: Record<string, string>;
+  resourceFiles?: Record<string, string[]>;
   name?: string;
   resourcePackage?: string;
   version?: string;
@@ -279,6 +280,20 @@ function readResourceTable(buffer: Buffer) {
   return { packageName, resources };
 }
 
+function compiledResourceFiles(
+  resources: Map<string, Map<string, ResourceCandidate[]>>,
+) {
+  const result: Record<string, string[]> = {};
+  for (const type of ['drawable', 'mipmap'] as const) {
+    for (const [name, candidates] of resources.get(type) ?? []) {
+      const paths = [...new Set(candidates.flatMap(({ value }) =>
+        typeof value === 'string' && value.startsWith('res/') ? [value] : []))].sort();
+      if (paths.length) result[`${type}/${name}`] = paths;
+    }
+  }
+  return result;
+}
+
 function candidate(
   resources: Map<string, Map<string, ResourceCandidate[]>>,
   type: string,
@@ -333,6 +348,8 @@ export async function inspectCompiledAndroidApk(source: Buffer): Promise<Android
 
   const { packageName: resourcePackage, resources } = readResourceTable(tableBuffer);
   if (resourcePackage) result.resourcePackage = resourcePackage;
+  const resourceFiles = compiledResourceFiles(resources);
+  if (Object.keys(resourceFiles).length) result.resourceFiles = resourceFiles;
   const colors: Record<string, string> = {};
   for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
     const parsed = normalizeColor(candidate(resources, 'color', name));

@@ -392,5 +392,14 @@ describe('manifest-driven theme import', () => {
       theme_passcode_background_color: '#C3D4E5',
       theme_chatroom_input_bar_send_button_color: '#D4E5F6',
     });
+    expect(metadata.resourceFiles?.['drawable/theme_background_image']).toEqual(expect.arrayContaining([
+      'res/drawable/theme_background_image.xml',
+      'res/drawable-xxhdpi-v4/theme_background_image.png',
+      'res/drawable-sw600dp-v13/theme_background_image.png',
+    ]));
+    expect(metadata.resourceFiles?.['mipmap/ic_launcher']).toEqual(expect.arrayContaining([
+      'res/mipmap-anydpi-v26/ic_launcher.xml',
+      'res/mipmap-xxhdpi-v4/ic_launcher.png',
+    ]));
   });
 });
