@@ -3,6 +3,7 @@ import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
+import { PNG } from 'pngjs';
 import {
   buildStandaloneAndroidApk,
   prepareStandaloneAndroidManifest,
@@ -13,6 +14,9 @@ import {
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
 import { createDefaultTheme } from '../src/domain/theme';
 import { inspectCompiledAndroidApk } from '../src/io/androidCompiledMetadata';
+import { fingerprintAndroidPng } from '../src/io/androidArchiveResources';
+import { createAndroidImageExpectation } from '../src/io/androidImageVerification';
+import { importAndroidThemeArchive } from '../src/io/themeImport';
 
 async function main() {
 const root = process.cwd();
@@ -66,6 +70,40 @@ try {
     await writeFile(path.join(buildDir, target), strings);
   }
 
+  const backgroundSourcePath = 'src/main/theme/drawable-xxhdpi/theme_background_image.png';
+  const backgroundPath = path.join(buildDir, backgroundSourcePath);
+  const backgroundPng = PNG.sync.read(await readFile(backgroundPath));
+  let visiblePixelOffset = -1;
+  for (let offset = 0; offset < backgroundPng.data.length; offset += 4) {
+    if (backgroundPng.data[offset + 3] === 255) {
+      visiblePixelOffset = offset;
+      break;
+    }
+  }
+  if (visiblePixelOffset === -1) throw new Error('Android background image has no visible pixel to mutate.');
+  backgroundPng.data[visiblePixelOffset] = backgroundPng.data[visiblePixelOffset] === 255 ? 0 : 255;
+  const backgroundBuffer = PNG.sync.write(backgroundPng);
+  await writeFile(backgroundPath, backgroundBuffer);
+
+  const bubbleSourcePath = 'src/main/theme/drawable-xxhdpi/theme_chatroom_bubble_me_01_image.9.png';
+  const bubbleBuffer = await readFile(path.join(buildDir, bubbleSourcePath));
+  const backgroundExpectation = createAndroidImageExpectation(
+    'main.background',
+    backgroundSourcePath,
+    backgroundBuffer,
+    false,
+  );
+  const bubbleExpectation = createAndroidImageExpectation(
+    'chat.bubble.me.first.normal',
+    bubbleSourcePath,
+    bubbleBuffer,
+    true,
+  );
+  if (!backgroundExpectation || !bubbleExpectation) {
+    throw new Error('Android image expectations could not be created.');
+  }
+  const expectedImages = [backgroundExpectation, bubbleExpectation];
+
   await chmod(standaloneRuntimePaths(runtimeDir, 'darwin').aapt2, 0o755);
   await buildStandaloneAndroidApk({
     buildDir,
@@ -80,12 +118,39 @@ try {
       appearance: project.meta.appearance,
       colors: project.colorValues.android,
     },
+    expectedImages,
     platform: 'darwin',
   });
 
   const output = await readFile(outputPath);
   const structure = await verifyStandaloneApkStructure(output);
   const metadata = await inspectCompiledAndroidApk(output);
+  if (!metadata.resourceFiles?.['drawable/theme_background_image']?.some((file) => file.endsWith('.png'))) {
+    throw new Error('Compiled background image references are missing.');
+  }
+  const imported = await importAndroidThemeArchive(output, 'standalone-verification.apk', metadata);
+  const imageCount = Object.keys(imported.platformResources.android).length;
+  const colorCount = Object.keys(metadata.colors ?? {}).length;
+  if (imageCount !== 37) throw new Error(`Expected 37 imported Android images, got ${imageCount}.`);
+  if (colorCount !== 44) throw new Error(`Expected 44 compiled Android colors, got ${colorCount}.`);
+  const importedBackground = imported.platformResources.android['main.background'];
+  if (!importedBackground) throw new Error('Imported Android background image is missing.');
+  const importedBackgroundFingerprint = fingerprintAndroidPng(
+    Buffer.from(importedBackground.dataUrl.split(',')[1], 'base64'),
+    false,
+  );
+  if (importedBackgroundFingerprint.sha256 !== backgroundExpectation.pixelFingerprint) {
+    throw new Error('Imported Android background pixels differ from the exported expectation.');
+  }
+  for (const resourceId of [
+    'chat.bubble.me.first.normal',
+    'chat.bubble.you.first.normal',
+  ] as const) {
+    const asset = imported.platformResources.android[resourceId];
+    if (!asset?.dataUrl.startsWith('data:image/png;base64,')) {
+      throw new Error(`Expected compiled bubble recovery for ${resourceId}.`);
+    }
+  }
   const dexText = (await JSZip.loadAsync(output)).file('classes.dex')
     ? await (await JSZip.loadAsync(output)).file('classes.dex')!.async('nodebuffer')
     : Buffer.alloc(0);
@@ -110,7 +175,9 @@ try {
     version: metadata.version,
     name: metadata.name,
     appearance: metadata.appearance,
-    colors: Object.keys(metadata.colors ?? {}).length,
+    images: imageCount,
+    colors: colorCount,
+    verifiedImages: expectedImages.length,
     structure,
     output: copiedOutput ? path.resolve(copiedOutput) : outputPath,
   }, null, 2));
