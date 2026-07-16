@@ -2,6 +2,7 @@ import { DEFAULT_NINE_PATCH, type NinePatchGuides } from './ninePatch';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from '../manifest/kakaoColors';
 import {
   collectLegacyProjectImageCandidates,
+  isUsableImageAsset,
   normalizeLegacyProjectImages,
 } from './legacyProjectImages';
 
@@ -169,18 +170,33 @@ export function migrateLegacyNowTabAssets(project: ThemeProject): ThemeProject {
   for (const state of ['normal', 'selected'] as const) {
     const currentId = `main.tab.now.${state}`;
     const legacyId = `main.tab.piccoma.${state}`;
-    const sharedCurrent = project.resources[currentId];
+    const sharedCurrent = isUsableImageAsset(project.resources[currentId])
+      ? project.resources[currentId]
+      : undefined;
     let firstFallback: ImageAsset | undefined;
     for (const platform of ['ios', 'android'] as const) {
-      if (project.platformResources[platform][currentId] || sharedCurrent) continue;
-      const legacy = project.platformResources[platform][legacyId] ?? project.resources[legacyId];
+      const current = project.platformResources[platform][currentId];
+      if (isUsableImageAsset(current) || sharedCurrent) continue;
+      const platformLegacy = project.platformResources[platform][legacyId];
+      const sharedLegacy = project.resources[legacyId];
+      const legacy = isUsableImageAsset(platformLegacy)
+        ? platformLegacy
+        : isUsableImageAsset(sharedLegacy) ? sharedLegacy : undefined;
       if (!legacy) continue;
       project.platformResources[platform][currentId] = { ...legacy };
       firstFallback ??= legacy;
     }
-    if (!sharedCurrent && firstFallback) project.resources[currentId] = { ...firstFallback };
+    if (!sharedCurrent && firstFallback) {
+      project.resources[currentId] = { ...firstFallback };
+    }
   }
   return project;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
 }
 
 export function parseThemeProject(source: string): ThemeProject {
@@ -200,38 +216,77 @@ export function parseThemeProject(source: string): ThemeProject {
   }
   const candidates = collectLegacyProjectImageCandidates(value);
   const project = value as ThemeProject;
-  const defaults = createDefaultTheme(project.meta?.name ?? '새 카카오톡 테마');
-  project.meta = { ...defaults.meta, ...(project.meta ?? {}) };
-  project.targets = { ...defaults.targets, ...(project.targets ?? {}) };
-  project.resources ??= {};
+  const defaults = createDefaultTheme(
+    typeof project.meta?.name === 'string' ? project.meta.name : '새 카카오톡 테마',
+  );
+  project.meta = {
+    ...defaults.meta,
+    ...(objectRecord(project.meta) ?? {}),
+  } as ThemeProject['meta'];
+  project.targets = {
+    ...defaults.targets,
+    ...(objectRecord(project.targets) ?? {}),
+  } as ThemeProject['targets'];
+  project.resources = (objectRecord(project.resources) ?? {}) as ThemeProject['resources'];
   project.platformResources = {
     ios: { ...candidates.currentPlatformResources.ios },
     android: { ...candidates.currentPlatformResources.android },
   };
-  project.colorValues ??= { ios: { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS }, android: { ...ANDROID_SAMPLE_COLORS } };
-  project.colorValues.ios = { ...IOS_DEFAULT_COLORS, ...IOS_SAMPLE_ALPHAS, ...project.colorValues.ios };
-  project.colorValues.android = { ...ANDROID_SAMPLE_COLORS, ...project.colorValues.android };
-  project.colors = { ...defaults.colors, ...(project.colors ?? {}) };
-  project.screens ??= defaults.screens;
+
+  const rawColorValues = objectRecord(project.colorValues);
+  project.colorValues = {
+    ios: {
+      ...defaults.colorValues.ios,
+      ...(objectRecord(rawColorValues?.ios) ?? {}),
+    },
+    android: {
+      ...defaults.colorValues.android,
+      ...(objectRecord(rawColorValues?.android) ?? {}),
+    },
+  } as ThemeProject['colorValues'];
+  project.colors = {
+    ...defaults.colors,
+    ...(objectRecord(project.colors) ?? {}),
+  } as ThemeProject['colors'];
+
+  const rawScreens = objectRecord(project.screens) ?? {};
+  project.screens = rawScreens as ThemeProject['screens'];
   for (const screen of Object.keys(defaults.screens) as ScreenId[]) {
-    if (project.screens[screen]) continue;
-    project.screens[screen] = screen === 'notification' && project.screens.chatroom
-      ? { background: JSON.parse(JSON.stringify(project.screens.chatroom.background)) as VisualFill }
-      : JSON.parse(JSON.stringify(defaults.screens[screen])) as ThemeProject['screens'][ScreenId];
+    const existing = objectRecord(rawScreens[screen]);
+    if (objectRecord(existing?.background)) continue;
+    const chatroom = objectRecord(rawScreens.chatroom);
+    const chatroomBackground = objectRecord(chatroom?.background);
+    project.screens[screen] = screen === 'notification' && chatroomBackground
+      ? { background: structuredClone(chatroomBackground) as VisualFill }
+      : structuredClone(defaults.screens[screen]);
   }
-  project.chat ??= JSON.parse(JSON.stringify(defaults.chat)) as ThemeProject['chat'];
-  project.chat.bubbles ??= JSON.parse(JSON.stringify(defaults.chat.bubbles)) as ThemeProject['chat']['bubbles'];
-  project.chat.unreadColor ??= defaults.chat.unreadColor;
+
+  const rawChat = objectRecord(project.chat) ?? {};
+  const rawBubbles = objectRecord(rawChat.bubbles) ?? {};
+  project.chat = {
+    ...rawChat,
+    bubbles: {} as ThemeProject['chat']['bubbles'],
+    unreadColor: typeof rawChat.unreadColor === 'string'
+      ? rawChat.unreadColor
+      : defaults.chat.unreadColor,
+  } as ThemeProject['chat'];
   for (const side of ['me', 'you'] as const) {
-    project.chat.bubbles[side] ??= JSON.parse(JSON.stringify(defaults.chat.bubbles[side])) as BubbleSet;
-    const set = project.chat.bubbles[side];
+    const rawSet = objectRecord(rawBubbles[side]) ?? {};
+    const repairedSet = {} as BubbleSet;
     for (const variant of ['normal', 'pressed', 'grouped', 'groupedPressed'] as const) {
-      set[variant] ??= JSON.parse(JSON.stringify(defaults.chat.bubbles[side][variant])) as BubbleAppearance;
-      set[variant].color ??= defaults.chat.bubbles[side][variant].color;
-      set[variant].textColor ??= defaults.chat.bubbles[side][variant].textColor;
-      set[variant].stretch ??= cloneGuides();
+      const fallback = defaults.chat.bubbles[side][variant];
+      const appearance = {
+        ...structuredClone(fallback),
+        ...(objectRecord(rawSet[variant]) ?? {}),
+      } as BubbleAppearance;
+      if (typeof appearance.color !== 'string') appearance.color = fallback.color;
+      if (typeof appearance.textColor !== 'string') appearance.textColor = fallback.textColor;
+      if (!objectRecord(appearance.stretch)) appearance.stretch = cloneGuides();
+      repairedSet[variant] = appearance;
     }
+    project.chat.bubbles[side] = repairedSet;
   }
+
   normalizeLegacyProjectImages(project, candidates);
   migrateLegacyNowTabAssets(project);
   return project;

@@ -11,6 +11,7 @@ import {
   flatResourcesV1Fixture,
   inlineImagesV1Fixture,
   legacyAsset,
+  nestedAssetsV1Fixture,
 } from '../test/fixtures/legacyThemeProjects';
 
 describe('theme project', () => {
@@ -154,6 +155,187 @@ describe('theme project', () => {
 });
 
 describe('legacy schema-v1 image migration', () => {
+  it('migrates every supported nested v1 asset to eligible platform slots', () => {
+    const restored = parseThemeProject(JSON.stringify(nestedAssetsV1Fixture()));
+    for (const platform of ['ios', 'android'] as const) {
+      expect(restored.platformResources[platform]['common.theme-icon']).toMatchObject({
+        fileName: 'theme-icon.png', userSelected: true,
+      });
+      expect(restored.platformResources[platform]['main.tab.background']).toMatchObject({
+        fileName: 'tab-background.png', userSelected: true,
+      });
+      expect(restored.platformResources[platform]['main.profile.01']).toMatchObject({
+        fileName: 'profile.png', userSelected: true,
+      });
+      expect(restored.platformResources[platform]['main.add-friend.normal']).toMatchObject({
+        fileName: 'add-friend.png', userSelected: true,
+      });
+      for (const tab of ['friends', 'chats', 'now', 'shopping', 'more'] as const) {
+        expect(restored.platformResources[platform][`main.tab.${tab}.normal`]?.fileName)
+          .toBe(`${tab}-normal.png`);
+        expect(restored.platformResources[platform][`main.tab.${tab}.normal`]?.userSelected).toBe(true);
+        expect(restored.platformResources[platform][`main.tab.${tab}.selected`]?.fileName)
+          .toBe(`${tab}-selected.png`);
+      }
+      for (let index = 1; index <= 4; index += 1) {
+        expect(restored.platformResources[platform][`passcode.bullet.${index}.normal`]?.fileName)
+          .toBe(`bullet-${index}-normal.png`);
+        expect(restored.platformResources[platform][`passcode.bullet.${index}.normal`]?.userSelected)
+          .toBe(true);
+        expect(restored.platformResources[platform][`passcode.bullet.${index}.selected`]?.fileName)
+          .toBe(`bullet-${index}-selected.png`);
+      }
+      expect(restored.platformResources[platform]['main.tab.call.normal']).toBeUndefined();
+    }
+    expect(restored.platformResources.android['main.profile.01.full']?.fileName).toBe('profile-full.png');
+    expect(restored.platformResources.ios['main.profile.01.full']).toBeUndefined();
+    expect(restored.platformResources.android['splash.image']?.fileName).toBe('nested-splash.png');
+    expect(restored.platformResources.ios['splash.image']).toBeUndefined();
+    expect(restored.platformResources.ios['passcode.keypad.pressed']?.fileName).toBe('keypad-pressed.png');
+    expect(restored.platformResources.android['passcode.keypad.pressed']).toBeUndefined();
+  });
+
+  it('migrates sent and received inline bubble variants through the same mapping', () => {
+    const restored = parseThemeProject(JSON.stringify(inlineImagesV1Fixture({ equalMainBackgrounds: true })));
+    for (const side of ['me', 'you'] as const) {
+      for (const [legacy, current] of [
+        ['normal', 'first.normal'],
+        ['pressed', 'first.pressed'],
+        ['grouped', 'grouped.normal'],
+        ['groupedPressed', 'grouped.pressed'],
+      ] as const) {
+        expect(restored.platformResources.ios[`chat.bubble.${side}.${current}`]?.fileName)
+          .toBe(`${side}-${legacy}.png`);
+        expect(restored.platformResources.ios[`chat.bubble.${side}.${current}`]?.userSelected)
+          .toBe(true);
+        if (current.endsWith('.pressed')) {
+          expect(restored.platformResources.android[`chat.bubble.${side}.${current}`]).toBeUndefined();
+        } else {
+          expect(restored.platformResources.android[`chat.bubble.${side}.${current}`]?.fileName)
+            .toBe(`${side}-${legacy}.png`);
+          expect(restored.platformResources.android[`chat.bubble.${side}.${current}`]?.userSelected)
+            .toBe(true);
+        }
+      }
+    }
+    for (const platform of ['ios', 'android'] as const) {
+      expect(restored.platformResources[platform]['main.background']).toMatchObject({
+        fileName: 'inline-friends.png', userSelected: true,
+      });
+      expect(restored.platformResources[platform]['chat.background']).toMatchObject({
+        fileName: 'inline-chat.png', userSelected: true,
+      });
+      expect(restored.platformResources[platform]['passcode.background']).toMatchObject({
+        fileName: 'inline-passcode.png', userSelected: true,
+      });
+    }
+    expect(restored.platformResources.android['splash.image']).toMatchObject({
+      fileName: 'inline-splash.png', userSelected: true,
+    });
+    expect(restored.platformResources.ios['splash.image']).toBeUndefined();
+  });
+
+  it('keeps current platform assets ahead of shared nested and inline candidates', () => {
+    const currentRaw = inlineImagesV1Fixture({ conflictSplash: true });
+    Object.assign(currentRaw, {
+      resources: { 'splash.image': legacyAsset('shared-splash') },
+      platformResources: { android: { 'splash.image': legacyAsset('current-splash') } },
+    });
+    const current = parseThemeProject(JSON.stringify(currentRaw));
+    expect(current.platformResources.android['splash.image']?.fileName).toBe('current-splash.png');
+
+    const sharedRaw = inlineImagesV1Fixture({ conflictSplash: true });
+    Object.assign(sharedRaw, { resources: { 'splash.image': legacyAsset('shared-splash') } });
+    const shared = parseThemeProject(JSON.stringify(sharedRaw));
+    expect(shared.platformResources.android['splash.image']?.fileName).toBe('shared-splash.png');
+
+    const iconRaw = nestedAssetsV1Fixture();
+    Object.assign(iconRaw, {
+      resources: { 'common.theme-icon': legacyAsset('shared-icon') },
+      platformResources: { ios: { 'common.theme-icon': legacyAsset('current-ios-icon') } },
+    });
+    const icon = parseThemeProject(JSON.stringify(iconRaw));
+    expect(icon.platformResources.ios['common.theme-icon']?.fileName).toBe('current-ios-icon.png');
+    expect(icon.platformResources.android['common.theme-icon']).toBeUndefined();
+  });
+
+  it('produces the same platform resources when a normalized project is parsed again', () => {
+    const first = parseThemeProject(JSON.stringify(nestedAssetsV1Fixture()));
+    const second = parseThemeProject(serializeThemeProject(first));
+    expect(second.platformResources).toEqual(first.platformResources);
+  });
+
+  it('preserves conflicting splash images and does not merge unequal main backgrounds', () => {
+    const restored = parseThemeProject(JSON.stringify(
+      inlineImagesV1Fixture({ conflictSplash: true }),
+    ));
+    expect(restored.platformResources.android['splash.image']?.fileName).toBe('nested-splash.png');
+    expect(restored.platformResources.ios['splash.image']).toBeUndefined();
+    expect(restored.screens.splash.background).toMatchObject({
+      kind: 'image', image: { fileName: 'inline-splash.png' },
+    });
+    expect(restored.platformResources.ios['main.background']).toBeUndefined();
+    expect(restored.platformResources.android['main.background']).toBeUndefined();
+  });
+
+  it('drops invalid image placeholders and ignores unknown legacy tab keys', () => {
+    const raw = nestedAssetsV1Fixture();
+    Object.assign(raw, {
+      legacyMystery: { keep: true },
+      resources: {
+        'common.theme-icon': {},
+        'main.profile.02': { fileName: '', dataUrl: '' },
+      },
+      platformResources: {
+        ios: { 'common.theme-icon': {}, 'main.profile.02': {} },
+        android: { 'common.theme-icon': {}, 'main.profile.02': {} },
+      },
+    });
+    const restored = parseThemeProject(JSON.stringify(raw));
+    expect(restored.platformResources.ios['common.theme-icon']?.fileName).toBe('theme-icon.png');
+    expect(restored.platformResources.android['common.theme-icon']?.fileName).toBe('theme-icon.png');
+    expect((restored as unknown as Record<string, unknown>).legacyMystery).toEqual({ keep: true });
+    expect(restored.resources['main.profile.02']).toEqual({ fileName: '', dataUrl: '' });
+    expect(restored.platformResources.ios['main.profile.02']).toBeUndefined();
+    expect(restored.platformResources.android['main.profile.02']).toBeUndefined();
+    expect(getMappedResourceWrites(restored, 'ios').some(({ resourceId }) => resourceId === 'main.profile.02'))
+      .toBe(false);
+    expect(getMappedResourceWrites(restored, 'android').some(({ resourceId }) => resourceId === 'main.profile.02'))
+      .toBe(false);
+    expect((restored as unknown as { assets: { tabBar: { icons: Record<string, unknown> } } })
+      .assets.tabBar.icons.call).toBeDefined();
+    for (const platform of ['ios', 'android'] as const) {
+      expect(restored.platformResources[platform]['main.tab.call.normal']).toBeUndefined();
+      expect(restored.platformResources[platform]['main.tab.call.selected']).toBeUndefined();
+    }
+  });
+
+  it('repairs a non-record resources field before normalization', () => {
+    const raw = nestedAssetsV1Fixture();
+    Object.assign(raw, { resources: [] });
+    const restored = parseThemeProject(JSON.stringify(raw));
+    expect(restored.resources).toEqual({});
+    expect(restored.platformResources.android['common.theme-icon']?.fileName).toBe('theme-icon.png');
+  });
+
+  it('migrates flat Piccoma resources after platform normalization', () => {
+    const raw = {
+      schema: 'kakao-theme-studio',
+      schemaVersion: 1,
+      meta: { name: 'flat-piccoma' },
+      resources: {
+        'main.tab.now.normal': {},
+        'main.tab.piccoma.normal': legacyAsset('piccoma-normal'),
+      },
+    };
+    const restored = parseThemeProject(JSON.stringify(raw));
+    for (const platform of ['ios', 'android'] as const) {
+      expect(restored.platformResources[platform]['main.tab.now.normal']?.fileName)
+        .toBe('piccoma-normal.png');
+    }
+    expect(restored.resources['main.tab.now.normal']?.fileName).toBe('piccoma-normal.png');
+  });
+
   it('recovers flat-only and 0.1.1 empty-bucket projects on both platforms', () => {
     for (const raw of [
       flatResourcesV1Fixture(),

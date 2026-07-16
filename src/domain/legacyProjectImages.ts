@@ -216,7 +216,15 @@ export function normalizeLegacyProjectImages(
 ) {
   for (const slot of KAKAO_RESOURCE_SLOTS) {
     const shared = candidates.sharedResources[slot.id];
-    if (shared) normalizeSharedResource(project, slot.id, shared);
+    if (shared) {
+      normalizeSharedResource(project, slot.id, shared);
+      continue;
+    }
+    const fallback = candidates.nestedAssets[slot.id] ?? candidates.inlineAssets[slot.id];
+    if (!fallback) continue;
+    for (const platform of supportedPlatforms(slot.id)) {
+      project.platformResources[platform][slot.id] ??= selected(fallback);
+    }
   }
   return project;
 }
