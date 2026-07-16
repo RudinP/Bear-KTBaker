@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "electron/**/*.ts", "src/domain/**/*.ts", "src/io/**/*.ts", "src/manifest/**/*.ts", "src/electron.d.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "electron/**/*.ts", "src/domain/**/*.ts", "src/io/**/*.ts", "src/manifest/**/*.ts", "src/test/fixtures/**/*.ts", "src/electron.d.ts"]
 }

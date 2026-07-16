@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTheme, parseThemeProject, serializeThemeProject } from './theme';
 import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
+import {
+  collectLegacyProjectImageCandidates,
+  isUsableImageAsset,
+} from './legacyProjectImages';
+import {
+  inlineImagesV1Fixture,
+  legacyAsset,
+} from '../test/fixtures/legacyThemeProjects';
 
 describe('theme project', () => {
   it('creates a project that targets iOS and Android together', () => {
@@ -139,5 +147,35 @@ describe('theme project', () => {
     expect(restored.platformResources.android[id]).toEqual(asset);
     expect(restored.chat.bubbles.me.normal.stretchByPlatform).toEqual(project.chat.bubbles.me.normal.stretchByPlatform);
     expect(shouldIgnoreLegacyMirroredBubbleAssetTarget(restored, 'ios', id)).toBe(true);
+  });
+});
+
+describe('legacy schema-v1 image migration', () => {
+  it('accepts only image assets with non-empty file names and data URLs', () => {
+    expect(isUsableImageAsset(legacyAsset('valid'))).toBe(true);
+    expect(isUsableImageAsset({ fileName: '', dataUrl: 'data:image/png;base64,eA==' })).toBe(false);
+    expect(isUsableImageAsset({ fileName: 'x.png', dataUrl: '  ' })).toBe(false);
+    expect(isUsableImageAsset({})).toBe(false);
+  });
+
+  it('captures current, shared, nested, and inline candidates before defaults are applied', () => {
+    const raw = inlineImagesV1Fixture({ equalMainBackgrounds: true, conflictSplash: true });
+    Object.assign(raw, {
+      resources: { 'common.theme-icon': legacyAsset('shared-icon') },
+      platformResources: {
+        ios: { 'common.theme-icon': legacyAsset('ios-icon'), invalid: {} },
+      },
+    });
+    const candidates = collectLegacyProjectImageCandidates(raw);
+    expect(candidates.currentPlatformResources.ios['common.theme-icon']?.fileName).toBe('ios-icon.png');
+    expect(candidates.currentPlatformResources.ios.invalid).toBeUndefined();
+    expect(candidates.currentPlatformResources.android).toEqual({});
+    expect(candidates.sharedResources['common.theme-icon']?.fileName).toBe('shared-icon.png');
+    expect(candidates.nestedAssets['splash.image']?.fileName).toBe('nested-splash.png');
+    expect(candidates.inlineAssets['splash.image']).toBeUndefined();
+    expect(candidates.inlineAssets['main.background']?.fileName).toBe('inline-friends.png');
+    expect(candidates.inlineAssets['main.background']?.dataUrl).toBe(legacyAsset('shared-inline-main').dataUrl);
+    expect(candidates.inlineAssets['chat.bubble.me.first.normal']).toBeDefined();
+    expect(candidates.inlineAssets['chat.bubble.you.grouped.pressed']).toBeDefined();
   });
 });
