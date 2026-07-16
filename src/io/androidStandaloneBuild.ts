@@ -7,6 +7,10 @@ import { promisify } from 'node:util';
 import { ApkSignerV2, PackageSigner } from 'android-package-signer';
 import JSZip from 'jszip';
 import { inspectCompiledAndroidApk, type AndroidCompiledMetadata } from './androidCompiledMetadata';
+import {
+  verifyCompiledAndroidImages,
+  type AndroidImageExpectation,
+} from './androidImageVerification';
 
 const execFileAsync = promisify(execFile);
 
@@ -243,6 +247,7 @@ export async function buildStandaloneAndroidApk({
   versionCode,
   versionName,
   expectedMetadata,
+  expectedImages,
   platform = process.platform as StandaloneAndroidPlatform,
   run = execFileAsync as Aapt2Runner,
 }: {
@@ -254,6 +259,7 @@ export async function buildStandaloneAndroidApk({
   versionCode: number;
   versionName: string;
   expectedMetadata?: Pick<StandaloneAndroidMetadataExpectation, 'name' | 'appearance' | 'colors'>;
+  expectedImages?: AndroidImageExpectation[];
   platform?: StandaloneAndroidPlatform;
   run?: Aapt2Runner;
 }) {
@@ -285,11 +291,13 @@ export async function buildStandaloneAndroidApk({
   const identity = await loadOrCreateSigningIdentity(identityPath);
   const signed = await signStandaloneApk(withRuntime, identity);
   await verifyStandaloneApkStructure(signed);
-  verifyStandaloneAndroidMetadata(await inspectCompiledAndroidApk(signed), {
+  const metadata = await inspectCompiledAndroidApk(signed);
+  verifyStandaloneAndroidMetadata(metadata, {
     packageName,
     versionName,
     ...expectedMetadata,
   });
+  await verifyCompiledAndroidImages(signed, metadata, expectedImages ?? []);
   await writeFile(outputPath, signed);
   return outputPath;
 }

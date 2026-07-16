@@ -14,6 +14,7 @@ import {
   verifyStandaloneAndroidMetadata,
   verifyStandaloneApkStructure,
 } from './androidStandaloneBuild';
+import { createAndroidImageExpectation } from './androidImageVerification';
 
 describe('standalone Android APK build support', () => {
   it('normalizes the official source manifest for direct AAPT2 linking', () => {
@@ -222,6 +223,54 @@ describe('standalone Android APK build support', () => {
     expect(result).toBe(outputPath);
     expect(calls.map((args) => args[0])).toEqual(['compile', 'compile', 'compile', 'link']);
     await expect(verifyStandaloneApkStructure(await readFile(outputPath))).resolves.toMatchObject({ hasV2SigningBlock: true });
+  });
+
+  it('stops before writing when an expected compiled image is absent', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'kakao-standalone-image-check-'));
+    const buildDir = path.join(directory, 'source');
+    const runtimeDir = path.join(directory, 'runtime');
+    const outputPath = path.join(directory, 'must-not-exist.apk');
+    for (const resourceRoot of ['res', 'theme', 'theme-adv']) {
+      await mkdir(path.join(buildDir, 'src', 'main', resourceRoot), { recursive: true });
+    }
+    await writeFile(path.join(buildDir, 'src', 'main', 'AndroidManifest.xml'), '<manifest />');
+    await mkdir(path.join(runtimeDir, 'bin', 'darwin'), { recursive: true });
+    await writeFile(path.join(runtimeDir, 'bin', 'darwin', 'aapt2'), 'binary');
+    await writeFile(path.join(runtimeDir, 'android.jar'), 'android');
+    await writeFile(path.join(runtimeDir, 'classes.dex'), 'dex\n035\0runtime');
+    const compiledFixture = Buffer.from(
+      (await readFile(path.join(process.cwd(), 'src/io/fixtures/compiled-theme-metadata.apk.b64'), 'utf8'))
+        .replace(/\s/g, ''),
+      'base64',
+    );
+    const sourcePng = await readFile(path.join(
+      process.cwd(),
+      'public/sample/apeach/android/theme_background_image.png',
+    ));
+    const expectation = createAndroidImageExpectation(
+      'main.background',
+      'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+      sourcePng,
+      false,
+    )!;
+    const run = vi.fn(async (_executable: string, args: string[]) => {
+      if (args[0] === 'link') await writeFile(args[args.indexOf('-o') + 1], compiledFixture);
+    });
+
+    await expect(buildStandaloneAndroidApk({
+      buildDir,
+      outputPath,
+      runtimeDir,
+      identityPath: path.join(directory, 'identity.json'),
+      packageName: 'com.example.standalonefixture',
+      versionCode: 70_809,
+      versionName: '7.8.9',
+      expectedMetadata: { name: '독립 테마', appearance: 'dark' },
+      expectedImages: [expectation],
+      platform: 'darwin',
+      run,
+    })).rejects.toThrow('main.background');
+    await expect(readFile(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('stops before writing when the compiled resources package does not match the requested identifier', async () => {

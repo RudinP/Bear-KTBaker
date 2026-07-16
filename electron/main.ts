@@ -5,7 +5,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import JSZip from 'jszip';
+import { androidResourceIdentity } from '../src/io/androidArchiveResources';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
+import {
+  assertAndroidImageOutputPossible,
+  createAndroidImageExpectation,
+  type AndroidImageExpectation,
+} from '../src/io/androidImageVerification';
 import { buildStandaloneAndroidApk, prepareStandaloneAndroidManifest } from '../src/io/androidStandaloneBuild';
 import { buildIosCss } from '../src/io/iosTheme';
 import { generateCleanIosThemeArchive } from '../src/io/archiveHygiene';
@@ -182,6 +188,7 @@ async function replaceMappedIosImages(zip: JSZip, project: ThemeProject) {
 }
 
 async function replaceMappedAndroidImages(buildDir: string, project: ThemeProject) {
+  const expectations: AndroidImageExpectation[] = [];
   for (const write of getMappedResourceWrites(project, 'android')) {
     const targetPath = path.join(buildDir, write.path);
     const slot = getResourceSlot(write.resourceId);
@@ -190,7 +197,17 @@ async function replaceMappedAndroidImages(buildDir: string, project: ThemeProjec
     try { target = await readFile(targetPath); } catch { /* guide-optional resource not present in the older sample */ }
     const outputSize = slot.android?.outputSize;
     const flexibleBubble = mode === 'stretch';
-    if (!target && !outputSize && !flexibleBubble) continue;
+    const compiledIdentity = androidResourceIdentity(write.path);
+    if (!compiledIdentity && !target && !outputSize && !flexibleBubble) continue;
+    if (compiledIdentity) {
+      assertAndroidImageOutputPossible({
+        resourceId: write.resourceId,
+        sourcePath: write.path,
+        hasTemplate: Boolean(target),
+        hasOutputSize: Boolean(outputSize),
+        flexibleBubble,
+      });
+    }
     const png = flexibleBubble
       ? prepareFlexibleBubblePng(write.asset.dataUrl, 'android', write.path, write.asset)
       : target
@@ -200,7 +217,10 @@ async function replaceMappedAndroidImages(buildDir: string, project: ThemeProjec
     const output = write.ninePatch ? (guides ? buildNinePatchPng(png, guides) : replaceNinePatchInterior(target!, png)) : png;
     await mkdir(path.dirname(targetPath), { recursive: true });
     await writeFile(targetPath, output);
+    const expectation = createAndroidImageExpectation(write.resourceId, write.path, output, write.ninePatch);
+    if (expectation) expectations.push(expectation);
   }
+  return expectations;
 }
 
 async function exportIos(project: ThemeProject) {
@@ -251,7 +271,7 @@ async function exportAndroid(project: ThemeProject) {
     }
     const identifier = packageId(project);
     const versionName = project.meta.version.replace(/[^0-9A-Za-z._-]/g, '') || '1.0.0';
-    await replaceMappedAndroidImages(buildDir, project);
+    const expectedImages = await replaceMappedAndroidImages(buildDir, project);
     const verifiedApk = path.join(buildDir, 'verified-theme.apk');
     await buildStandaloneAndroidApk({
       buildDir,
@@ -267,6 +287,7 @@ async function exportAndroid(project: ThemeProject) {
         colors: project.colorValues.android,
       },
       platform: process.platform as 'darwin' | 'win32',
+      expectedImages,
     });
     await cp(verifiedApk, result.filePath);
     return { path: result.filePath };
