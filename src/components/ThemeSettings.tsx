@@ -12,19 +12,27 @@ export function ThemeSettings({ project, platform, onProject }: {
   platform: Platform;
   onProject: (project: ThemeProject) => void;
 }) {
-  const setPlatformResource = (resourceId: string, asset: ImageAsset) => onProject({
-    ...project,
-    platformResources: {
-      ...project.platformResources,
-      [platform]: { ...project.platformResources[platform], [resourceId]: asset },
-    },
-  });
+  const setPlatformResource = (resourceId: string, asset: ImageAsset) => {
+    const current = {
+      ios: project.platformResources?.ios ?? {},
+      android: project.platformResources?.android ?? {},
+    };
+    onProject({
+      ...project,
+      platformResources: {
+        ios: { ...current.ios },
+        android: { ...current.android },
+        [platform]: { ...current[platform], [resourceId]: asset },
+      },
+    });
+  };
   const updateMeta = (key: keyof ThemeProject['meta'], value: string) => onProject({
     ...project,
     meta: { ...project.meta, [key]: value },
   });
   const iconPicker = (resourceId: string, label: string) => {
-    const icon = project.platformResources[platform][resourceId]?.dataUrl
+    const resources = project.platformResources?.[platform] ?? {};
+    const icon = resources[resourceId]?.dataUrl
       ?? resolveResourceUrl(project, platform, resourceId);
     return <label className="app-icon-picker" key={resourceId}>
       <input type="file" aria-label={`${label} 이미지`} accept="image/png,image/jpeg,image/webp" onChange={(event) => {

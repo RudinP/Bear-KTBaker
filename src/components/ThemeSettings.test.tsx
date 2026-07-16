@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme, parseThemeProject, type ThemeProject } from '../domain/theme';
+import { flatResourcesV1Fixture } from '../test/fixtures/legacyThemeProjects';
 import { ThemeSettings } from './ThemeSettings';
 
 describe('guide-faithful theme icon settings', () => {
@@ -34,6 +35,52 @@ describe('guide-faithful theme icon settings', () => {
     render(<ThemeSettings project={createDefaultTheme()} platform="ios" onProject={vi.fn()} />);
     expect(screen.getByLabelText('iPhone 테마 목록 아이콘 이미지')).toBeInTheDocument();
     expect(screen.queryByLabelText('Android 적응형 배경 이미지')).not.toBeInTheDocument();
+  });
+
+  it('renders the migrated legacy theme icon instead of the sample icon', () => {
+    const raw = flatResourcesV1Fixture();
+    Object.assign(raw, { baseSample: 'apeach' });
+    const project = parseThemeProject(JSON.stringify(raw));
+    const { container } = render(
+      <ThemeSettings project={project} platform="android" onProject={vi.fn()} />,
+    );
+
+    expect(container.querySelector('.app-icon-preview')).toHaveStyle({
+      backgroundImage: `url(${project.platformResources.android['common.theme-icon'].dataUrl})`,
+    });
+  });
+
+  it('renders a raw project without platformResources without crashing', () => {
+    const project = createDefaultTheme();
+    delete (project as Partial<ThemeProject>).platformResources;
+
+    expect(() => render(
+      <ThemeSettings project={project} platform="android" onProject={vi.fn()} />,
+    )).not.toThrow();
+  });
+
+  it('initializes a missing platform bucket while preserving the other platform', async () => {
+    const project = createDefaultTheme();
+    const iosIcon = {
+      fileName: 'ios.png',
+      dataUrl: 'data:image/png;base64,aW9z',
+      userSelected: true as const,
+    };
+    project.platformResources = {
+      ios: { 'common.theme-icon': iosIcon },
+    } as unknown as typeof project.platformResources;
+    const onProject = vi.fn();
+    render(<ThemeSettings project={project} platform="android" onProject={onProject} />);
+
+    fireEvent.change(screen.getByLabelText('Android 기본 앱 아이콘 이미지'), {
+      target: { files: [new File(['android'], 'android.png', { type: 'image/png' })] },
+    });
+    await waitFor(() => expect(onProject).toHaveBeenCalled());
+    const updated = onProject.mock.calls.at(-1)?.[0];
+    expect(updated.platformResources.ios['common.theme-icon']).toEqual(iosIcon);
+    expect(updated.platformResources.android['common.theme-icon']).toMatchObject({
+      fileName: 'android.png', userSelected: true,
+    });
   });
 
   it('does not duplicate export format selection inside theme information', () => {
