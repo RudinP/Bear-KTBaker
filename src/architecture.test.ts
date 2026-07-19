@@ -9,6 +9,43 @@ const sourceRoots = ['src', 'electron', 'scripts'].map((directory) =>
   path.join(projectRoot, directory),
 );
 
+function loadCompilerOptions(configName: string) {
+  const configFile = path.join(projectRoot, configName);
+  const loaded = ts.readConfigFile(configFile, ts.sys.readFile);
+  if (loaded.error) {
+    throw new Error(
+      ts.formatDiagnostics([loaded.error], {
+        getCanonicalFileName: (file) => file,
+        getCurrentDirectory: () => projectRoot,
+        getNewLine: () => '\n',
+      }),
+    );
+  }
+  const parsed = ts.parseJsonConfigFileContent(
+    loaded.config,
+    ts.sys,
+    path.dirname(configFile),
+    undefined,
+    configFile,
+  );
+  if (parsed.errors.length) {
+    throw new Error(
+      ts.formatDiagnostics(parsed.errors, {
+        getCanonicalFileName: (file) => file,
+        getCurrentDirectory: () => projectRoot,
+        getNewLine: () => '\n',
+      }),
+    );
+  }
+  return parsed.options;
+}
+
+const compilerOptionsBySourceRoot = new Map([
+  ['src', loadCompilerOptions('tsconfig.app.json')],
+  ['electron', loadCompilerOptions('tsconfig.node.json')],
+  ['scripts', loadCompilerOptions('tsconfig.scripts.json')],
+]);
+
 function repositoryPath(file: string) {
   return path.relative(projectRoot, file).split(path.sep).join('/');
 }
@@ -69,11 +106,116 @@ function staticImportSpecifiers(file: string) {
   return specifiers;
 }
 
-function resolvedRepositoryTarget(file: string, specifier: string) {
-  if (!specifier.startsWith('.')) return undefined;
-  return repositoryPath(path.resolve(path.dirname(file), specifier)).replace(
-    /\.(?:ts|tsx)$/,
-    '',
+const sourceTarget = (...segments: string[]) => segments.join('/');
+const forbiddenFacadeTargets = new Set([
+  sourceTarget('src', 'domain', 'theme'),
+  sourceTarget('src', 'io', 'themeImport'),
+  sourceTarget('src', 'io', 'androidStandaloneBuild'),
+  sourceTarget('src', 'components', 'PhonePreview'),
+]);
+
+function compilerOptionsForFile(file: string) {
+  const [sourceRoot] = repositoryPath(file).split('/');
+  const compilerOptions = compilerOptionsBySourceRoot.get(sourceRoot);
+  if (!compilerOptions) {
+    throw new Error(`No TypeScript configuration for ${repositoryPath(file)}`);
+  }
+  return compilerOptions;
+}
+
+function normalizeRepositoryModulePath(file: string) {
+  const relative = path.relative(projectRoot, file);
+  if (
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return undefined;
+  }
+  return relative
+    .split(path.sep)
+    .join('/')
+    .replace(/(?:\.d)?\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/, '');
+}
+
+function aliasMatch(pattern: string, specifier: string) {
+  const wildcard = pattern.indexOf('*');
+  if (wildcard === -1) return pattern === specifier ? '' : undefined;
+  const prefix = pattern.slice(0, wildcard);
+  const suffix = pattern.slice(wildcard + 1);
+  if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) {
+    return undefined;
+  }
+  return specifier.slice(prefix.length, specifier.length - suffix.length);
+}
+
+function unresolvedFacadeTarget(
+  file: string,
+  specifier: string,
+  compilerOptions: ts.CompilerOptions,
+) {
+  const candidates: string[] = [];
+  if (specifier.startsWith('.')) {
+    candidates.push(path.resolve(path.dirname(file), specifier));
+  } else {
+    const configFilePath = compilerOptions.configFilePath;
+    const baseUrl =
+      compilerOptions.baseUrl ??
+      (typeof configFilePath === 'string'
+        ? path.dirname(configFilePath)
+        : projectRoot);
+    for (const [pattern, substitutions] of Object.entries(
+      compilerOptions.paths ?? {},
+    )) {
+      const match = aliasMatch(pattern, specifier);
+      if (match === undefined) continue;
+      for (const substitution of substitutions) {
+        candidates.push(
+          path.resolve(baseUrl, substitution.replace('*', match)),
+        );
+      }
+    }
+  }
+  return candidates
+    .map(normalizeRepositoryModulePath)
+    .find(
+      (target): target is string =>
+        target !== undefined && forbiddenFacadeTargets.has(target),
+    );
+}
+
+function resolvedRepositoryTarget(
+  file: string,
+  specifier: string,
+  compilerOptions = compilerOptionsForFile(file),
+) {
+  const resolved = ts.resolveModuleName(
+    specifier,
+    file,
+    compilerOptions,
+    ts.sys,
+  ).resolvedModule;
+  const resolvedTarget =
+    resolved && normalizeRepositoryModulePath(resolved.resolvedFileName);
+  return (
+    resolvedTarget ??
+    unresolvedFacadeTarget(file, specifier, compilerOptions)
+  );
+}
+
+function isForbiddenFacadeImport(
+  file: string,
+  specifier: string,
+  compilerOptions = compilerOptionsForFile(file),
+) {
+  const resolvedTarget = resolvedRepositoryTarget(
+    file,
+    specifier,
+    compilerOptions,
+  );
+  return (
+    resolvedTarget !== undefined &&
+    forbiddenFacadeTargets.has(resolvedTarget)
   );
 }
 
@@ -86,6 +228,87 @@ const productionFiles = allFiles.filter(isProductionSource);
 const importsByFile = new Map(
   allFiles.map((file) => [file, staticImportSpecifiers(file)]),
 );
+
+describe('repository module resolution', () => {
+  const importer = path.join(
+    projectRoot,
+    'src/application/theme/importTheme.ts',
+  );
+  const aliasCompilerOptions: ts.CompilerOptions = {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    baseUrl: projectRoot,
+    paths: {
+      '@ui/*': ['src/components/*'],
+      '@app/*': ['src/application/*'],
+      '@legacy-theme': [sourceTarget('src', 'domain', 'theme')],
+    },
+  };
+
+  it('resolves an ordinary relative directory import to its TypeScript index module', () => {
+    expect(
+      resolvedRepositoryTarget(
+        importer,
+        '../../domain/theme/migrations',
+        aliasCompilerOptions,
+      ),
+    ).toBe('src/domain/theme/migrations/index');
+  });
+
+  it.each([
+    ['../../domain/theme/model.js', 'src/domain/theme/model'],
+    [
+      '../../components/preview/PhonePreview.jsx',
+      'src/components/preview/PhonePreview',
+    ],
+    [
+      sourceTarget('../..', 'domain', 'theme.mjs'),
+      sourceTarget('src', 'domain', 'theme'),
+    ],
+    [
+      sourceTarget('../..', 'domain', 'theme.cjs'),
+      sourceTarget('src', 'domain', 'theme'),
+    ],
+  ])('normalizes the TypeScript target for %s', (specifier, expected) => {
+    expect(
+      resolvedRepositoryTarget(importer, specifier, aliasCompilerOptions),
+    ).toBe(expected);
+  });
+
+  it('resolves configured path aliases into repository layers and deleted facades', () => {
+    expect(
+      resolvedRepositoryTarget(
+        importer,
+        '@ui/preview/PhonePreview',
+        aliasCompilerOptions,
+      ),
+    ).toBe('src/components/preview/PhonePreview');
+    expect(
+      resolvedRepositoryTarget(
+        importer,
+        '@app/theme/importTheme',
+        aliasCompilerOptions,
+      ),
+    ).toBe('src/application/theme/importTheme');
+    expect(
+      isForbiddenFacadeImport(
+        importer,
+        '@legacy-theme',
+        aliasCompilerOptions,
+      ),
+    ).toBe(true);
+  });
+
+  it('does not classify an unrelated external package lookalike as a facade', () => {
+    expect(
+      isForbiddenFacadeImport(
+        importer,
+        sourceTarget('@vendor', 'domain', 'theme'),
+        aliasCompilerOptions,
+      ),
+    ).toBe(false);
+  });
+});
 
 describe('dependency direction', () => {
   it('keeps domain modules independent from runtime frameworks and Node', () => {
@@ -120,8 +343,6 @@ describe('dependency direction', () => {
               forbiddenPackages.some((packageName) =>
                 importsPackage(specifier, packageName),
               ) ||
-              specifier.includes('/components/') ||
-              specifier.includes('/electron/') ||
               target?.startsWith('src/components/') ||
               target?.startsWith('electron/')
             );
@@ -138,7 +359,6 @@ describe('dependency direction', () => {
       .flatMap((file) =>
         (importsByFile.get(file) ?? [])
           .filter((specifier) =>
-            specifier.includes('/application/') ||
             resolvedRepositoryTarget(file, specifier)?.startsWith(
               'src/application/',
             ),
@@ -164,25 +384,9 @@ describe('renderer platform access', () => {
 
 describe('internal compatibility facades', () => {
   it('has no consumers of obsolete internal import paths', () => {
-    const sourceTarget = (...segments: string[]) => segments.join('/');
-    const forbiddenTargets = new Set([
-      sourceTarget('src', 'domain', 'theme'),
-      sourceTarget('src', 'io', 'themeImport'),
-      sourceTarget('src', 'io', 'androidStandaloneBuild'),
-      sourceTarget('src', 'components', 'PhonePreview'),
-    ]);
-    const forbiddenSpecifier =
-      /(?:^|\/)(?:domain\/theme|io\/themeImport|io\/androidStandaloneBuild|components\/PhonePreview)$/;
     const violations = allFiles.flatMap((file) =>
       (importsByFile.get(file) ?? [])
-        .filter((specifier) => {
-          const resolvedTarget = resolvedRepositoryTarget(file, specifier);
-          return (
-            forbiddenSpecifier.test(specifier.replace(/\.(?:ts|tsx)$/, '')) ||
-            (resolvedTarget !== undefined &&
-              forbiddenTargets.has(resolvedTarget))
-          );
-        })
+        .filter((specifier) => isForbiddenFacadeImport(file, specifier))
         .map((specifier) => `${repositoryPath(file)} imports ${specifier}`),
     );
 
