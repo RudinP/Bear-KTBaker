@@ -16,7 +16,9 @@ import { createDefaultTheme } from '../src/domain/theme';
 import { inspectCompiledAndroidApk } from '../src/io/androidCompiledMetadata';
 import { fingerprintAndroidPng } from '../src/io/androidArchiveResources';
 import { createAndroidImageExpectation } from '../src/io/androidImageVerification';
-import { importAndroidThemeArchive } from '../src/io/themeImport';
+import {
+  importAndroidThemeArchive,
+} from '../src/io/themeImport/importAndroidTheme';
 
 async function main() {
 const root = process.cwd();
