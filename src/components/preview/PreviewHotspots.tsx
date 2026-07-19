@@ -127,7 +127,7 @@ export function ProfileHotspot({ project, platform, selected, onSelect, classNam
   </span>;
 }
 
-export interface BubbleRendererProps {
+interface BubbleRendererProps {
   project: ThemeProject;
   side: 'me' | 'you';
   grouped: boolean;
