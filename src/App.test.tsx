@@ -321,9 +321,29 @@ describe('theme editor', () => {
     '[KTB-PROJECT-INVALID-FORMAT] leaked path',
     '[KTB-NOT-REGISTERED]',
     '[KTB-PROJECT-invalid-FORMAT]',
+  ])('preserves a KTB-prefixed import diagnostic: %s', async (message) => {
+    window.themeStudio = {
+      platform: 'win32',
+      importTheme: vi.fn().mockRejectedValue(new Error(message)),
+      openProject: vi.fn(),
+      saveProject: vi.fn(),
+      exportIos: vi.fn(),
+      exportAndroid: vi.fn(),
+      saveScreenshots: vi.fn(),
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '불러오기' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(message);
+    expect(alert.textContent?.startsWith('[KTB-')).toBe(true);
+  });
+
+  it.each([
     '[ktb-project-invalid-format]',
     ' [KTB-PROJECT-INVALID-FORMAT]',
-  ])('keeps generic import guidance for an invalid diagnostic prefix: %s', async (message) => {
+  ])('keeps generic import guidance for a non-KTB diagnostic prefix: %s', async (message) => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn().mockRejectedValue(new Error(message)),
