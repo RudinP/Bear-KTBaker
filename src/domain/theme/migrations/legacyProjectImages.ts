@@ -1,5 +1,5 @@
-import type { ImageAsset, Platform, ThemeProject } from './theme';
-import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
+import type { ImageAsset, Platform, ThemeProject } from '../model';
+import { KAKAO_RESOURCE_SLOTS } from '../../../manifest/kakaoResources';
 
 type LegacyImageMap = Record<string, ImageAsset>;
 

@@ -1,0 +1,19 @@
+{
+  "schema": "kakao-theme-studio",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "예전 부분 프로젝트"
+  },
+  "colorValues": {
+    "legacyDesktop": {
+      "legacyAccent": "#123456"
+    }
+  },
+  "screens": {
+    "friends": {
+      "legacyScreenField": {
+        "keep": "screen"
+      }
+    }
+  }
+}

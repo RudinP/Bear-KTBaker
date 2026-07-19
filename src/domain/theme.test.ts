@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTheme as createDefaultThemeDirect } from './theme/defaults';
-import { createDefaultTheme, parseThemeProject, serializeThemeProject } from './theme';
+import {
+  createDefaultTheme,
+  parseThemeProject,
+  serializeThemeProject,
+  ThemeProjectCodecFailure,
+  type ThemeProjectCodecFailureKind,
+} from './theme';
+import { ThemeProjectCodecFailure as ThemeProjectCodecFailureDirect } from './theme/codecFailure';
 import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
 import { resolveResourceAsset } from '../manifest/resourceResolver';
 import { getMappedResourceWrites } from '../io/resourceWrites';
 import {
   collectLegacyProjectImageCandidates,
   isUsableImageAsset,
-} from './legacyProjectImages';
+} from './theme/migrations/legacyProjectImages';
 import {
   flatResourcesV1Fixture,
   inlineImagesV1Fixture,
@@ -18,6 +25,13 @@ import {
 describe('theme project', () => {
   it('keeps the theme module default creator compatibility export', () => {
     expect(createDefaultTheme).toBe(createDefaultThemeDirect);
+  });
+
+  it('keeps the theme module codec failure compatibility exports', () => {
+    const kind: ThemeProjectCodecFailureKind = 'migration';
+
+    expect(ThemeProjectCodecFailure).toBe(ThemeProjectCodecFailureDirect);
+    expect(kind).toBe('migration');
   });
 
   it('creates a project that targets iOS and Android together', () => {

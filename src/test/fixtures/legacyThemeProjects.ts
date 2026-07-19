@@ -1,4 +1,4 @@
-import type { ImageAsset, Platform } from '../../domain/theme';
+import type { ImageAsset, Platform } from '../../domain/theme/model';
 
 export function legacyAsset(name: string, overrides: Partial<ImageAsset> = {}): ImageAsset {
   return {

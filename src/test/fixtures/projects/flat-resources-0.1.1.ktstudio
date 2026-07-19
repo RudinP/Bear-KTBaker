@@ -1,0 +1,15 @@
+{
+  "schema": "kakao-theme-studio",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "0.1.1 공유 이미지 프로젝트"
+  },
+  "resources": {
+    "common.theme-icon": {
+      "fileName": "theme-icon.png",
+      "dataUrl": "data:image/png;base64,dGhlbWUtaWNvbg==",
+      "width": 30,
+      "height": 30
+    }
+  }
+}
