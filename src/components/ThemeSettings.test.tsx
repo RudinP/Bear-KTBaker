@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme, parseThemeProject, type ThemeProject } from '../domain/theme';
+import { parseThemeProject } from '../domain/theme/codec';
+import { createDefaultTheme } from '../domain/theme/defaults';
+import type { ThemeProject } from '../domain/theme/model';
 import { flatResourcesV1Fixture } from '../test/fixtures/legacyThemeProjects';
 import { ThemeSettings } from './ThemeSettings';
 

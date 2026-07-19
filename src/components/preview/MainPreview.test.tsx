@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
 import { MainPreview } from './MainPreview';
 
 function renderMain(platform: 'ios' | 'android') {

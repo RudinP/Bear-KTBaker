@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeStudioError } from '../src/application/errors/ThemeStudioError';
 import { serializeThemeStudioError } from '../src/application/errors/ipcPayload';
-import { createDefaultTheme } from '../src/domain/theme';
+import { createDefaultTheme } from '../src/domain/theme/defaults';
 import type { ThemeStudioApi } from '../src/electron';
 
 const electron = vi.hoisted(() => ({

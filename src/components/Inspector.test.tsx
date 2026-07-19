@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { Inspector } from './Inspector';
 
 function renderInspector(selected: Parameters<typeof Inspector>[0]['selected'], onNinePatch = vi.fn(), platform: 'ios' | 'android' = 'android') {

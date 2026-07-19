@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { generateCleanIosThemeArchive, isMacosArchiveJunk } from './archiveHygiene';
 import { buildIosCss } from './iosTheme';
 

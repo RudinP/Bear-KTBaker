@@ -1,4 +1,4 @@
-import type { Platform } from '../domain/theme';
+import type { Platform } from '../domain/theme/model';
 
 interface PixelSize {
   width: number;

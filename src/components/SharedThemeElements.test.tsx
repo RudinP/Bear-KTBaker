@@ -1,12 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  createDefaultTheme, type EditableElementId, type Platform, type ScreenId, type ThemeProject,
-} from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
+import type {
+  EditableElementId,
+  Platform,
+  ScreenId,
+  ThemeProject,
+} from '../domain/theme/model';
 import { KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
 import { Inspector } from './Inspector';
-import { PhonePreview } from './PhonePreview';
+import { PhonePreview } from './preview/PhonePreview';
 
 const sharedInputSlotIds = [
   'chat.input.text',

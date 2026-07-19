@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_NINE_PATCH, type NinePatchGuides } from '../domain/ninePatch';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { resolveBubbleGuides } from './bubbleGuideResolver';
 
 const iosOfficialSend: NinePatchGuides = {

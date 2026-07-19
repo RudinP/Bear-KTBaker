@@ -7,7 +7,7 @@ import {
   vi,
 } from 'vitest';
 import { ThemeStudioError } from '../../src/application/errors/ThemeStudioError';
-import { createDefaultTheme } from '../../src/domain/theme';
+import { createDefaultTheme } from '../../src/domain/theme/defaults';
 import {
   registerThemeIpc,
   type ThemeIpcUseCases,

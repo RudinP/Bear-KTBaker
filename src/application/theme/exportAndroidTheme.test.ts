@@ -6,7 +6,8 @@ import { ThemeStudioError } from '../errors/ThemeStudioError';
 import type { AndroidApkBuilderPort } from '../ports/androidApk';
 import type { FileSystemPort, PathPort } from '../ports/fileSystem';
 import type { ImageProcessorPort } from '../ports/imageProcessor';
-import { createDefaultTheme, type ThemeProject } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
+import type { ThemeProject } from '../../domain/theme/model';
 import { buildNinePatchPng } from '../../io/ninePatchPng';
 import {
   buildAndroidColorsXml,

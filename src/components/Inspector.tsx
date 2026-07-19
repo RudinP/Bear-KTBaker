@@ -1,4 +1,4 @@
-import type { EditableElementId, ImageAsset, Platform, ScreenId, ThemeProject } from '../domain/theme';
+import type { EditableElementId, ImageAsset, Platform, ScreenId, ThemeProject } from '../domain/theme/model';
 import { getResourceSlot } from '../manifest/kakaoResources';
 import { resolveResourceAsset, resolveResourceUrl } from '../manifest/resourceResolver';
 import { KAKAO_COLOR_SLOTS, getColorSlot } from '../manifest/kakaoColors';

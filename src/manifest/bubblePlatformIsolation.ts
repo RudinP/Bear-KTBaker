@@ -1,4 +1,4 @@
-import type { ImageAsset, Platform, ThemeProject } from '../domain/theme';
+import type { ImageAsset, Platform, ThemeProject } from '../domain/theme/model';
 import type { NinePatchGuides } from '../domain/ninePatch';
 
 function sameAsset(left: ImageAsset, right: ImageAsset) {

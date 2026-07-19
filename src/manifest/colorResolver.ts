@@ -1,4 +1,4 @@
-import type { Platform, ThemeProject } from '../domain/theme';
+import type { Platform, ThemeProject } from '../domain/theme/model';
 import { ANDROID_SAMPLE_COLORS, getColorSlot, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from './kakaoColors';
 
 function alphaHex(alpha: string | undefined) {

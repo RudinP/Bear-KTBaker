@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme, type ThemeProject } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
+import type { ThemeProject } from '../domain/theme/model';
 import {
   THEME_STUDIO_UNAVAILABLE_MESSAGE,
   type ThemeFileCommand,

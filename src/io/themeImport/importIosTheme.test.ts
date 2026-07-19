@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ThemeImportFailure,
   type ThemeImportFailureKind,
-} from '../themeImport';
+} from './importFailure';
 import { importIosKtheme } from './importIosTheme';
 
 const templates = path.join(process.cwd(), 'resources/templates');

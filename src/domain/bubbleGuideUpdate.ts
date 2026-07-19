@@ -1,5 +1,5 @@
 import type { NinePatchGuides } from './ninePatch';
-import type { Platform, ThemeProject } from './theme';
+import type { Platform, ThemeProject } from './theme/model';
 import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';
 import { legacyExplicitBubbleGuidePlatform } from '../manifest/bubblePlatformIsolation';
 

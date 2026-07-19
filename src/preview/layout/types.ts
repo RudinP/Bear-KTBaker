@@ -1,4 +1,4 @@
-import type { Platform, ScreenId } from '../../domain/theme';
+import type { Platform, ScreenId } from '../../domain/theme/model';
 
 export interface Size {
   width: number;

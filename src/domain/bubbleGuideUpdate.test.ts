@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultTheme } from './theme';
+import { createDefaultTheme } from './theme/defaults';
 import type { NinePatchGuides } from './ninePatch';
 import { updateBubbleGuides } from './bubbleGuideUpdate';
 import { resolveBubbleGuides } from '../manifest/bubbleGuideResolver';

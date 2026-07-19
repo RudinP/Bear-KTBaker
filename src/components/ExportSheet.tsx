@@ -5,7 +5,7 @@ import {
   themeStudioClient,
   type ThemeStudioClient,
 } from '../app/themeStudioClient';
-import type { ThemeProject } from '../domain/theme';
+import type { ThemeProject } from '../domain/theme/model';
 
 export function ExportSheet({
   project,

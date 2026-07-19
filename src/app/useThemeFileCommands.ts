@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { rendererOperationErrorText } from '../application/errors/rendererOperationErrorText';
-import { serializeThemeProject, type ThemeProject } from '../domain/theme';
+import { serializeThemeProject } from '../domain/theme/codec';
+import type { ThemeProject } from '../domain/theme/model';
 import {
   THEME_STUDIO_UNAVAILABLE_MESSAGE,
   themeStudioClient,

@@ -1,4 +1,4 @@
-import type { Platform } from '../domain/theme';
+import type { Platform } from '../domain/theme/model';
 
 const KAKAO_SMALL_SANS_STACK = '"Kakao Small Sans", sans-serif';
 

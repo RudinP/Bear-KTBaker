@@ -1,4 +1,4 @@
-import type { ImageAsset, Platform, ThemeProject } from '../domain/theme';
+import type { ImageAsset, Platform, ThemeProject } from '../domain/theme/model';
 import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
 import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
 

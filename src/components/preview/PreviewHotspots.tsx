@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { BubbleAppearance, EditableElementId, Platform, ScreenId, ThemeProject } from '../../domain/theme';
+import type { BubbleAppearance, EditableElementId, Platform, ScreenId, ThemeProject } from '../../domain/theme/model';
 import { resolveResourceAsset, resolveResourceUrl } from '../../manifest/resourceResolver';
 import { colorValue, cssColor } from '../../manifest/colorResolver';
 import { resolveBubbleGuides } from '../../manifest/bubbleGuideResolver';

@@ -1,4 +1,4 @@
-import type { ImageAsset } from '../domain/theme';
+import type { ImageAsset } from '../domain/theme/model';
 import type { ResourceRenderMode } from '../manifest/kakaoResources';
 
 export type AssetScaleContext = 'ios' | 'android' | 'android-tab';

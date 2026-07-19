@@ -1,7 +1,7 @@
 import path from 'node:path';
 import JSZip from 'jszip';
 import { PNG } from 'pngjs';
-import type { ImageAsset } from '../../domain/theme';
+import type { ImageAsset } from '../../domain/theme/model';
 import type { NinePatchGuides } from '../../domain/ninePatch';
 import {
   KAKAO_RESOURCE_SLOTS,

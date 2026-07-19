@@ -1,8 +1,6 @@
 import { ThemeStudioError } from '../../src/application/errors/ThemeStudioError';
-import {
-  parseThemeProject,
-  type ThemeProject,
-} from '../../src/domain/theme';
+import { parseThemeProject } from '../../src/domain/theme/codec';
+import type { ThemeProject } from '../../src/domain/theme/model';
 
 export interface ProjectSaveRequest {
   content: string;

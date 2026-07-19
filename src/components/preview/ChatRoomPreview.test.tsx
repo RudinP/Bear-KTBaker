@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
 import {
   AndroidChatRoomPreview,
   IosChatRoomPreview,

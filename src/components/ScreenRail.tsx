@@ -1,4 +1,4 @@
-import type { Platform, ScreenId } from '../domain/theme';
+import type { Platform, ScreenId } from '../domain/theme/model';
 
 const screens: Array<{ id: ScreenId; label: string }> = [
   { id: 'friends', label: '친구' },

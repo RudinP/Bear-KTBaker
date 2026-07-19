@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ThemeProject } from '../domain/theme';
+import type { ThemeProject } from '../domain/theme/model';
 import type { ThemeStudioClient } from './themeStudioClient';
 
 type ProjectHistory = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Platform, ScreenId, ThemeProject } from '../../domain/theme';
+import type { Platform, ScreenId, ThemeProject } from '../../domain/theme/model';
 import { resolveResourceAsset, resolveResourceUrl } from '../../manifest/resourceResolver';
 import { colorValue, cssColor } from '../../manifest/colorResolver';
 import { getColorSlot } from '../../manifest/kakaoColors';

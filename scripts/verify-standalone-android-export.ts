@@ -15,7 +15,7 @@ import {
   prepareStandaloneAndroidManifest,
 } from '../src/io/androidStandaloneManifest';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
-import { createDefaultTheme } from '../src/domain/theme';
+import { createDefaultTheme } from '../src/domain/theme/defaults';
 import { inspectCompiledAndroidApk } from '../src/io/androidCompiledMetadata';
 import { fingerprintAndroidPng } from '../src/io/androidArchiveResources';
 import { createAndroidImageExpectation } from '../src/io/androidImageVerification';

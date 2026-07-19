@@ -1,5 +1,5 @@
 import { DEFAULT_NINE_PATCH, guidesToIosMetrics, type NinePatchGuides } from '../domain/ninePatch';
-import type { BubbleAppearance, Platform, ThemeProject } from '../domain/theme';
+import type { BubbleAppearance, Platform, ThemeProject } from '../domain/theme/model';
 import { shouldIgnoreLegacyMirroredBubbleGuideTarget } from './bubblePlatformIsolation';
 import { getResourceSlot } from './kakaoResources';
 import { resolveResourceAsset } from './resourceResolver';

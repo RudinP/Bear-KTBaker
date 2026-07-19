@@ -1,4 +1,4 @@
-import type { EditableElementId, Platform, ScreenId } from '../domain/theme';
+import type { EditableElementId, Platform, ScreenId } from '../domain/theme/model';
 import { getHostLayout } from './layout';
 
 export const KAKAO_PREVIEW_VERSION = '26.5.0';

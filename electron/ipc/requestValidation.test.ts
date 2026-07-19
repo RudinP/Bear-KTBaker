@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../src/domain/theme';
+import { createDefaultTheme } from '../../src/domain/theme/defaults';
 import { nestedAssetsV1Fixture } from '../../src/test/fixtures/legacyThemeProjects';
 import {
   parseProjectSaveRequest,

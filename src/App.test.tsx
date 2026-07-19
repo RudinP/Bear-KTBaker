@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { createDefaultTheme } from './domain/theme';
+import { createDefaultTheme } from './domain/theme/defaults';
 import { resolveResourceUrl } from './manifest/resourceResolver';
 import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from './manifest/kakaoColors';
 

@@ -1,4 +1,4 @@
-import type { Platform, ThemeProject } from '../../domain/theme';
+import type { Platform, ThemeProject } from '../../domain/theme/model';
 import { KAKAO_COLOR_SLOTS } from '../../manifest/kakaoColors';
 import { KAKAO_RESOURCE_SLOTS } from '../../manifest/kakaoResources';
 

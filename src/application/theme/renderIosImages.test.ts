@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImageProcessorPort } from '../ports/imageProcessor';
-import { createDefaultTheme, type ThemeProject } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
+import type { ThemeProject } from '../../domain/theme/model';
 import type { ArchiveEntry } from '../../io/archiveEntries';
 import { renderIosImages } from './renderIosImages';
 

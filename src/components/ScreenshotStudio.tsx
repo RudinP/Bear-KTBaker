@@ -11,7 +11,7 @@ import {
 } from '../app/themeStudioClient';
 import { PhonePreview } from './preview/PhonePreview';
 import { MiniBubble } from './BubbleStates';
-import type { Platform, ThemeProject } from '../domain/theme';
+import type { Platform, ThemeProject } from '../domain/theme/model';
 import { resolveResourceUrl } from '../manifest/resourceResolver';
 import { previewFontFamily } from '../preview/fontFamily';
 import { getHostLayout } from '../preview/layout';

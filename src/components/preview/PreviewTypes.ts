@@ -1,6 +1,6 @@
 import type {
   EditableElementId, Platform, ScreenId, ThemeProject,
-} from '../../domain/theme';
+} from '../../domain/theme/model';
 
 export interface PreviewProps {
   project: ThemeProject;

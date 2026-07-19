@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
-import { PhonePreview } from './PhonePreview';
+import { createDefaultTheme } from '../domain/theme/defaults';
+import { PhonePreview } from './preview/PhonePreview';
 
 const baseProps = {
   project: createDefaultTheme(),

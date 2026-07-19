@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageAsset } from '../domain/theme';
-import { createDefaultTheme } from '../domain/theme';
+import type { ImageAsset } from '../domain/theme/model';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import type { NinePatchGuides } from '../domain/ninePatch';
 import { updateBubbleGuides } from '../domain/bubbleGuideUpdate';
 import {

@@ -1,4 +1,4 @@
-import type { FontAsset, ThemeProject } from '../domain/theme';
+import type { FontAsset, ThemeProject } from '../domain/theme/model';
 
 function readFont(file: File, callback: (font: FontAsset) => void) {
   const reader = new FileReader();

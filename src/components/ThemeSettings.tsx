@@ -1,4 +1,4 @@
-import type { ImageAsset, Platform, ThemeProject } from '../domain/theme';
+import type { ImageAsset, Platform, ThemeProject } from '../domain/theme/model';
 import { resolveResourceUrl } from '../manifest/resourceResolver';
 
 function readImage(file: File, callback: (asset: ImageAsset) => void) {

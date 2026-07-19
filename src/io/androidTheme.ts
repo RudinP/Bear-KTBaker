@@ -1,4 +1,4 @@
-import type { ThemeProject } from '../domain/theme';
+import type { ThemeProject } from '../domain/theme/model';
 
 const xmlEscape = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');

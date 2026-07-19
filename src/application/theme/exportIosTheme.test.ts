@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
 import { decodeArchiveEntries } from '../../io/archiveEntries';
 import { buildIosCss } from '../../io/iosTheme';
 import type { ImageProcessorPort } from '../ports/imageProcessor';

@@ -1,4 +1,4 @@
-import type { Platform, ScreenId } from '../../domain/theme';
+import type { Platform, ScreenId } from '../../domain/theme/model';
 import { ANDROID_HOST_LAYOUTS } from './android';
 import { IOS_HOST_LAYOUTS } from './ios';
 

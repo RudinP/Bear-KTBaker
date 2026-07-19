@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
 
 const decoder = vi.hoisted(() => ({
   project: vi.fn(),

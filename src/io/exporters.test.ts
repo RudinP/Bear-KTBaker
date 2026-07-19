@@ -3,7 +3,7 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
 import { updateBubbleGuides } from '../domain/bubbleGuideUpdate';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { setColorSlot } from '../manifest/colorResolver';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from './androidTheme';
 import { buildIosCss } from './iosTheme';

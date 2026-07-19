@@ -10,7 +10,13 @@ import { buildIosCss } from './iosTheme';
 import { buildNinePatchPng } from './ninePatchPng';
 import { getMappedResourceWrites } from './resourceWrites';
 import { flexibleBubbleTargetSize } from './resourceGeometry';
-import { detectThemeImportKind, importAndroidSourceZip, importAndroidThemeArchive, importIosKtheme, inspectCompiledAndroidApk } from './themeImport';
+import { inspectCompiledAndroidApk } from './androidCompiledMetadata';
+import { detectThemeImportKind } from './themeImport/detectImportKind';
+import {
+  importAndroidSourceZip,
+  importAndroidThemeArchive,
+} from './themeImport/importAndroidTheme';
+import { importIosKtheme } from './themeImport/importIosTheme';
 
 const templates = path.join(process.cwd(), 'resources/templates');
 

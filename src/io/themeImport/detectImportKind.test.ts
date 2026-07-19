@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ThemeImportKind as FacadeThemeImportKind } from '../themeImport';
 import { detectThemeImportKind } from './detectImportKind';
 import { ThemeImportFailure } from './importFailure';
 
 describe('detectThemeImportKind', () => {
-  it('keeps the legacy facade type export compatible', () => {
-    const kind: FacadeThemeImportKind = 'ios';
-
-    expect(kind).toBe('ios');
-  });
-
   it.each([
     ['theme.ktstudio', 'project'],
     ['theme.KTHEME', 'ios'],

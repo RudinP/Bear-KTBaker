@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultTheme } from '../domain/theme';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { colorAlpha, colorValue, cssColor, setColorSlot, setColorSlotAlpha } from './colorResolver';
 
 describe('semantic Kakao color slots', () => {

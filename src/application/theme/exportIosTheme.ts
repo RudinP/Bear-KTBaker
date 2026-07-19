@@ -1,4 +1,4 @@
-import type { ThemeProject } from '../../domain/theme';
+import type { ThemeProject } from '../../domain/theme/model';
 import {
   decodeArchiveEntries,
   encodeCleanArchiveEntries,

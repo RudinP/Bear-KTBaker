@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ERROR_CATALOG } from '../../src/application/errors/errorCatalog';
 import { ThemeStudioError } from '../../src/application/errors/ThemeStudioError';
 import type { AndroidApkBuildRequest } from '../../src/application/ports/androidApk';
-import type { AndroidCompiledMetadata } from '../../src/io/themeImport';
+import type { AndroidCompiledMetadata } from '../../src/io/androidCompiledMetadata';
 import { ANDROID_SAMPLE_COLORS } from '../../src/manifest/kakaoColors';
 import {
   AndroidStandaloneBuildError,

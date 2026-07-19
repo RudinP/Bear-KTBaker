@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { iosInsetGeometry, ninePatchBorderStyle, officialSampleBubbleGuides } from './ninePatchStyle';
+import { officialSampleBubbleGuides } from '../manifest/bubbleGuideResolver';
+import { iosInsetGeometry, ninePatchBorderStyle } from './ninePatchStyle';
 
 describe('nine-patch preview style', () => {
   it('keeps fixed edges and stretches only the marker-defined center', () => {

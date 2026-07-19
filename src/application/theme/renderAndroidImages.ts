@@ -1,4 +1,4 @@
-import type { ThemeProject } from '../../domain/theme';
+import type { ThemeProject } from '../../domain/theme/model';
 import { androidResourceIdentity } from '../../io/androidArchiveResources';
 import {
   assertAndroidImageOutputPossible,

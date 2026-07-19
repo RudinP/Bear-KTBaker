@@ -3,7 +3,8 @@ import { PNG } from 'pngjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileSystemPort, PathPort } from '../ports/fileSystem';
 import type { ImageProcessorPort } from '../ports/imageProcessor';
-import { createDefaultTheme, type ThemeProject } from '../../domain/theme';
+import { createDefaultTheme } from '../../domain/theme/defaults';
+import type { ThemeProject } from '../../domain/theme/model';
 import type { NinePatchGuides } from '../../domain/ninePatch';
 import {
   buildNinePatchPng,

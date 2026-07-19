@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultTheme, parseThemeProject, serializeThemeProject } from '../domain/theme';
+import { parseThemeProject, serializeThemeProject } from '../domain/theme/codec';
+import { createDefaultTheme } from '../domain/theme/defaults';
 import { getMappedResourceWrites } from './resourceWrites';
 
 describe('manifest-driven resource writes', () => {

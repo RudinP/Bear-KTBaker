@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultTheme } from '../../domain/theme';
-import { PhonePreview } from '../PhonePreview';
+import { createDefaultTheme } from '../../domain/theme/defaults';
+import { PhonePreview } from './PhonePreview';
 import { ScreenRail } from '../ScreenRail';
 import {
   PasscodePreview,
