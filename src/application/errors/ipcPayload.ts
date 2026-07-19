@@ -4,7 +4,8 @@ import {
   type ThemeOperation,
 } from './errorCatalog';
 import {
-  SAFE_CONTEXT_KEYS,
+  isSafeContext,
+  isSafeDiagnosticText,
   sanitizeSafeContext,
   ThemeStudioError,
 } from './ThemeStudioError';
@@ -23,45 +24,106 @@ export type ThemeIpcResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: ThemeStudioErrorPayload };
 
+// The root error counts as depth one; at most eight structured errors cross IPC.
+const MAX_STRUCTURED_ERROR_DEPTH = 8;
+const PAYLOAD_KEYS = Object.freeze([
+  'name',
+  'code',
+  'operation',
+  'stage',
+  'message',
+  'safeContext',
+  'cause',
+] as const);
+const REQUIRED_PAYLOAD_KEYS = Object.freeze([
+  'name',
+  'code',
+  'operation',
+  'stage',
+  'message',
+] as const);
+
 export function serializeThemeStudioError(
   error: ThemeStudioError,
 ): ThemeStudioErrorPayload {
+  return serializeThemeStudioErrorInternal(error, new WeakSet(), 1);
+}
+
+function serializeThemeStudioErrorInternal(
+  error: ThemeStudioError,
+  seen: WeakSet<ThemeStudioError>,
+  depth: number,
+): ThemeStudioErrorPayload {
+  seen.add(error);
+  const code = isErrorCode(error.code)
+    ? error.code
+    : 'KTB-UNKNOWN-UNEXPECTED';
+  const catalog = ERROR_CATALOG[code];
+  const operation = THEME_OPERATIONS.has(error.operation)
+    ? error.operation
+    : catalog.operation;
+  const safeContext = sanitizeSafeContext(error.safeContext);
+  const nestedCause = error.cause instanceof ThemeStudioError
+    && depth < MAX_STRUCTURED_ERROR_DEPTH
+    && !seen.has(error.cause)
+    ? serializeThemeStudioErrorInternal(error.cause, seen, depth + 1)
+    : undefined;
   return {
     name: 'ThemeStudioError',
-    code: error.code,
-    operation: error.operation,
-    stage: error.stage,
-    message: error.message,
-    ...(error.safeContext
-      ? { safeContext: sanitizeSafeContext(error.safeContext) }
-      : {}),
-    ...(error.cause instanceof ThemeStudioError
-      ? { cause: serializeThemeStudioError(error.cause) }
-      : {}),
+    code,
+    operation,
+    stage: isSafeDiagnosticText(error.stage)
+      ? error.stage
+      : catalog.stage,
+    message: isSafeDiagnosticText(error.message)
+      ? error.message
+      : catalog.message,
+    ...(safeContext ? { safeContext } : {}),
+    ...(nestedCause ? { cause: nestedCause } : {}),
   };
 }
 
 export function isThemeStudioErrorPayload(
   value: unknown,
 ): value is ThemeStudioErrorPayload {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<ThemeStudioErrorPayload>;
-  return candidate.name === 'ThemeStudioError'
-    && typeof candidate.code === 'string'
-    && candidate.code in ERROR_CATALOG
-    && typeof candidate.operation === 'string'
+  return isThemeStudioErrorPayloadInternal(value, new WeakSet(), 1);
+}
+
+function isThemeStudioErrorPayloadInternal(
+  value: unknown,
+  seen: WeakSet<object>,
+  depth: number,
+): value is ThemeStudioErrorPayload {
+  if (
+    depth > MAX_STRUCTURED_ERROR_DEPTH
+    || !isPlainRecord(value)
+    || seen.has(value)
+    || !hasExactPayloadKeys(value)
+  ) {
+    return false;
+  }
+  seen.add(value);
+  return value.name === 'ThemeStudioError'
+    && isErrorCode(value.code)
+    && typeof value.operation === 'string'
     && THEME_OPERATIONS.has(
-      candidate.operation as ThemeOperation,
+      value.operation as ThemeOperation,
     )
-    && typeof candidate.stage === 'string'
-    && typeof candidate.message === 'string'
+    && isSafeDiagnosticText(value.stage)
+    && isSafeDiagnosticText(value.message)
     && (
-      candidate.safeContext === undefined
-      || isSerializedSafeContext(candidate.safeContext)
+      !Object.hasOwn(value, 'safeContext')
+      || value.safeContext === undefined
+      || isSafeContext(value.safeContext)
     )
     && (
-      candidate.cause === undefined
-      || isThemeStudioErrorPayload(candidate.cause)
+      !Object.hasOwn(value, 'cause')
+      || value.cause === undefined
+      || isThemeStudioErrorPayloadInternal(
+        value.cause,
+        seen,
+        depth + 1,
+      )
     );
 }
 
@@ -75,23 +137,6 @@ const THEME_OPERATIONS = new Set<ThemeOperation>([
   'ipc:validate',
 ]);
 
-function isSerializedSafeContext(value: unknown) {
-  return Boolean(
-    value
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && Object.entries(value).every(
-      ([key, item]) =>
-        SAFE_CONTEXT_KEYS.has(key)
-        && (
-          typeof item === 'string'
-          || typeof item === 'number'
-          || typeof item === 'boolean'
-        ),
-    ),
-  );
-}
-
 export function reconstructThemeStudioError(
   payload: ThemeStudioErrorPayload,
 ): ThemeStudioError {
@@ -103,6 +148,12 @@ export function reconstructThemeStudioError(
       message: '앱 오류 응답을 읽지 못했습니다.',
     });
   }
+  return reconstructValidatedThemeStudioError(payload);
+}
+
+function reconstructValidatedThemeStudioError(
+  payload: ThemeStudioErrorPayload,
+): ThemeStudioError {
   return new ThemeStudioError({
     code: payload.code,
     operation: payload.operation,
@@ -110,7 +161,34 @@ export function reconstructThemeStudioError(
     message: payload.message,
     safeContext: payload.safeContext,
     cause: payload.cause
-      ? reconstructThemeStudioError(payload.cause)
+      ? reconstructValidatedThemeStudioError(payload.cause)
       : undefined,
   });
+}
+
+function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string'
+    && Object.hasOwn(ERROR_CATALOG, value);
+}
+
+function hasExactPayloadKeys(
+  value: Record<string, unknown>,
+) {
+  const keys = Reflect.ownKeys(value);
+  return REQUIRED_PAYLOAD_KEYS.every((key) => Object.hasOwn(value, key))
+    && keys.every(
+      (key) =>
+        typeof key === 'string'
+        && (PAYLOAD_KEYS as readonly string[]).includes(key),
+    );
+}
+
+function isPlainRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }

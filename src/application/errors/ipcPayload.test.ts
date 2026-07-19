@@ -103,6 +103,160 @@ describe('ThemeStudioError IPC payload', () => {
       ...base,
       safeContext: { filePath: '/Users/person/private.ktstudio' },
     })).toBe(false);
+    expect(isThemeStudioErrorPayload({
+      ...base,
+      code: 'toString',
+    })).toBe(false);
+    expect(isThemeStudioErrorPayload({
+      ...base,
+      unexpected: 'field',
+    })).toBe(false);
+  });
+
+  it('rejects arrays, class instances, inherited fields, and unknown own fields', () => {
+    const payload = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    }));
+    class Payload {
+      name = payload.name;
+      code = payload.code;
+      operation = payload.operation;
+      stage = payload.stage;
+      message = payload.message;
+    }
+
+    expect(isThemeStudioErrorPayload(Object.assign([], payload))).toBe(false);
+    expect(isThemeStudioErrorPayload(new Payload())).toBe(false);
+    expect(isThemeStudioErrorPayload(Object.create(payload))).toBe(false);
+    expect(isThemeStudioErrorPayload({
+      ...payload,
+      [Symbol('secret')]: 'password=secret',
+    })).toBe(false);
+  });
+
+  it('accepts explicitly undefined optional payload fields', () => {
+    const payload = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    }));
+
+    expect(isThemeStudioErrorPayload({
+      ...payload,
+      safeContext: undefined,
+      cause: undefined,
+    })).toBe(true);
+  });
+
+  it('rejects sensitive text and unsafe values under allowed context keys', () => {
+    const base = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    }));
+    const unsafeValues = [
+      { resourceId: '/Users/person/private.ktstudio' },
+      { resourceKey: 'data:image/png;base64,secret' },
+      { stage: '{"KakaoTalkTheme.css":"theme contents"}' },
+      { signal: 'PASSWORD=secret' },
+      { systemCode: 'TOKEN=secret' },
+      { platform: 'C:\\private\\signing.keystore' },
+    ];
+
+    for (const safeContext of unsafeValues) {
+      expect(isThemeStudioErrorPayload({ ...base, safeContext })).toBe(false);
+    }
+    expect(isThemeStudioErrorPayload({
+      ...base,
+      stage: '/Users/person/private.ktstudio',
+    })).toBe(false);
+    expect(isThemeStudioErrorPayload({
+      ...base,
+      message: '-----BEGIN PRIVATE KEY-----',
+    })).toBe(false);
+  });
+
+  it('re-sanitizes mutated fields before serialization', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+      safeContext: { resourceId: 'main.background' },
+    });
+    Object.assign(error, {
+      stage: '/Users/person/private.ktstudio',
+      message: 'token=secret',
+    });
+    Object.assign(error.safeContext!, {
+      resourceId: 'data:image/png;base64,secret',
+    });
+
+    expect(serializeThemeStudioError(error)).toEqual({
+      name: 'ThemeStudioError',
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    });
+  });
+
+  it('omits cyclic and over-depth structured causes during serialization', () => {
+    const cyclic = new ThemeStudioError({
+      code: 'KTB-UNKNOWN-UNEXPECTED',
+      operation: 'ipc:validate',
+      stage: '알 수 없는 작업',
+      message: '예상하지 못한 오류가 발생했습니다.',
+    });
+    Object.assign(cyclic, { cause: cyclic });
+
+    expect(serializeThemeStudioError(cyclic)).not.toHaveProperty('cause');
+
+    let deep = cyclic;
+    Object.assign(deep, { cause: undefined });
+    for (let index = 0; index < 12; index += 1) {
+      deep = new ThemeStudioError({
+        code: 'KTB-UNKNOWN-UNEXPECTED',
+        operation: 'ipc:validate',
+        stage: '알 수 없는 작업',
+        message: '예상하지 못한 오류가 발생했습니다.',
+        cause: deep,
+      });
+    }
+    let payload: unknown = serializeThemeStudioError(deep);
+    let depth = 0;
+    while (payload && typeof payload === 'object') {
+      depth += 1;
+      payload = (payload as { cause?: unknown }).cause;
+    }
+    expect(depth).toBe(8);
+  });
+
+  it('rejects cyclic and over-depth payload cause chains', () => {
+    const leaf = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-UNKNOWN-UNEXPECTED',
+      operation: 'ipc:validate',
+      stage: '알 수 없는 작업',
+      message: '예상하지 못한 오류가 발생했습니다.',
+    }));
+    const cyclic = { ...leaf, cause: undefined as unknown };
+    cyclic.cause = cyclic;
+    expect(isThemeStudioErrorPayload(cyclic)).toBe(false);
+
+    let eightDeep: Record<string, unknown> = { ...leaf };
+    for (let index = 1; index < 8; index += 1) {
+      eightDeep = { ...leaf, cause: eightDeep };
+    }
+    expect(isThemeStudioErrorPayload(eightDeep)).toBe(true);
+    expect(isThemeStudioErrorPayload({
+      ...leaf,
+      cause: eightDeep,
+    })).toBe(false);
   });
 
   it('returns a safe fallback for an invalid payload', () => {

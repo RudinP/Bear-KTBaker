@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as themeStudioErrorModule from './ThemeStudioError';
 import {
   normalizeThemeStudioError,
   systemErrorContext,
@@ -88,5 +89,103 @@ describe('ThemeStudioError', () => {
       '리소스: main.tab.background '
       + '(drawable/theme_maintab_cell_image)',
     );
+  });
+
+  it('keeps the raw safe-context key collection private', () => {
+    expect(themeStudioErrorModule).not.toHaveProperty('SAFE_CONTEXT_KEYS');
+  });
+
+  it('keeps valid per-key diagnostic context values', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: {
+        archiveKind: 'apk',
+        resourceId: 'main.tab.background',
+        resourceKey: 'drawable/theme_maintab_cell_image',
+        stage: '이미지 복원 단계',
+        exitCode: -1,
+        signal: 'SIGTERM',
+        systemCode: 'ENOSPC',
+        platform: 'android',
+        schemaVersion: 1,
+        expectedCount: 10,
+        actualCount: 9,
+      },
+    });
+
+    expect(error.safeContext).toEqual({
+      archiveKind: 'apk',
+      resourceId: 'main.tab.background',
+      resourceKey: 'drawable/theme_maintab_cell_image',
+      stage: '이미지 복원 단계',
+      exitCode: -1,
+      signal: 'SIGTERM',
+      systemCode: 'ENOSPC',
+      platform: 'android',
+      schemaVersion: 1,
+      expectedCount: 10,
+      actualCount: 9,
+    });
+  });
+
+  it('drops unsafe values even when their context keys are allowlisted', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '프로젝트 파일 쓰기',
+      message: '프로젝트를 저장하지 못했습니다.',
+      safeContext: {
+        archiveKind: 'data:image/png;base64,secret',
+        resourceId: '/Users/person/private.ktstudio',
+        resourceKey: 'drawable/password=secret',
+        stage: '{"theme":{"contents":"private"}}',
+        exitCode: Number.POSITIVE_INFINITY,
+        signal: 'TOKEN=secret',
+        systemCode: '-----BEGIN PRIVATE KEY-----',
+        platform: 'win32 C:\\private\\signing.keystore',
+        schemaVersion: -1,
+        expectedCount: 1.5,
+        actualCount: 2,
+        extra: 'ignored',
+      },
+    });
+
+    expect(error.safeContext).toEqual({ actualCount: 2 });
+    expect(JSON.stringify(error.safeContext)).not.toMatch(
+      /Users|data:|base64|theme|password|token|private|signing|secret/i,
+    );
+  });
+
+  it('enforces context value bounds and sensitive-token rejection', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '프로젝트 파일 쓰기',
+      message: '프로젝트를 저장하지 못했습니다.',
+      safeContext: {
+        resourceId: `main.${'a'.repeat(160)}`,
+        resourceKey: 'drawable/private_key',
+        stage: '가'.repeat(257),
+        signal: 'PASSWORD_HASH',
+        systemCode: 'TOKEN_VALUE',
+      },
+    });
+
+    expect(error.safeContext).toBeUndefined();
+  });
+
+  it('falls back to catalog text when stage or message is sensitive', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '/Users/person/private.ktstudio',
+      message: 'password=secret data:image/png;base64,theme-contents',
+    });
+
+    expect(error.stage).toBe('파일 쓰기');
+    expect(error.message).toBe('파일을 저장하지 못했습니다.');
   });
 });
