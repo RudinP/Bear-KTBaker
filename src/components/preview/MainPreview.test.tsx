@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../../domain/theme';
-import { PhonePreview } from '../PhonePreview';
+import { MainPreview } from './MainPreview';
 
 function renderMain(platform: 'ios' | 'android') {
-  return render(<PhonePreview project={createDefaultTheme()} platform={platform} screen="chats"
-    selected="screen-background" onSelect={vi.fn()} onNavigateScreen={vi.fn()} />);
+  return render(<MainPreview project={createDefaultTheme()} platform={platform} screen="chats"
+    selected="screen-background" onSelect={vi.fn()} onNavigateScreen={vi.fn()} bannerVariant="hidden" />);
 }
 
 describe('official main and tab host layout', () => {
