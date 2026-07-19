@@ -57,20 +57,28 @@ describe('theme export sheet', () => {
   });
 
   it('shows an Android builder error as an error rather than a successful APK export', async () => {
+    const diagnostic = [
+      '[KTB-ANDROID-AAPT2-COMPILE]',
+      'Android 리소스 컴파일에 실패했습니다.',
+      '단계: APK 리소스 컴파일',
+      '원인: aapt2 종료 코드 1',
+    ].join('\n');
     window.themeStudio = {
       platform: 'darwin',
       openProject: vi.fn(),
       saveProject: vi.fn(),
       importTheme: vi.fn(),
       exportIos: vi.fn(),
-      exportAndroid: vi.fn().mockResolvedValue({ error: 'APK 서명에 실패했습니다.' }),
+      exportAndroid: vi.fn().mockResolvedValue({ error: diagnostic }),
       saveScreenshots: vi.fn(),
     };
 
     render(<ExportSheet project={createDefaultTheme()} onClose={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: /Android 테마/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('APK 서명에 실패했습니다.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('[KTB-ANDROID-AAPT2-COMPILE]');
+    expect(screen.getByRole('alert')).toHaveTextContent('단계: APK 리소스 컴파일');
+    expect(screen.getByRole('alert').textContent?.startsWith('[KTB-ANDROID-AAPT2-COMPILE]')).toBe(true);
     expect(screen.queryByText('Android용 APK 파일을 만들었습니다.')).not.toBeInTheDocument();
   });
 });

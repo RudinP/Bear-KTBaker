@@ -427,6 +427,30 @@ describe('theme editor', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('불러오지 못했습니다. 손상된 테마 파일입니다.');
   });
 
+  it('shows a bridge diagnostic import error without adding generic copy before its support code', async () => {
+    const diagnostic = new Error([
+      '[KTB-PROJECT-INVALID-FORMAT]',
+      '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.',
+      '단계: 프로젝트 파일 검증',
+    ].join('\n'));
+    window.themeStudio = {
+      platform: 'win32',
+      importTheme: vi.fn().mockRejectedValue(diagnostic),
+      openProject: vi.fn(),
+      saveProject: vi.fn(),
+      exportIos: vi.fn(),
+      exportAndroid: vi.fn(),
+      saveScreenshots: vi.fn(),
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '불러오기' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('[KTB-PROJECT-INVALID-FORMAT]');
+    expect(screen.getByRole('alert')).toHaveTextContent('단계: 프로젝트 파일 검증');
+    expect(screen.getByRole('alert').textContent?.startsWith('[KTB-PROJECT-INVALID-FORMAT]')).toBe(true);
+  });
+
   it('keeps the current project and shows no success message when import is canceled', async () => {
     const importTheme = vi.fn().mockResolvedValue(null);
     window.themeStudio = {

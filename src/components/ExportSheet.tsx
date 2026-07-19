@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import type { ThemeProject } from '../domain/theme';
 
+function operationErrorText(error: unknown) {
+  const message = typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+    ? error.message
+    : undefined;
+  return message?.startsWith('[KTB-')
+    ? message
+    : `내보내지 못했습니다. ${message ?? '파일과 저장 위치를 확인해 주세요.'}`;
+}
+
 export function ExportSheet({ project, onClose }: { project: ThemeProject; onClose: () => void }) {
   const [status, setStatus] = useState<{ kind: 'progress' | 'success' | 'cancel' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +37,7 @@ export function ExportSheet({ project, onClose }: { project: ThemeProject; onClo
     } catch (error) {
       setStatus({
         kind: 'error',
-        text: `내보내지 못했습니다. ${error instanceof Error ? error.message : '파일과 저장 위치를 확인해 주세요.'}`,
+        text: operationErrorText(error),
       });
     } finally {
       setBusy(false);
