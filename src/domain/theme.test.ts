@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createDefaultTheme as createDefaultThemeDirect } from './theme/defaults';
 import { createDefaultTheme, parseThemeProject, serializeThemeProject } from './theme';
 import { shouldIgnoreLegacyMirroredBubbleAssetTarget } from '../manifest/bubblePlatformIsolation';
 import { resolveResourceAsset } from '../manifest/resourceResolver';
@@ -15,6 +16,10 @@ import {
 } from '../test/fixtures/legacyThemeProjects';
 
 describe('theme project', () => {
+  it('keeps the theme module default creator compatibility export', () => {
+    expect(createDefaultTheme).toBe(createDefaultThemeDirect);
+  });
+
   it('creates a project that targets iOS and Android together', () => {
     const project = createDefaultTheme('복숭아 우체국');
 
