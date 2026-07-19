@@ -1,6 +1,8 @@
+import { sign as signWithPrivateKey } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   stat,
@@ -9,9 +11,11 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
+import * as forge from 'node-forge';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AndroidStandaloneBuildError,
+  type AndroidSigningIdentity,
   buildStandaloneAapt2Plan,
   buildStandaloneAndroidApk,
   injectStandaloneDex,
@@ -213,6 +217,97 @@ describe('standalone Android APK build support', () => {
     ]);
   });
 
+  it('waits for an external exclusive writer to finish before returning its identity', async () => {
+    const directory = await mkdtemp(path.join(
+      tmpdir(),
+      'kakao-signing-incomplete-winner-',
+    ));
+    const identityPath = path.join(
+      directory,
+      'android-signing-identity.json',
+    );
+    const winner = {
+      schema: 1,
+      alias: 'kakaotheme',
+      password: 'external-incomplete-winner',
+      pkcs12DataUrl:
+        'data:application/x-pkcs12;base64,COMPLETED_WINNER',
+    } as const;
+    let externalWriter:
+      Awaited<ReturnType<typeof open>> | undefined;
+    const waitForIdentityRetry = vi.fn(async () => {
+      if (!externalWriter) throw new Error('missing writer');
+      await externalWriter.writeFile(
+        `${JSON.stringify(winner)}\n`,
+      );
+      await externalWriter.sync();
+      await externalWriter.close();
+      externalWriter = undefined;
+    });
+
+    const operation = loadOrCreateSigningIdentity(
+      identityPath,
+      {
+        randomPassword: () => 'losing-password',
+        generateKey: async () => {
+          externalWriter = await open(
+            identityPath,
+            'wx',
+            0o644,
+          );
+          return 'data:application/x-pkcs12;base64,LOSING_KEY';
+        },
+        waitForIdentityRetry,
+      },
+    );
+
+    try {
+      await expect(operation).resolves.toEqual(winner);
+    } finally {
+      await externalWriter?.close().catch(() => undefined);
+    }
+    expect(waitForIdentityRetry).toHaveBeenCalled();
+    expect(JSON.parse(await readFile(identityPath, 'utf8')))
+      .toEqual(winner);
+    expect((await stat(identityPath)).mode & 0o777).toBe(0o600);
+    expect(await readdir(directory)).toEqual([
+      'android-signing-identity.json',
+    ]);
+  });
+
+  it('times out on a crashed external writer without replacing it or leaving temp files', async () => {
+    const directory = await mkdtemp(path.join(
+      tmpdir(),
+      'kakao-signing-crashed-winner-',
+    ));
+    const identityPath = path.join(
+      directory,
+      'android-signing-identity.json',
+    );
+
+    await expect(loadOrCreateSigningIdentity(
+      identityPath,
+      {
+        randomPassword: () => 'losing-password',
+        generateKey: async () => {
+          const externalWriter = await open(
+            identityPath,
+            'wx',
+            0o600,
+          );
+          await externalWriter.close();
+          return 'data:application/x-pkcs12;base64,LOSING_KEY';
+        },
+        waitForIdentityRetry: async () => undefined,
+      },
+    )).rejects.toThrow('손상');
+
+    expect(await readFile(identityPath)).toHaveLength(0);
+    expect(await readdir(directory)).toEqual([
+      'android-signing-identity.json',
+    ]);
+  });
+
   it('does not silently replace a damaged signing identity', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'kakao-signing-damaged-'));
     const identityPath = path.join(directory, 'android-signing-identity.json');
@@ -312,6 +407,80 @@ describe('standalone Android APK build support', () => {
       expect(() => verifyStandaloneApkSignatureV2(invalid))
         .toThrow('서명');
     }
+  });
+
+  it('rejects more than one otherwise-valid V2 signer', async () => {
+    const signed = await createSignedFixture();
+    expectVerificationFailureCause(
+      addExtraV2Signer(signed),
+      'expected exactly one v2 signer',
+    );
+  });
+
+  it('rejects matching extra signature and digest algorithms even when the supported signature is renewed', async () => {
+    const fixture = await createSignedFixtureWithIdentity();
+    const mutated = resignFirstV2Signature(
+      addExtraV2Algorithm(fixture.signed),
+      fixture.identity,
+    );
+
+    expectVerificationFailureCause(
+      mutated,
+      'unsupported signer algorithm shape',
+    );
+  });
+
+  it('rejects signed data containing an extra certificate', async () => {
+    const fixture = await createSignedFixtureWithIdentity();
+    const mutated = resignFirstV2Signature(
+      addExtraV2Certificate(fixture.signed),
+      fixture.identity,
+    );
+
+    expectVerificationFailureCause(
+      mutated,
+      'expected exactly one signer certificate',
+    );
+  });
+
+  it('rejects signed data containing no signer certificate', async () => {
+    const fixture = await createSignedFixtureWithIdentity();
+    const mutated = resignFirstV2Signature(
+      removeSoleV2Certificate(fixture.signed),
+      fixture.identity,
+    );
+
+    expectVerificationFailureCause(
+      mutated,
+      'expected exactly one signer certificate',
+    );
+  });
+
+  it('rejects signed data containing nonempty additional attributes', async () => {
+    const fixture = await createSignedFixtureWithIdentity();
+    const mutated = resignFirstV2Signature(
+      addV2AdditionalAttribute(fixture.signed),
+      fixture.identity,
+    );
+
+    expectVerificationFailureCause(
+      mutated,
+      'additional signer attributes are unsupported',
+    );
+  });
+
+  it('rejects a malformed sole signer certificate', async () => {
+    const signed = await createSignedFixture();
+    const malformed = Buffer.from(signed);
+    const layout = locateV2Layout(malformed);
+    const certificate = lengthPrefixedAt(
+      malformed,
+      layout.certificates.start,
+    );
+    malformed[certificate.start] ^= 0xff;
+
+    expect(() => verifyStandaloneApkSignatureV2(malformed))
+      .toThrow('서명');
   });
 
   it('runs AAPT2, injects the runtime, signs, validates, and writes one final APK', async () => {
@@ -657,6 +826,10 @@ function linkFixture(compiled: Buffer) {
 }
 
 async function createSignedFixture() {
+  return (await createSignedFixtureWithIdentity()).signed;
+}
+
+async function createSignedFixtureWithIdentity() {
   const source = new JSZip();
   source.file('AndroidManifest.xml', Buffer.from('manifest'));
   source.file('resources.arsc', Buffer.from('resources'));
@@ -673,7 +846,10 @@ async function createSignedFixture() {
   const log = vi.spyOn(console, 'log')
     .mockImplementation(() => undefined);
   try {
-    return await signStandaloneApk(unsigned, identity);
+    return {
+      signed: await signStandaloneApk(unsigned, identity),
+      identity,
+    };
   } finally {
     log.mockRestore();
   }
@@ -682,4 +858,331 @@ async function createSignedFixture() {
 function findEocd(apk: Buffer) {
   const signature = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
   return apk.lastIndexOf(signature);
+}
+
+interface LengthPrefixedRange {
+  lengthOffset: number;
+  start: number;
+  end: number;
+}
+
+interface V2FixtureLayout {
+  blockStart: number;
+  footerOffset: number;
+  centralDirectoryOffset: number;
+  eocdOffset: number;
+  pairLengthOffset: number;
+  signers: LengthPrefixedRange;
+  signer: LengthPrefixedRange;
+  signedData: LengthPrefixedRange;
+  signatures: LengthPrefixedRange;
+  digests: LengthPrefixedRange;
+  certificates: LengthPrefixedRange;
+  attributes: LengthPrefixedRange;
+}
+
+function locateV2Layout(apk: Buffer): V2FixtureLayout {
+  const eocdOffset = findEocd(apk);
+  const centralDirectoryOffset = apk.readUInt32LE(
+    eocdOffset + 16,
+  );
+  const footerOffset = centralDirectoryOffset - 24;
+  const blockSize = Number(apk.readBigUInt64LE(footerOffset));
+  const blockStart =
+    centralDirectoryOffset - blockSize - 8;
+  const pairLengthOffset = blockStart + 8;
+  expect(apk.readUInt32LE(pairLengthOffset + 8))
+    .toBe(0x7109871a);
+
+  const signers = lengthPrefixedAt(
+    apk,
+    pairLengthOffset + 12,
+  );
+  const signer = lengthPrefixedAt(apk, signers.start);
+  const signedData = lengthPrefixedAt(apk, signer.start);
+  const signatures = lengthPrefixedAt(apk, signedData.end);
+  const digests = lengthPrefixedAt(apk, signedData.start);
+  const certificates = lengthPrefixedAt(apk, digests.end);
+  const attributes = lengthPrefixedAt(
+    apk,
+    certificates.end,
+  );
+  return {
+    blockStart,
+    footerOffset,
+    centralDirectoryOffset,
+    eocdOffset,
+    pairLengthOffset,
+    signers,
+    signer,
+    signedData,
+    signatures,
+    digests,
+    certificates,
+    attributes,
+  };
+}
+
+function lengthPrefixedAt(
+  bytes: Buffer,
+  lengthOffset: number,
+): LengthPrefixedRange {
+  const length = bytes.readUInt32LE(lengthOffset);
+  const start = lengthOffset + 4;
+  return {
+    lengthOffset,
+    start,
+    end: start + length,
+  };
+}
+
+function addExtraV2Signer(apk: Buffer) {
+  const layout = locateV2Layout(apk);
+  const signerRecord = apk.subarray(
+    layout.signer.lengthOffset,
+    layout.signer.end,
+  );
+  return insertSigningBlockBytes(
+    apk,
+    layout.signers.end,
+    signerRecord,
+    [layout.signers.lengthOffset],
+  );
+}
+
+function addExtraV2Algorithm(apk: Buffer) {
+  let mutated = Buffer.from(apk);
+  let layout = locateV2Layout(mutated);
+  const digest = lengthPrefixedAt(
+    mutated,
+    layout.digests.start,
+  );
+  const extraDigest = Buffer.from(mutated.subarray(
+    digest.lengthOffset,
+    digest.end,
+  ));
+  extraDigest.writeUInt32LE(0x0104, 4);
+  mutated = insertSigningBlockBytes(
+    mutated,
+    layout.digests.end,
+    extraDigest,
+    [
+      layout.digests.lengthOffset,
+      layout.signedData.lengthOffset,
+      layout.signer.lengthOffset,
+      layout.signers.lengthOffset,
+    ],
+  );
+
+  layout = locateV2Layout(mutated);
+  const signature = lengthPrefixedAt(
+    mutated,
+    layout.signatures.start,
+  );
+  const extraSignature = Buffer.from(mutated.subarray(
+    signature.lengthOffset,
+    signature.end,
+  ));
+  extraSignature.writeUInt32LE(0x0104, 4);
+  return insertSigningBlockBytes(
+    mutated,
+    layout.signatures.end,
+    extraSignature,
+    [
+      layout.signatures.lengthOffset,
+      layout.signer.lengthOffset,
+      layout.signers.lengthOffset,
+    ],
+  );
+}
+
+function addExtraV2Certificate(apk: Buffer) {
+  const layout = locateV2Layout(apk);
+  const certificate = lengthPrefixedAt(
+    apk,
+    layout.certificates.start,
+  );
+  const extraCertificate = apk.subarray(
+    certificate.lengthOffset,
+    certificate.end,
+  );
+  return insertSigningBlockBytes(
+    apk,
+    layout.certificates.end,
+    extraCertificate,
+    [
+      layout.certificates.lengthOffset,
+      layout.signedData.lengthOffset,
+      layout.signer.lengthOffset,
+      layout.signers.lengthOffset,
+    ],
+  );
+}
+
+function removeSoleV2Certificate(apk: Buffer) {
+  const layout = locateV2Layout(apk);
+  const certificate = lengthPrefixedAt(
+    apk,
+    layout.certificates.start,
+  );
+  return removeSigningBlockBytes(
+    apk,
+    certificate.lengthOffset,
+    certificate.end,
+    [
+      layout.certificates.lengthOffset,
+      layout.signedData.lengthOffset,
+      layout.signer.lengthOffset,
+      layout.signers.lengthOffset,
+    ],
+  );
+}
+
+function addV2AdditionalAttribute(apk: Buffer) {
+  const layout = locateV2Layout(apk);
+  const attribute = Buffer.alloc(8);
+  attribute.writeUInt32LE(4, 0);
+  attribute.writeUInt32LE(0x1234abcd, 4);
+  return insertSigningBlockBytes(
+    apk,
+    layout.attributes.start,
+    attribute,
+    [
+      layout.attributes.lengthOffset,
+      layout.signedData.lengthOffset,
+      layout.signer.lengthOffset,
+      layout.signers.lengthOffset,
+    ],
+  );
+}
+
+function insertSigningBlockBytes(
+  apk: Buffer,
+  insertionOffset: number,
+  inserted: Uint8Array,
+  uint32LengthOffsets: number[],
+) {
+  const layout = locateV2Layout(apk);
+  const addition = Buffer.from(inserted);
+  const result = Buffer.concat([
+    apk.subarray(0, insertionOffset),
+    addition,
+    apk.subarray(insertionOffset),
+  ]);
+  for (const lengthOffset of uint32LengthOffsets) {
+    result.writeUInt32LE(
+      apk.readUInt32LE(lengthOffset) + addition.length,
+      lengthOffset,
+    );
+  }
+  const blockSize = apk.readBigUInt64LE(layout.blockStart)
+    + BigInt(addition.length);
+  result.writeBigUInt64LE(blockSize, layout.blockStart);
+  result.writeBigUInt64LE(
+    blockSize,
+    layout.footerOffset + addition.length,
+  );
+  result.writeBigUInt64LE(
+    apk.readBigUInt64LE(layout.pairLengthOffset)
+      + BigInt(addition.length),
+    layout.pairLengthOffset,
+  );
+  result.writeUInt32LE(
+    layout.centralDirectoryOffset + addition.length,
+    layout.eocdOffset + addition.length + 16,
+  );
+  return result;
+}
+
+function removeSigningBlockBytes(
+  apk: Buffer,
+  removalStart: number,
+  removalEnd: number,
+  uint32LengthOffsets: number[],
+) {
+  const layout = locateV2Layout(apk);
+  const removedLength = removalEnd - removalStart;
+  const result = Buffer.concat([
+    apk.subarray(0, removalStart),
+    apk.subarray(removalEnd),
+  ]);
+  for (const lengthOffset of uint32LengthOffsets) {
+    result.writeUInt32LE(
+      apk.readUInt32LE(lengthOffset) - removedLength,
+      lengthOffset,
+    );
+  }
+  const blockSize = apk.readBigUInt64LE(layout.blockStart)
+    - BigInt(removedLength);
+  result.writeBigUInt64LE(blockSize, layout.blockStart);
+  result.writeBigUInt64LE(
+    blockSize,
+    layout.footerOffset - removedLength,
+  );
+  result.writeBigUInt64LE(
+    apk.readBigUInt64LE(layout.pairLengthOffset)
+      - BigInt(removedLength),
+    layout.pairLengthOffset,
+  );
+  result.writeUInt32LE(
+    layout.centralDirectoryOffset - removedLength,
+    layout.eocdOffset - removedLength + 16,
+  );
+  return result;
+}
+
+function resignFirstV2Signature(
+  apk: Buffer,
+  identity: AndroidSigningIdentity,
+) {
+  const result = Buffer.from(apk);
+  const layout = locateV2Layout(result);
+  const signatureRecord = lengthPrefixedAt(
+    result,
+    layout.signatures.start,
+  );
+  const signatureValue = lengthPrefixedAt(
+    result,
+    signatureRecord.start + 4,
+  );
+  const pkcs12Base64 = identity.pkcs12DataUrl.split(
+    'base64,',
+  )[1];
+  const pkcs12 = forge.pkcs12.pkcs12FromAsn1(
+    forge.asn1.fromDer(forge.util.decode64(pkcs12Base64)),
+    identity.password,
+  );
+  const privateKey = pkcs12.getBags({
+    friendlyName: identity.alias,
+    bagType: forge.pki.oids.pkcs8ShroudedKeyBag,
+  }).friendlyName?.[0]?.key;
+  if (!privateKey) throw new Error('fixture key missing');
+  const signature = signWithPrivateKey(
+    'sha256',
+    result.subarray(
+      layout.signedData.start,
+      layout.signedData.end,
+    ),
+    forge.pki.privateKeyToPem(privateKey),
+  );
+  expect(signature).toHaveLength(
+    signatureValue.end - signatureValue.start,
+  );
+  signature.copy(result, signatureValue.start);
+  return result;
+}
+
+function expectVerificationFailureCause(
+  apk: Buffer,
+  message: string,
+) {
+  let failure: unknown;
+  try {
+    verifyStandaloneApkSignatureV2(apk);
+  } catch (error) {
+    failure = error;
+  }
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error & { cause?: unknown }).cause)
+    .toMatchObject({ message });
 }

@@ -9,7 +9,15 @@ import {
 } from 'node:crypto';
 import { Blob as NodeBlob } from 'node:buffer';
 import { execFile } from 'node:child_process';
-import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  access,
+  chmod,
+  link,
+  mkdir,
+  readFile,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { ApkSignerV2, PackageSigner } from 'android-package-signer';
 import JSZip from 'jszip';
@@ -165,6 +173,14 @@ export function buildStandaloneAapt2Plan({
   };
 }
 
+class DamagedSigningIdentityError extends Error {
+  constructor() {
+    super(
+      '저장된 Android 서명 정보가 손상되었습니다. 기존 테마를 업데이트하려면 서명 파일을 복구해야 합니다.',
+    );
+  }
+}
+
 function parseSigningIdentity(content: string): AndroidSigningIdentity {
   try {
     const value = JSON.parse(content) as Partial<AndroidSigningIdentity>;
@@ -179,7 +195,7 @@ function parseSigningIdentity(content: string): AndroidSigningIdentity {
     ) throw new Error('invalid identity');
     return value as AndroidSigningIdentity;
   } catch {
-    throw new Error('저장된 Android 서명 정보가 손상되었습니다. 기존 테마를 업데이트하려면 서명 파일을 복구해야 합니다.');
+    throw new DamagedSigningIdentityError();
   }
 }
 
@@ -189,8 +205,10 @@ interface SigningIdentityDependencies {
     password: string,
     alias: string,
   ) => Promise<string>;
+  waitForIdentityRetry?: (attempt: number) => Promise<void>;
 }
 
+const SIGNING_IDENTITY_READ_ATTEMPTS = 5;
 const signingIdentityOperations = new Map<
   string,
   Promise<AndroidSigningIdentity>
@@ -219,7 +237,11 @@ async function loadOrCreateSigningIdentityExclusive(
   dependencies: SigningIdentityDependencies,
 ): Promise<AndroidSigningIdentity> {
   try {
-    return await readPersistedSigningIdentity(identityPath);
+    return await readPersistedSigningIdentityWithRetry(
+      identityPath,
+      dependencies,
+      false,
+    );
   } catch (error) {
     if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
   }
@@ -242,9 +264,12 @@ async function loadOrCreateSigningIdentityExclusive(
     password,
     pkcs12DataUrl: await generateKey(password, alias),
   };
+  const temporaryPath = `${identityPath}.${process.pid}.${
+    randomBytes(12).toString('hex')
+  }.tmp`;
   try {
     await writeFile(
-      identityPath,
+      temporaryPath,
       `${JSON.stringify(identity, null, 2)}\n`,
       {
         mode: 0o600,
@@ -252,18 +277,76 @@ async function loadOrCreateSigningIdentityExclusive(
         flush: true,
       },
     );
-    await chmod(identityPath, 0o600);
-    return identity;
-  } catch (error) {
-    if (
-      error instanceof Error
-      && 'code' in error
-      && error.code === 'EEXIST'
-    ) {
-      return readPersistedSigningIdentity(identityPath);
+    try {
+      await link(temporaryPath, identityPath);
+      await chmod(identityPath, 0o600);
+      return identity;
+    } catch (error) {
+      if (
+        error instanceof Error
+        && 'code' in error
+        && error.code === 'EEXIST'
+      ) {
+        return readPersistedSigningIdentityWithRetry(
+          identityPath,
+          dependencies,
+          true,
+        );
+      }
+      throw error;
     }
-    throw error;
+  } finally {
+    try {
+      await unlink(temporaryPath);
+    } catch (error) {
+      if (!(
+        error instanceof Error
+        && 'code' in error
+        && error.code === 'ENOENT'
+      )) {
+        throw error;
+      }
+    }
   }
+}
+
+async function readPersistedSigningIdentityWithRetry(
+  identityPath: string,
+  dependencies: SigningIdentityDependencies,
+  retryMissing: boolean,
+) {
+  let lastError: unknown;
+  for (
+    let attempt = 0;
+    attempt < SIGNING_IDENTITY_READ_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      return await readPersistedSigningIdentity(identityPath);
+    } catch (error) {
+      const missing = error instanceof Error
+        && 'code' in error
+        && error.code === 'ENOENT';
+      if (
+        !(error instanceof DamagedSigningIdentityError)
+        && !(retryMissing && missing)
+      ) {
+        throw error;
+      }
+      lastError = error;
+      if (attempt === SIGNING_IDENTITY_READ_ATTEMPTS - 1) {
+        break;
+      }
+      if (dependencies.waitForIdentityRetry) {
+        await dependencies.waitForIdentityRetry(attempt);
+      } else {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 20);
+        });
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function readPersistedSigningIdentity(
@@ -355,6 +438,7 @@ interface V2Signer {
     digest: Buffer;
   }>;
   certificates: Buffer[];
+  additionalAttributes: Buffer;
 }
 
 export function verifyStandaloneApkSignatureV2(
@@ -367,11 +451,11 @@ export function verifyStandaloneApkSignatureV2(
       sections.signingBlockPairs,
     );
     const signers = parseV2Signers(v2Block);
-    if (signers.length === 0) throw new Error('missing signer');
-    const contentDigest = calculateApkV2ContentDigest(sections);
-    for (const signer of signers) {
-      verifyV2Signer(signer, contentDigest);
+    if (signers.length !== 1) {
+      throw new Error('expected exactly one v2 signer');
     }
+    const contentDigest = calculateApkV2ContentDigest(sections);
+    verifyV2Signer(signers[0], contentDigest);
     return {
       hasV2SigningBlock: true as const,
       algorithmId: RSA_PKCS1_SHA256_ALGORITHM_ID,
@@ -531,7 +615,7 @@ function parseV2Signer(bytes: Buffer): V2Signer {
   const signed = cursor(signedData);
   const digestBytes = readLengthPrefixed(signed);
   const certificateBytes = readLengthPrefixed(signed);
-  readLengthPrefixed(signed);
+  const additionalAttributes = readLengthPrefixed(signed);
   requireConsumed(signed);
   return {
     signedData,
@@ -545,6 +629,7 @@ function parseV2Signer(bytes: Buffer): V2Signer {
       'digest',
     ) as V2Signer['digests'],
     certificates: parseCertificateRecords(certificateBytes),
+    additionalAttributes,
   };
 }
 
@@ -623,34 +708,29 @@ function verifyV2Signer(
   signer: V2Signer,
   contentDigest: Buffer,
 ) {
-  const signatureAlgorithms = signer.signatures.map(
-    ({ algorithmId }) => algorithmId,
-  );
-  const digestAlgorithms = signer.digests.map(
-    ({ algorithmId }) => algorithmId,
-  );
   if (
-    signatureAlgorithms.length !== digestAlgorithms.length
-    || signatureAlgorithms.some(
-      (value, index) => value !== digestAlgorithms[index],
-    )
+    signer.signatures.length !== 1
+    || signer.digests.length !== 1
+    || signer.signatures[0].algorithmId
+      !== RSA_PKCS1_SHA256_ALGORITHM_ID
+    || signer.digests[0].algorithmId
+      !== RSA_PKCS1_SHA256_ALGORITHM_ID
   ) {
-    throw new Error('signature and digest algorithms differ');
+    throw new Error('unsupported signer algorithm shape');
   }
-  const signature = signer.signatures.find(
-    ({ algorithmId }) =>
-      algorithmId === RSA_PKCS1_SHA256_ALGORITHM_ID,
-  );
-  const digest = signer.digests.find(
-    ({ algorithmId }) =>
-      algorithmId === RSA_PKCS1_SHA256_ALGORITHM_ID,
-  );
+  if (signer.certificates.length !== 1) {
+    throw new Error('expected exactly one signer certificate');
+  }
+  if (signer.additionalAttributes.length !== 0) {
+    throw new Error(
+      'additional signer attributes are unsupported',
+    );
+  }
+  const [signature] = signer.signatures;
+  const [digest] = signer.digests;
   const certificateBytes = signer.certificates[0];
   if (
-    !signature
-    || !digest
-    || digest.digest.length !== 32
-    || !certificateBytes
+    digest.digest.length !== 32
   ) {
     throw new Error('unsupported or incomplete signer');
   }
@@ -659,6 +739,9 @@ function verifyV2Signer(
   }
 
   const certificate = new X509Certificate(certificateBytes);
+  if (!safeEqual(certificate.raw, certificateBytes)) {
+    throw new Error('signer certificate encoding differs');
+  }
   const certificatePublicKey = Buffer.from(
     certificate.publicKey.export({
       type: 'spki',
