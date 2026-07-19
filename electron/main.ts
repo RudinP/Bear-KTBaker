@@ -2,12 +2,6 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  normalizeThemeStudioError,
-} from '../src/application/errors/ThemeStudioError';
-import {
-  formatThemeStudioSupportString,
-} from '../src/application/errors/supportString';
-import {
   createOpenProject,
   type OpenedProject,
 } from '../src/application/theme/openProject';
@@ -22,7 +16,6 @@ import {
 import { createSaveProject } from '../src/application/theme/saveProject';
 import {
   createSaveScreenshots,
-  type ScreenshotFile,
 } from '../src/application/screenshots/saveScreenshots';
 import {
   createAndroidApkBuilder,
@@ -36,19 +29,8 @@ import { createElectronImageProcessor } from './adapters/electronImageProcessor'
 import { createNodeFileSystemPort } from './adapters/nodeFileSystem';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
-import {
-  type ErrorBoundaryFallback,
-  withIpcErrorBoundary,
-} from './ipc/errorBoundary';
-import {
-  parseProjectSaveRequest,
-  parseScreenshotSaveRequests,
-  parseThemeProjectRequest,
-} from './ipc/requestValidation';
-import {
-  assertTrustedSender,
-  type TrustedSenderPolicy,
-} from './ipc/trustedSender';
+import { registerThemeIpc } from './ipc/registerThemeIpc';
+import type { TrustedSenderPolicy } from './ipc/trustedSender';
 
 const devUrl = process.env.VITE_DEV_SERVER_URL;
 const senderPolicy: TrustedSenderPolicy = {
@@ -149,91 +131,24 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function registerIpc() {
-  const fallback = (
-    operation: ErrorBoundaryFallback['operation'],
-  ): ErrorBoundaryFallback => ({
-    code: 'KTB-UNKNOWN-UNEXPECTED',
-    operation,
-    stage: '알 수 없는 작업',
-    message: '예상하지 못한 오류가 발생했습니다.',
+app.whenReady().then(async () => {
+  registerThemeIpc({
+    ipc: ipcMain,
+    senderPolicy,
+    useCases: {
+      openProject,
+      saveProject,
+      importTheme,
+      exportIos: exportIosTheme,
+      exportAndroid: exportAndroidTheme,
+      saveScreenshots,
+    },
+    diagnostics,
   });
-
-  ipcMain.handle(
-    'project:open',
-    withIpcErrorBoundary(
-      {
-        code: 'KTB-FS-READ',
-        operation: 'project:open',
-        stage: '프로젝트 열기',
-        message: '프로젝트를 열지 못했습니다.',
-      },
-      async (event) => {
-        assertTrustedSender(event, senderPolicy);
-        return openProject();
-      },
-    ),
-  );
-  ipcMain.handle(
-    'project:save',
-    withIpcErrorBoundary(
-      {
-        code: 'KTB-FS-WRITE',
-        operation: 'project:save',
-        stage: '프로젝트 저장',
-        message: '프로젝트를 저장하지 못했습니다.',
-      },
-      async (event, value: unknown) => {
-        assertTrustedSender(event, senderPolicy);
-        const request = parseProjectSaveRequest(value);
-        return saveProject(request.content, request.suggestedName);
-      },
-    ),
-  );
-  ipcMain.handle('theme:import', withIpcErrorBoundary(
-    fallback('theme:import'),
-    async (event) => {
-      assertTrustedSender(event, senderPolicy);
-      return importTheme();
-    },
-  ));
-  ipcMain.handle('theme:export-ios', withIpcErrorBoundary(
-    fallback('theme:export-ios'),
-    async (event, value: unknown) => {
-      assertTrustedSender(event, senderPolicy);
-      return exportIosTheme(parseThemeProjectRequest(value));
-    },
-  ));
-  ipcMain.handle('theme:export-android', withIpcErrorBoundary(
-    fallback('theme:export-android'),
-    async (event, value: unknown) => {
-      assertTrustedSender(event, senderPolicy);
-      const project = parseThemeProjectRequest(value);
-      try {
-        return await exportAndroidTheme(project);
-      } catch (error) {
-        const typed = normalizeThemeStudioError(error, {
-          code: 'KTB-UNKNOWN-UNEXPECTED',
-          operation: 'theme:export-android',
-          stage: 'Android 테마 내보내기',
-          message: 'Android 테마를 내보내지 못했습니다.',
-        });
-        diagnostics.report(typed);
-        return {
-          error: formatThemeStudioSupportString(typed),
-        };
-      }
-    },
-  ));
-  ipcMain.handle('screenshots:save', withIpcErrorBoundary(
-    fallback('screenshots:save'),
-    async (event, value: unknown) => {
-      assertTrustedSender(event, senderPolicy);
-      const files: readonly ScreenshotFile[] = parseScreenshotSaveRequests(value);
-      return saveScreenshots(files);
-    },
-  ));
-}
-
-app.whenReady().then(async () => { registerIpc(); installApplicationMenu(); await createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); }); });
+  installApplicationMenu();
+  await createWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+  });
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
