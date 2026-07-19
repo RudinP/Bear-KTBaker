@@ -1,5 +1,4 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
-import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -21,6 +20,10 @@ import {
   createExportAndroidTheme,
 } from '../src/application/theme/exportAndroidTheme';
 import { createSaveProject } from '../src/application/theme/saveProject';
+import {
+  createSaveScreenshots,
+  type ScreenshotFile,
+} from '../src/application/screenshots/saveScreenshots';
 import {
   createAndroidApkBuilder,
   createAndroidApkInspector,
@@ -61,6 +64,7 @@ const diagnostics = createConsoleDiagnosticReporter();
 const openProject: () => Promise<OpenedProject | null> =
   createOpenProject({ dialogs, files });
 const saveProject = createSaveProject({ dialogs, files });
+const saveScreenshots = createSaveScreenshots({ dialogs, files, paths });
 const importTheme: () => Promise<ImportThemeResult | null> = createImportTheme({
   dialogs,
   files,
@@ -145,10 +149,6 @@ function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function dataUrlBuffer(dataUrl: string) {
-  return Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
-}
-
 function registerIpc() {
   const fallback = (
     operation: ErrorBoundaryFallback['operation'],
@@ -229,17 +229,8 @@ function registerIpc() {
     fallback('screenshots:save'),
     async (event, value: unknown) => {
       assertTrustedSender(event, senderPolicy);
-      const files = parseScreenshotSaveRequests(value);
-      const result = await dialog.showOpenDialog({
-        title: '홍보 이미지 저장 폴더',
-        properties: ['openDirectory', 'createDirectory'],
-      });
-      if (result.canceled || !result.filePaths[0]) return null;
-      await Promise.all(files.map((file) => writeFile(
-        path.join(result.filePaths[0], file.name),
-        dataUrlBuffer(file.dataUrl),
-      )));
-      return result.filePaths[0];
+      const files: readonly ScreenshotFile[] = parseScreenshotSaveRequests(value);
+      return saveScreenshots(files);
     },
   ));
 }
