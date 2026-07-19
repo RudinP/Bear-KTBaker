@@ -93,6 +93,15 @@ function assertPngDataUrl(dataUrl: string) {
   ) {
     throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.');
   }
+  let canonical: string;
+  try {
+    canonical = btoa(atob(encoded));
+  } catch (cause) {
+    throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.', cause);
+  }
+  if (canonical !== encoded) {
+    throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.');
+  }
 }
 
 function imageDecodeError(

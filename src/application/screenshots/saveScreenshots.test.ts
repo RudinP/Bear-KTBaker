@@ -129,6 +129,36 @@ describe('save screenshots', () => {
     expect(imageCodec.decode).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'AA==',
+    'AAA=',
+  ])('accepts canonical padded PNG base64: %s', async (encoded) => {
+    await expect(saveScreenshots([{
+      name: 'preview.png',
+      dataUrl: png(encoded),
+    }])).resolves.toBe('/themes/screenshots');
+
+    expect(selectDirectory).toHaveBeenCalledOnce();
+    expect(writeBytes).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    'AB==',
+    'AAB=',
+  ])('rejects PNG base64 with non-canonical unused pad bits: %s', async (encoded) => {
+    await expect(saveScreenshots([{
+      name: 'preview.png',
+      dataUrl: png(encoded),
+    }])).rejects.toMatchObject({
+      code: 'KTB-IMAGE-DECODE',
+      operation: 'screenshots:save',
+      stage: '홍보 이미지 디코딩',
+    });
+
+    expect(selectDirectory).not.toHaveBeenCalled();
+    expect(writeBytes).not.toHaveBeenCalled();
+  });
+
   it('normalizes a screenshot write failure', async () => {
     const cause = Object.assign(new Error('read-only disk'), {
       code: 'EROFS',
