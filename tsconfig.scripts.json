@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "composite": true
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "src/assets.d.ts",
+    "src/domain/**/*.ts",
+    "src/io/**/*.ts",
+    "src/manifest/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
+}

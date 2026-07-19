@@ -8,6 +8,8 @@
     "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node"]
   },
   "include": ["vite.config.ts", "vitest.config.ts", "electron/**/*.ts", "src/domain/**/*.ts", "src/io/**/*.ts", "src/manifest/**/*.ts", "src/test/fixtures/**/*.ts", "src/electron.d.ts"]

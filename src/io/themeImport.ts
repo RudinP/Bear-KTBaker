@@ -16,10 +16,7 @@ import {
   isAndroidPngPath,
   type AndroidArchiveIndex,
 } from './androidArchiveResources';
-import {
-  inspectCompiledAndroidApk,
-  type AndroidCompiledMetadata,
-} from './androidCompiledMetadata';
+import type { AndroidCompiledMetadata } from './androidCompiledMetadata';
 import { parseCompiledNinePatchPng, parseNinePatchPng, stripNinePatchBorder } from './ninePatchPng';
 
 export { inspectCompiledAndroidApk } from './androidCompiledMetadata';

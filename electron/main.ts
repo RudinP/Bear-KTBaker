@@ -29,7 +29,7 @@ import {
 import { ANDROID_SAMPLE_COLORS } from '../src/manifest/kakaoColors';
 import { getResourceSlot, type ResourceRenderMode } from '../src/manifest/kakaoResources';
 import { resolveBubbleGuides } from '../src/manifest/bubbleGuideResolver';
-import { createDefaultTheme, parseThemeProject, serializeThemeProject, type ThemeProject } from '../src/domain/theme';
+import { parseThemeProject, type ThemeProject } from '../src/domain/theme';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
 

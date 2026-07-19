@@ -98,8 +98,6 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
 }) {
   const isMe = selected === 'bubble-me';
   const isYou = selected === 'bubble-you';
-  const bubble = isMe ? project.chat.bubbles.me.normal : project.chat.bubbles.you.normal;
-  const screenFill = project.screens[screen].background;
   const exactColorSlot = selected.startsWith('color:') ? selected.slice(6) : undefined;
   const colorSlots = exactColorSlot
     ? [getColorSlot(exactColorSlot)]
@@ -115,11 +113,6 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
       [platform]: { ...project.platformResources[platform], [resourceId]: asset },
     },
   });
-  const updateBubble = (patch: Partial<typeof bubble>) => {
-    const side = isMe ? 'me' : 'you';
-    const set = project.chat.bubbles[side];
-    onProject({ ...project, chat: { ...project.chat, bubbles: { ...project.chat.bubbles, [side]: { ...set, normal: { ...set.normal, ...patch } } } } });
-  };
   const bubbleSide = isMe ? 'me' : 'you';
   const bubbleLabel = isMe ? '보낸' : '받은';
   const bubbleUploads = platform === 'android'

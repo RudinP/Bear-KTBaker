@@ -563,7 +563,6 @@ type NotificationVariant = 'notification' | 'notification-pressed' | 'direct-sha
 
 function IosChatRoom(props: PreviewProps & { notificationVariant?: NotificationVariant }) {
   const { project, selected, onSelect } = props;
-  const platform = 'ios' as const;
   const [draft, setDraft] = useState('카카오톡 테마');
   const [pressedControl, setPressedControl] = useState<'menu' | 'send' | null>(null);
   const composer = getScreenBlueprint('ios', 'chatroom').regions.composer!;
