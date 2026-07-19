@@ -6,6 +6,9 @@ import {
 import type { DialogPort } from '../ports/dialog';
 import type { FileSystemPort, PathPort } from '../ports/fileSystem';
 
+const BASE64_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
 export interface ScreenshotFile {
   name: string;
   dataUrl: string;
@@ -93,15 +96,23 @@ function assertPngDataUrl(dataUrl: string) {
   ) {
     throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.');
   }
-  let canonical: string;
-  try {
-    canonical = btoa(atob(encoded));
-  } catch (cause) {
-    throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.', cause);
-  }
-  if (canonical !== encoded) {
+  if (hasNonZeroUnusedBase64Bits(encoded)) {
     throw imageDecodeError('홍보 이미지 데이터를 읽지 못했습니다.');
   }
+}
+
+function hasNonZeroUnusedBase64Bits(encoded: string) {
+  if (encoded.endsWith('==')) {
+    return (base64Value(encoded.at(-3)!) & 0b1111) !== 0;
+  }
+  if (encoded.endsWith('=')) {
+    return (base64Value(encoded.at(-2)!) & 0b11) !== 0;
+  }
+  return false;
+}
+
+function base64Value(character: string) {
+  return BASE64_ALPHABET.indexOf(character);
 }
 
 function imageDecodeError(

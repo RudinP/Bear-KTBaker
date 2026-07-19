@@ -21,6 +21,7 @@ import { createSaveScreenshots } from './saveScreenshots';
 const png = (bytes: string) => `data:image/png;base64,${bytes}`;
 
 describe('save screenshots', () => {
+  const base64Decode = vi.spyOn(globalThis, 'atob');
   const selectDirectory = vi.fn<DialogPort['selectDirectory']>();
   const writeBytes = vi.fn<FileSystemPort['writeBytes']>();
   const join = vi.fn<PathPort['join']>(path.join);
@@ -47,6 +48,7 @@ describe('save screenshots', () => {
     }])).resolves.toBeNull();
 
     expect(imageCodec.decode).not.toHaveBeenCalled();
+    expect(base64Decode).not.toHaveBeenCalled();
     expect(writeBytes).not.toHaveBeenCalled();
   });
 
@@ -157,6 +159,8 @@ describe('save screenshots', () => {
 
     expect(selectDirectory).not.toHaveBeenCalled();
     expect(writeBytes).not.toHaveBeenCalled();
+    expect(imageCodec.decode).not.toHaveBeenCalled();
+    expect(base64Decode).not.toHaveBeenCalled();
   });
 
   it('normalizes a screenshot write failure', async () => {
