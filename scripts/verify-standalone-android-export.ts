@@ -99,10 +99,23 @@ try {
     bubbleBuffer,
     true,
   );
+  const maintabExpectations = await Promise.all([
+    'src/main/theme/drawable-xxhdpi/theme_maintab_cell_image.9.png',
+    'src/main/theme/drawable-sw600dp/theme_maintab_cell_image.9.png',
+  ].map(async (sourcePath) => {
+    const expectation = createAndroidImageExpectation(
+      'main.tab.background',
+      sourcePath,
+      await readFile(path.join(buildDir, sourcePath)),
+      true,
+    );
+    if (!expectation) throw new Error(`Android image expectation could not be created: ${sourcePath}`);
+    return expectation;
+  }));
   if (!backgroundExpectation || !bubbleExpectation) {
     throw new Error('Android image expectations could not be created.');
   }
-  const expectedImages = [backgroundExpectation, bubbleExpectation];
+  const expectedImages = [backgroundExpectation, bubbleExpectation, ...maintabExpectations];
 
   await chmod(standaloneRuntimePaths(runtimeDir, 'darwin').aapt2, 0o755);
   await buildStandaloneAndroidApk({

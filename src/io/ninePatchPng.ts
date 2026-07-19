@@ -38,16 +38,27 @@ export function parseCompiledNinePatchPng(buffer: Buffer) {
   if (!chunk || chunk.length < 32) throw new Error('컴파일된 9-patch 정보를 찾을 수 없습니다.');
   const xCount = chunk[1];
   const yCount = chunk[2];
-  if (xCount < 2 || yCount < 2 || chunk.length < 32 + (xCount + yCount) * 4) {
-    throw new Error('컴파일된 9-patch 구간 정보가 손상되었습니다.');
-  }
+  const colorCount = chunk[3];
+  const invalid = () => { throw new Error('컴파일된 9-patch 구간 정보가 손상되었습니다.'); };
+  if (xCount % 2 !== 0
+    || yCount % 2 !== 0
+    || colorCount === 0
+    || chunk.length < 32 + (xCount + yCount + colorCount) * 4) invalid();
   const paddingLeft = chunk.readUInt32BE(12);
   const paddingRight = chunk.readUInt32BE(16);
   const paddingTop = chunk.readUInt32BE(20);
   const paddingBottom = chunk.readUInt32BE(24);
-  const x = [chunk.readUInt32BE(32), chunk.readUInt32BE(36)] as PixelRange;
+  const divisionRange = (offset: number, count: number, length: number): PixelRange => {
+    if (count === 0) return [0, length];
+    const divisions = Array.from({ length: count }, (_, index) => chunk.readUInt32BE(offset + index * 4));
+    if (divisions.some((value, index) => value > length || (index > 0 && value <= divisions[index - 1]))) {
+      invalid();
+    }
+    return [divisions[0], divisions[1]];
+  };
+  const x = divisionRange(32, xCount, png.width);
   const yOffset = 32 + xCount * 4;
-  const y = [chunk.readUInt32BE(yOffset), chunk.readUInt32BE(yOffset + 4)] as PixelRange;
+  const y = divisionRange(yOffset, yCount, png.height);
   return {
     width: png.width,
     height: png.height,

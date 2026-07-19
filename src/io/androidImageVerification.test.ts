@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import JSZip from 'jszip';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
@@ -7,7 +9,7 @@ import {
   createAndroidImageExpectation,
   verifyCompiledAndroidImages,
 } from './androidImageVerification';
-import { buildNinePatchPng } from './ninePatchPng';
+import { buildNinePatchPng, parseCompiledNinePatchPng, stripNinePatchBorder } from './ninePatchPng';
 
 function png(red: number, alpha = 255, width = 2, height = 2) {
   const image = new PNG({ width, height });
@@ -26,23 +28,31 @@ function crc32(buffer: Buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function compiledNinePatchPng(interior: Buffer, guides: NinePatchGuides) {
+function compiledNinePatchPng(
+  interior: Buffer,
+  guides: NinePatchGuides,
+  options: {
+    omitStretchX?: boolean;
+    declaredYCount?: number;
+    declaredColorCount?: number;
+  } = {},
+) {
   const decoded = PNG.sync.read(interior);
   const markers = guidesToAndroidMarkers(guides, decoded.width, decoded.height);
-  const payload = Buffer.alloc(52);
-  payload[0] = 1;
-  payload[1] = 2;
-  payload[2] = 2;
-  payload[3] = 1;
+  const xDivs = options.omitStretchX ? [] : markers.stretchX;
+  const yDivs = markers.stretchY;
+  const colors = options.omitStretchX ? [1, 0xffffffff, 0xffffffff] : [1];
+  const payload = Buffer.alloc(32 + (xDivs.length + yDivs.length + colors.length) * 4);
+  payload[1] = xDivs.length;
+  payload[2] = options.declaredYCount ?? yDivs.length;
+  payload[3] = options.declaredColorCount ?? colors.length;
   payload.writeUInt32BE(markers.contentX[0], 12);
   payload.writeUInt32BE(decoded.width - markers.contentX[1], 16);
   payload.writeUInt32BE(markers.contentY[0], 20);
   payload.writeUInt32BE(decoded.height - markers.contentY[1], 24);
-  payload.writeUInt32BE(markers.stretchX[0], 32);
-  payload.writeUInt32BE(markers.stretchX[1], 36);
-  payload.writeUInt32BE(markers.stretchY[0], 40);
-  payload.writeUInt32BE(markers.stretchY[1], 44);
-  payload.writeUInt32BE(1, 48);
+  [...xDivs, ...yDivs, ...colors].forEach((value, index) => {
+    payload.writeUInt32BE(value, 32 + index * 4);
+  });
   const type = Buffer.from('npTc');
   const chunk = Buffer.alloc(payload.length + 12);
   chunk.writeUInt32BE(payload.length, 0);
@@ -152,5 +162,81 @@ describe('compiled Android image verification', () => {
     outsideTolerance.guides!.stretch.x[0] += 2 / expected.width;
     await expect(verifyCompiledAndroidImages(apk, metadata, [outsideTolerance]))
       .rejects.toThrow('chat.bubble.me.first.normal');
+  });
+
+  it('accepts an AAPT2 nine-patch with no horizontal stretch division', async () => {
+    const zip = new JSZip();
+    const variants = [
+      ['drawable-xxhdpi', 'drawable-xxhdpi-v4'],
+      ['drawable-sw600dp', 'drawable-sw600dp-v13'],
+    ] as const;
+    const expectations = await Promise.all(variants.map(async ([sourceQualifier, compiledQualifier]) => {
+      const source = await readFile(path.join(
+        process.cwd(),
+        `public/sample/android/src/main/theme/${sourceQualifier}/theme_maintab_cell_image.9.png`,
+      ));
+      const expected = createAndroidImageExpectation(
+        'main.tab.background',
+        `src/main/theme/${sourceQualifier}/theme_maintab_cell_image.9.png`,
+        source,
+        true,
+      )!;
+      zip.file(
+        `res/${compiledQualifier}/theme_maintab_cell_image.9.png`,
+        compiledNinePatchPng(stripNinePatchBorder(source), expected.guides!, { omitStretchX: true }),
+      );
+      return expected;
+    }));
+
+    await expect(verifyCompiledAndroidImages(
+      await zip.generateAsync({ type: 'nodebuffer' }),
+      { resourceFiles: { 'drawable/theme_maintab_cell_image': [
+        'res/drawable-xxhdpi-v4/theme_maintab_cell_image.9.png',
+        'res/drawable-sw600dp-v13/theme_maintab_cell_image.9.png',
+      ] } },
+      expectations,
+    )).resolves.toBeUndefined();
+  });
+
+  it('rejects an odd compiled nine-patch division count', async () => {
+    const source = await readFile(path.join(
+      process.cwd(),
+      'public/sample/android/src/main/theme/drawable-xxhdpi/theme_maintab_cell_image.9.png',
+    ));
+    const expected = createAndroidImageExpectation(
+      'main.tab.background',
+      'src/main/theme/drawable-xxhdpi/theme_maintab_cell_image.9.png',
+      source,
+      true,
+    )!;
+    const compiled = compiledNinePatchPng(
+      stripNinePatchBorder(source),
+      expected.guides!,
+      { omitStretchX: true, declaredYCount: 3 },
+    );
+
+    expect(() => parseCompiledNinePatchPng(compiled))
+      .toThrow('컴파일된 9-patch 구간 정보가 손상되었습니다.');
+  });
+
+  it('rejects a truncated compiled nine-patch color table', async () => {
+    const source = await readFile(path.join(
+      process.cwd(),
+      'public/sample/android/src/main/theme/drawable-xxhdpi/theme_maintab_cell_image.9.png',
+    ));
+    const expected = createAndroidImageExpectation(
+      'main.tab.background',
+      'src/main/theme/drawable-xxhdpi/theme_maintab_cell_image.9.png',
+      source,
+      true,
+    )!;
+    const compiled = compiledNinePatchPng(
+      stripNinePatchBorder(source),
+      expected.guides!,
+      { omitStretchX: true, declaredColorCount: 4 },
+    );
+
+    expect(() => parseCompiledNinePatchPng(compiled))
+      .toThrow('컴파일된 9-patch 구간 정보가 손상되었습니다.');
   });
 });
