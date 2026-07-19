@@ -2,14 +2,95 @@ import { execFile } from 'node:child_process';
 import { access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { AndroidApkInspectorPort } from '../../src/application/ports/androidApk';
+import {
+  ERROR_CATALOG,
+} from '../../src/application/errors/errorCatalog';
+import {
+  normalizeThemeStudioError,
+  ThemeStudioError,
+} from '../../src/application/errors/ThemeStudioError';
+import type {
+  AndroidApkBuilderPort,
+  AndroidApkInspectorPort,
+} from '../../src/application/ports/androidApk';
 import {
   inspectCompiledAndroidApk,
   type AndroidCompiledMetadata,
 } from '../../src/io/androidCompiledMetadata';
 import { ANDROID_SAMPLE_COLORS } from '../../src/manifest/kakaoColors';
+import {
+  AndroidStandaloneBuildError,
+  buildStandaloneAndroidApk,
+} from './androidStandaloneBuild';
 
 const execFileAsync = promisify(execFile);
+
+const BUILD_ERROR_CODES = {
+  runtime: 'KTB-ANDROID-RUNTIME-MISSING',
+  compile: 'KTB-ANDROID-AAPT2-COMPILE',
+  link: 'KTB-ANDROID-AAPT2-LINK',
+  'signing-identity': 'KTB-ANDROID-SIGNING-IDENTITY',
+  sign: 'KTB-ANDROID-SIGN',
+  verify: 'KTB-ANDROID-VERIFY',
+} as const;
+
+export function createAndroidApkBuilder(
+  overrides: {
+    platform?: 'darwin' | 'win32';
+    buildStandalone?: typeof buildStandaloneAndroidApk;
+  } = {},
+): AndroidApkBuilderPort {
+  const buildStandalone =
+    overrides.buildStandalone ?? buildStandaloneAndroidApk;
+  const platform = (
+    overrides.platform ?? process.platform
+  ) as 'darwin' | 'win32';
+  return {
+    async build(request) {
+      try {
+        await buildStandalone({
+          buildDir: request.buildDirectory,
+          outputPath: request.outputPath,
+          runtimeDir: request.runtimeDirectory,
+          identityPath: request.signingIdentityPath,
+          packageName: request.packageName,
+          versionCode: request.versionCode,
+          versionName: request.versionName,
+          expectedMetadata: request.expectedMetadata,
+          expectedImages: [...request.expectedImages],
+          platform,
+        });
+      } catch (error) {
+        if (error instanceof ThemeStudioError) throw error;
+        if (error instanceof AndroidStandaloneBuildError) {
+          const code = BUILD_ERROR_CODES[error.stage];
+          const catalog = ERROR_CATALOG[code];
+          throw new ThemeStudioError({
+            code,
+            operation: 'theme:export-android',
+            stage: catalog.stage,
+            message: catalog.message,
+            safeContext: {
+              ...(error.exitCode === undefined
+                ? {}
+                : { exitCode: error.exitCode }),
+              ...(error.signal === undefined
+                ? {}
+                : { signal: error.signal }),
+            },
+            cause: error,
+          });
+        }
+        throw normalizeThemeStudioError(error, {
+          code: 'KTB-UNKNOWN-UNEXPECTED',
+          operation: 'theme:export-android',
+          stage: 'Android APK 빌드',
+          message: 'Android APK를 만들지 못했습니다.',
+        });
+      }
+    },
+  };
+}
 
 export interface AndroidToolRunnerDependencies {
   platform: NodeJS.Platform;

@@ -4,33 +4,19 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  AndroidStandaloneBuildError,
   buildStandaloneAapt2Plan,
   buildStandaloneAndroidApk,
   injectStandaloneDex,
   loadOrCreateSigningIdentity,
-  prepareStandaloneAndroidManifest,
   signStandaloneApk,
   standaloneRuntimePaths,
   verifyStandaloneAndroidMetadata,
   verifyStandaloneApkStructure,
 } from './androidStandaloneBuild';
-import { createAndroidImageExpectation } from './androidImageVerification';
+import { createAndroidImageExpectation } from '../../src/io/androidImageVerification';
 
 describe('standalone Android APK build support', () => {
-  it('normalizes the official source manifest for direct AAPT2 linking', () => {
-    const manifest = prepareStandaloneAndroidManifest(`<?xml version="1.0" encoding="utf-8"?>
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools" package="com.kakao.talk.theme.apeach">
-        <application tools:ignore="AllowBackup">
-          <activity android:name=".MainActivity" />
-        </application>
-      </manifest>`);
-
-    expect(manifest).not.toContain('xmlns:tools');
-    expect(manifest).not.toContain('tools:ignore');
-    expect(manifest).toContain('android:name="com.kakao.talk.theme.apeach.MainActivity"');
-  });
-
   it('resolves the universal macOS AAPT2 and shared runtime files', () => {
     expect(standaloneRuntimePaths('/Applications/Kakao Theme Studio.app/Contents/Resources/android-runtime', 'darwin')).toEqual({
       androidJar: '/Applications/Kakao Theme Studio.app/Contents/Resources/android-runtime/android.jar',
@@ -269,7 +255,13 @@ describe('standalone Android APK build support', () => {
       expectedImages: [expectation],
       platform: 'darwin',
       run,
-    })).rejects.toThrow('main.background');
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'verify',
+      cause: expect.objectContaining({
+        message: expect.stringContaining('main.background'),
+      }),
+    });
     await expect(readFile(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
@@ -313,7 +305,201 @@ describe('standalone Android APK build support', () => {
       versionName: '7.8.9',
       platform: 'darwin',
       run,
-    })).rejects.toThrow('resources package');
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'verify',
+      cause: expect.objectContaining({
+        message: expect.stringContaining('resources package'),
+      }),
+    });
     await expect(readFile(outputPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('classifies a missing standalone runtime as runtime', async () => {
+    const directory = await mkdtemp(path.join(
+      tmpdir(),
+      'kakao-standalone-runtime-stage-',
+    ));
+
+    await expect(buildStandaloneAndroidApk({
+      buildDir: path.join(directory, 'source'),
+      outputPath: path.join(directory, 'theme.apk'),
+      runtimeDir: path.join(directory, 'missing-runtime'),
+      identityPath: path.join(directory, 'identity.json'),
+      packageName: 'com.example.theme',
+      versionCode: 1,
+      versionName: '1.0.0',
+      platform: 'darwin',
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'runtime',
+    });
+  });
+
+  it.each([0, 1, 2])(
+    'classifies compile command %d and keeps safe process fields',
+    async (failedCompile) => {
+      const fixture = await stageFixture(
+        `compile-stage-${failedCompile}`,
+      );
+      const failure = Object.assign(
+        new Error('unsafe command details'),
+        {
+          code: 19,
+          signal: 'SIGTERM',
+          stdout: '/private/unsafe/project',
+        },
+      );
+      let compileIndex = 0;
+      const run = vi.fn(
+        async (_executable: string, args: string[]) => {
+          if (
+            args[0] === 'compile'
+            && compileIndex++ === failedCompile
+          ) {
+            throw failure;
+          }
+        },
+      );
+
+      await expect(buildStandaloneAndroidApk({
+        ...fixture.request,
+        run,
+      })).rejects.toMatchObject({
+        name: 'AndroidStandaloneBuildError',
+        stage: 'compile',
+        exitCode: 19,
+        signal: 'SIGTERM',
+        cause: failure,
+      });
+    },
+  );
+
+  it('preserves a nested standalone build error unchanged', async () => {
+    const fixture = await stageFixture('nested-stage');
+    const nested = new AndroidStandaloneBuildError({
+      stage: 'verify',
+      message: 'already classified',
+      exitCode: 3,
+    });
+
+    let failure: unknown;
+    try {
+      await buildStandaloneAndroidApk({
+        ...fixture.request,
+        run: vi.fn().mockRejectedValue(nested),
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBe(nested);
+  });
+
+  it('classifies the link command separately from compile commands', async () => {
+    const fixture = await stageFixture('link-stage');
+    const run = vi.fn(async (_executable: string, args: string[]) => {
+      if (args[0] === 'link') throw new Error('link failed');
+    });
+
+    await expect(buildStandaloneAndroidApk({
+      ...fixture.request,
+      run,
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'link',
+    });
+    expect(run).toHaveBeenCalledTimes(4);
+  });
+
+  it('classifies damaged signing identity loading separately', async () => {
+    const fixture = await stageFixture('identity-stage');
+    await writeFile(fixture.request.identityPath, '{"schema":1}');
+    const compiled = await compiledFixture();
+
+    await expect(buildStandaloneAndroidApk({
+      ...fixture.request,
+      run: linkFixture(compiled),
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'signing-identity',
+    });
+  });
+
+  it('classifies package signing separately', async () => {
+    const fixture = await stageFixture('sign-stage');
+    await writeFile(
+      fixture.request.identityPath,
+      JSON.stringify({
+        schema: 1,
+        alias: 'kakaotheme',
+        password: 'stable-password',
+        pkcs12DataUrl:
+          'data:application/x-pkcs12;base64,SU5WQUxJRA==',
+      }),
+    );
+    const compiled = await compiledFixture();
+
+    await expect(buildStandaloneAndroidApk({
+      ...fixture.request,
+      run: linkFixture(compiled),
+    })).rejects.toMatchObject({
+      name: 'AndroidStandaloneBuildError',
+      stage: 'sign',
+    });
+  });
 });
+
+async function stageFixture(name: string) {
+  const directory = await mkdtemp(path.join(
+    tmpdir(),
+    `kakao-standalone-${name}-`,
+  ));
+  const buildDir = path.join(directory, 'source');
+  const runtimeDir = path.join(directory, 'runtime');
+  await mkdir(path.join(runtimeDir, 'bin', 'darwin'), {
+    recursive: true,
+  });
+  await writeFile(
+    path.join(runtimeDir, 'bin', 'darwin', 'aapt2'),
+    'binary',
+  );
+  await writeFile(path.join(runtimeDir, 'android.jar'), 'android');
+  await writeFile(
+    path.join(runtimeDir, 'classes.dex'),
+    'dex\n035\0runtime',
+  );
+  return {
+    request: {
+      buildDir,
+      outputPath: path.join(directory, 'theme.apk'),
+      runtimeDir,
+      identityPath: path.join(directory, 'identity.json'),
+      packageName: 'com.example.standalonefixture',
+      versionCode: 70_809,
+      versionName: '7.8.9',
+      platform: 'darwin' as const,
+    },
+  };
+}
+
+async function compiledFixture() {
+  return Buffer.from(
+    (await readFile(path.join(
+      process.cwd(),
+      'src/io/fixtures/compiled-theme-metadata.apk.b64',
+    ), 'utf8')).replace(/\s/g, ''),
+    'base64',
+  );
+}
+
+function linkFixture(compiled: Buffer) {
+  return vi.fn(async (_executable: string, args: string[]) => {
+    if (args[0] === 'link') {
+      await mkdir(path.dirname(args[args.indexOf('-o') + 1]), {
+        recursive: true,
+      });
+      await writeFile(args[args.indexOf('-o') + 1], compiled);
+    }
+  });
+}

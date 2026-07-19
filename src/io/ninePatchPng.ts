@@ -92,21 +92,25 @@ export function parseNinePatchPng(buffer: Buffer) {
   return { width, height, guides };
 }
 
-export function stripNinePatchBorder(buffer: Buffer) {
-  const source = PNG.sync.read(buffer);
+export function stripNinePatchBorder(sourceBytes: Uint8Array): Buffer {
+  const source = PNG.sync.read(Buffer.from(sourceBytes));
   if (source.width < 3 || source.height < 3) throw new Error('9-patch 테두리를 제거할 수 없는 이미지입니다.');
   const output = new PNG({ width: source.width - 2, height: source.height - 2 });
   PNG.bitblt(source, output, 1, 1, output.width, output.height, 0, 0);
   return PNG.sync.write(output);
 }
 
-export function replaceNinePatchInterior(templatePng: Buffer, borderlessPng: Buffer) {
-  const template = PNG.sync.read(templatePng);
-  const interior = PNG.sync.read(borderlessPng);
+export function replaceNinePatchInterior(
+  templatePng: Uint8Array,
+  borderlessPng: Uint8Array,
+): Buffer {
+  const templateBytes = Buffer.from(templatePng);
+  const template = PNG.sync.read(templateBytes);
+  const interior = PNG.sync.read(Buffer.from(borderlessPng));
   if (interior.width !== template.width - 2 || interior.height !== template.height - 2) {
     throw new Error('교체 이미지 크기가 9-patch 내부 크기와 맞지 않습니다.');
   }
-  const output = PNG.sync.read(templatePng);
+  const output = PNG.sync.read(templateBytes);
   PNG.bitblt(interior, output, 0, 0, interior.width, interior.height, 1, 1);
   return PNG.sync.write(output);
 }
@@ -127,8 +131,11 @@ function markVertical(png: PNG, x: number, range: PixelRange) {
   for (let value = range[0]; value < range[1]; value += 1) mark(png, x, value + 1);
 }
 
-export function buildNinePatchPng(borderlessPng: Buffer, guides: NinePatchGuides) {
-  const source = PNG.sync.read(borderlessPng);
+export function buildNinePatchPng(
+  borderlessPng: Uint8Array,
+  guides: NinePatchGuides,
+): Buffer {
+  const source = PNG.sync.read(Buffer.from(borderlessPng));
   const output = new PNG({ width: source.width + 2, height: source.height + 2 });
   output.data.fill(0);
   PNG.bitblt(source, output, 0, 0, source.width, source.height, 1, 1);

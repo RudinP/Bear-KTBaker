@@ -5,6 +5,7 @@
   },
   "include": [
     "scripts/**/*.ts",
+    "electron/adapters/androidStandaloneBuild.ts",
     "src/assets.d.ts",
     "src/domain/**/*.ts",
     "src/io/**/*.ts",

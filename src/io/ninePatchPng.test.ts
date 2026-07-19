@@ -43,4 +43,17 @@ describe('Android nine-patch PNG codec', () => {
     const replaced = replaceNinePatchInterior(original, borderless);
     expect(parseNinePatchPng(replaced).guides).toEqual(parseNinePatchPng(original).guides);
   });
+
+  it('accepts portable Uint8Array inputs without changing output bytes', async () => {
+    const original = await readFile(sample);
+    const bytes = new Uint8Array(original);
+    const borderless = stripNinePatchBorder(bytes);
+    const guides = parseNinePatchPng(original).guides;
+
+    expect(borderless).toEqual(stripNinePatchBorder(original));
+    expect(replaceNinePatchInterior(bytes, new Uint8Array(borderless)))
+      .toEqual(replaceNinePatchInterior(original, borderless));
+    expect(buildNinePatchPng(new Uint8Array(borderless), guides))
+      .toEqual(buildNinePatchPng(borderless, guides));
+  });
 });

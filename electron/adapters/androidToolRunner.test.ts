@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ERROR_CATALOG } from '../../src/application/errors/errorCatalog';
+import { ThemeStudioError } from '../../src/application/errors/ThemeStudioError';
+import type { AndroidApkBuildRequest } from '../../src/application/ports/androidApk';
 import type { AndroidCompiledMetadata } from '../../src/io/themeImport';
 import { ANDROID_SAMPLE_COLORS } from '../../src/manifest/kakaoColors';
+import {
+  AndroidStandaloneBuildError,
+} from './androidStandaloneBuild';
 
 const node = vi.hoisted(() => ({
   access: vi.fn(),
@@ -27,7 +33,10 @@ vi.mock('../../src/io/androidCompiledMetadata', async (importOriginal) => {
   };
 });
 
-import { createAndroidApkInspector } from './androidToolRunner';
+import {
+  createAndroidApkBuilder,
+  createAndroidApkInspector,
+} from './androidToolRunner';
 
 const completeColors = Object.fromEntries(
   Object.keys(ANDROID_SAMPLE_COLORS).map((name) => [name, '#112233']),
@@ -236,5 +245,117 @@ describe('Android APK inspector adapter', () => {
       ['dump', 'resources', 'C:\\private\\bear.apk'],
       { maxBuffer: 20_000_000 },
     );
+  });
+});
+
+describe('Android APK builder adapter', () => {
+  const request: AndroidApkBuildRequest = {
+    buildDirectory: '/private/build',
+    outputPath: '/private/build/verified-theme.apk',
+    runtimeDirectory: '/app/android-runtime',
+    signingIdentityPath: '/user/android-signing-identity.json',
+    packageName: 'com.example.theme',
+    versionCode: 10_203,
+    versionName: '1.2.3',
+    expectedMetadata: {
+      name: 'Bear',
+      appearance: 'dark',
+      colors: { theme_header_color: '#123456' },
+    },
+    expectedImages: [],
+  };
+
+  it.each([
+    ['runtime', 'KTB-ANDROID-RUNTIME-MISSING'],
+    ['compile', 'KTB-ANDROID-AAPT2-COMPILE'],
+    ['link', 'KTB-ANDROID-AAPT2-LINK'],
+    ['signing-identity', 'KTB-ANDROID-SIGNING-IDENTITY'],
+    ['sign', 'KTB-ANDROID-SIGN'],
+    ['verify', 'KTB-ANDROID-VERIFY'],
+  ] as const)(
+    'maps %s failures to %s with only safe process context',
+    async (stage, code) => {
+      const failure = new AndroidStandaloneBuildError({
+        stage,
+        message: '/private/unsafe build failed',
+        exitCode: 7,
+        signal: 'SIGTERM',
+        cause: { stdout: 'theme contents' },
+      });
+      const buildStandalone = vi.fn().mockRejectedValue(failure);
+      const builder = createAndroidApkBuilder({
+        platform: 'darwin',
+        buildStandalone,
+      });
+
+      const error = await builder.build(request).catch(
+        (caught) => caught,
+      );
+      expect(error).toMatchObject({
+        code,
+        operation: 'theme:export-android',
+        stage: ERROR_CATALOG[code].stage,
+        message: ERROR_CATALOG[code].message,
+        safeContext: {
+          exitCode: 7,
+          signal: 'SIGTERM',
+        },
+        cause: failure,
+      });
+      expect(buildStandalone).toHaveBeenCalledWith({
+        buildDir: request.buildDirectory,
+        outputPath: request.outputPath,
+        runtimeDir: request.runtimeDirectory,
+        identityPath: request.signingIdentityPath,
+        packageName: request.packageName,
+        versionCode: request.versionCode,
+        versionName: request.versionName,
+        expectedMetadata: request.expectedMetadata,
+        expectedImages: [],
+        platform: 'darwin',
+      });
+      expect(buildStandalone).toHaveBeenCalledOnce();
+      expect(Object.keys(error.safeContext)).toEqual([
+        'exitCode',
+        'signal',
+      ]);
+    },
+  );
+
+  it('never wraps an existing ThemeStudioError', async () => {
+    const existing = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'theme:export-android',
+      stage: 'APK 쓰기',
+      message: 'APK를 쓰지 못했습니다.',
+    });
+    const builder = createAndroidApkBuilder({
+      platform: 'win32',
+      buildStandalone: vi.fn().mockRejectedValue(existing),
+    });
+
+    let failure: unknown;
+    try {
+      await builder.build(request);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBe(existing);
+  });
+
+  it('normalizes an unclassified build failure as unexpected', async () => {
+    const builder = createAndroidApkBuilder({
+      platform: 'darwin',
+      buildStandalone: vi.fn().mockRejectedValue(
+        new Error('unknown failure'),
+      ),
+    });
+
+    await expect(builder.build(request)).rejects.toMatchObject({
+      code: 'KTB-UNKNOWN-UNEXPECTED',
+      operation: 'theme:export-android',
+      stage: 'Android APK 빌드',
+    });
   });
 });

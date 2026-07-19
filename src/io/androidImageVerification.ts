@@ -36,12 +36,13 @@ export function assertAndroidImageOutputPossible(options: {
 export function createAndroidImageExpectation(
   resourceId: string,
   sourcePath: string,
-  png: Buffer,
+  png: Uint8Array,
   ninePatch: boolean,
 ): AndroidImageExpectation | undefined {
   const identity = androidResourceIdentity(sourcePath);
   if (!identity || !/^src\/main\/(?:res|theme|theme-adv)\//.test(identity.sourcePath)) return undefined;
-  const fingerprint = fingerprintAndroidPng(png, ninePatch);
+  const buffer = Buffer.from(png);
+  const fingerprint = fingerprintAndroidPng(buffer, ninePatch);
   return {
     resourceId,
     sourcePath: identity.sourcePath,
@@ -51,7 +52,7 @@ export function createAndroidImageExpectation(
     width: fingerprint.width,
     height: fingerprint.height,
     pixelFingerprint: fingerprint.sha256,
-    ...(ninePatch ? { guides: parseNinePatchPng(png).guides } : {}),
+    ...(ninePatch ? { guides: parseNinePatchPng(buffer).guides } : {}),
   };
 }
 

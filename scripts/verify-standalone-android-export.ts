@@ -6,11 +6,13 @@ import JSZip from 'jszip';
 import { PNG } from 'pngjs';
 import {
   buildStandaloneAndroidApk,
-  prepareStandaloneAndroidManifest,
   standaloneRuntimePaths,
   verifyStandaloneAndroidMetadata,
   verifyStandaloneApkStructure,
-} from '../src/io/androidStandaloneBuild';
+} from '../electron/adapters/androidStandaloneBuild';
+import {
+  prepareStandaloneAndroidManifest,
+} from '../src/io/androidStandaloneManifest';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
 import { createDefaultTheme } from '../src/domain/theme';
 import { inspectCompiledAndroidApk } from '../src/io/androidCompiledMetadata';

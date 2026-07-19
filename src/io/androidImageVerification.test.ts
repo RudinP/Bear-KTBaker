@@ -96,6 +96,23 @@ describe('compiled Android image verification', () => {
     expect(tablet.semanticQualifier).toBe('drawable-sw600dp');
   });
 
+  it('creates the same expectation from portable Uint8Array bytes', () => {
+    const source = png(40);
+    const expected = createAndroidImageExpectation(
+      'main.background',
+      'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+      new Uint8Array(source),
+      false,
+    );
+
+    expect(expected).toEqual(createAndroidImageExpectation(
+      'main.background',
+      'src/main/theme/drawable-xxhdpi/theme_background_image.png',
+      source,
+      false,
+    ));
+  });
+
   it('rejects the correct resource key when compiled pixels differ', async () => {
     const source = png(40);
     const compiled = png(80);

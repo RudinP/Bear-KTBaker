@@ -6,15 +6,46 @@ import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { ApkSignerV2, PackageSigner } from 'android-package-signer';
 import JSZip from 'jszip';
-import { inspectCompiledAndroidApk, type AndroidCompiledMetadata } from './androidCompiledMetadata';
+import {
+  inspectCompiledAndroidApk,
+  type AndroidCompiledMetadata,
+} from '../../src/io/androidCompiledMetadata';
 import {
   verifyCompiledAndroidImages,
   type AndroidImageExpectation,
-} from './androidImageVerification';
+} from '../../src/io/androidImageVerification';
 
 const execFileAsync = promisify(execFile);
 
 export type StandaloneAndroidPlatform = 'darwin' | 'win32';
+
+export type AndroidStandaloneBuildStage =
+  | 'runtime'
+  | 'compile'
+  | 'link'
+  | 'signing-identity'
+  | 'sign'
+  | 'verify';
+
+export class AndroidStandaloneBuildError extends Error {
+  readonly stage: AndroidStandaloneBuildStage;
+  readonly exitCode?: number;
+  readonly signal?: string;
+
+  constructor(options: {
+    stage: AndroidStandaloneBuildStage;
+    message: string;
+    exitCode?: number;
+    signal?: string;
+    cause?: unknown;
+  }) {
+    super(options.message, { cause: options.cause });
+    this.name = 'AndroidStandaloneBuildError';
+    this.stage = options.stage;
+    this.exitCode = options.exitCode;
+    this.signal = options.signal;
+  }
+}
 
 export interface StandaloneAndroidRuntime {
   androidJar: string;
@@ -73,13 +104,6 @@ export function verifyStandaloneAndroidMetadata(
     throw new Error(`Android APK 리소스 검증에 실패했습니다 (${mismatches.join(', ')}).`);
   }
   return metadata;
-}
-
-export function prepareStandaloneAndroidManifest(template: string) {
-  return template
-    .replace(/\s+xmlns:tools=["'][^"']+["']/i, '')
-    .replace(/\s+tools:[\w.-]+=["'][^"']*["']/gi, '')
-    .replace(/android:name=["']\.MainActivity["']/i, 'android:name="com.kakao.talk.theme.apeach.MainActivity"');
 }
 
 export function standaloneRuntimePaths(
@@ -263,17 +287,36 @@ export async function buildStandaloneAndroidApk({
   platform?: StandaloneAndroidPlatform;
   run?: Aapt2Runner;
 }) {
-  const runtime = standaloneRuntimePaths(runtimeDir, platform);
-  for (const required of [runtime.aapt2, runtime.androidJar, runtime.classesDex]) {
-    try {
-      await access(required);
-    } catch {
-      throw new Error(`Android APK 내보내기 런타임이 누락되었습니다: ${path.basename(required)}`);
-    }
-  }
-  if (platform === 'darwin') await chmod(runtime.aapt2, 0o755);
+  const runtime = await runAndroidBuildStage(
+    'runtime',
+    'Android APK 내보내기 런타임을 확인하지 못했습니다.',
+    async () => {
+      const resolved = standaloneRuntimePaths(runtimeDir, platform);
+      for (const required of [
+        resolved.aapt2,
+        resolved.androidJar,
+        resolved.classesDex,
+      ]) {
+        try {
+          await access(required);
+        } catch {
+          throw new Error(
+            `Android APK 내보내기 런타임이 누락되었습니다: ${
+              path.basename(required)
+            }`,
+          );
+        }
+      }
+      if (platform === 'darwin') await chmod(resolved.aapt2, 0o755);
+      return resolved;
+    },
+  );
 
-  const unsignedPath = path.join(buildDir, '.standalone', 'unsigned.apk');
+  const unsignedPath = path.join(
+    buildDir,
+    '.standalone',
+    'unsigned.apk',
+  );
   const plan = buildStandaloneAapt2Plan({
     buildDir,
     outputPath: unsignedPath,
@@ -283,21 +326,83 @@ export async function buildStandaloneAndroidApk({
     versionName,
   });
   await mkdir(plan.workDir, { recursive: true });
-  const options = { cwd: buildDir, timeout: 2 * 60_000, maxBuffer: 20_000_000 };
-  for (const args of plan.compile) await run(runtime.aapt2, args, options);
-  await run(runtime.aapt2, plan.link, options);
+  const options = {
+    cwd: buildDir,
+    timeout: 2 * 60_000,
+    maxBuffer: 20_000_000,
+  };
+  for (const args of plan.compile) {
+    await runAndroidBuildStage(
+      'compile',
+      'Android 리소스 컴파일에 실패했습니다.',
+      () => run(runtime.aapt2, args, options),
+    );
+  }
+  await runAndroidBuildStage(
+    'link',
+    'Android 리소스를 APK에 연결하지 못했습니다.',
+    () => run(runtime.aapt2, plan.link, options),
+  );
 
-  const withRuntime = await injectStandaloneDex(await readFile(unsignedPath), await readFile(runtime.classesDex));
-  const identity = await loadOrCreateSigningIdentity(identityPath);
-  const signed = await signStandaloneApk(withRuntime, identity);
-  await verifyStandaloneApkStructure(signed);
-  const metadata = await inspectCompiledAndroidApk(signed);
-  verifyStandaloneAndroidMetadata(metadata, {
-    packageName,
-    versionName,
-    ...expectedMetadata,
-  });
-  await verifyCompiledAndroidImages(signed, metadata, expectedImages ?? []);
+  const withRuntime = await injectStandaloneDex(
+    await readFile(unsignedPath),
+    await readFile(runtime.classesDex),
+  );
+  const identity = await runAndroidBuildStage(
+    'signing-identity',
+    'Android 서명 정보를 준비하지 못했습니다.',
+    () => loadOrCreateSigningIdentity(identityPath),
+  );
+  const signed = await runAndroidBuildStage(
+    'sign',
+    'Android APK 서명에 실패했습니다.',
+    () => signStandaloneApk(withRuntime, identity),
+  );
+  await runAndroidBuildStage(
+    'verify',
+    'Android APK 검증에 실패했습니다.',
+    async () => {
+      await verifyStandaloneApkStructure(signed);
+      const metadata = await inspectCompiledAndroidApk(signed);
+      verifyStandaloneAndroidMetadata(metadata, {
+        packageName,
+        versionName,
+        ...expectedMetadata,
+      });
+      await verifyCompiledAndroidImages(
+        signed,
+        metadata,
+        expectedImages ?? [],
+      );
+    },
+  );
   await writeFile(outputPath, signed);
   return outputPath;
+}
+
+async function runAndroidBuildStage<T>(
+  stage: AndroidStandaloneBuildStage,
+  message: string,
+  work: () => Promise<T>,
+) {
+  try {
+    return await work();
+  } catch (cause) {
+    if (cause instanceof AndroidStandaloneBuildError) throw cause;
+    const exitCode =
+      typeof (cause as { code?: unknown })?.code === 'number'
+        ? (cause as { code: number }).code
+        : undefined;
+    const signal =
+      typeof (cause as { signal?: unknown })?.signal === 'string'
+        ? (cause as { signal: string }).signal
+        : undefined;
+    throw new AndroidStandaloneBuildError({
+      stage,
+      message,
+      exitCode,
+      signal,
+      cause,
+    });
+  }
 }
