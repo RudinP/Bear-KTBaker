@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../../domain/theme';
-import { PhonePreview } from '../PhonePreview';
+import {
+  AndroidChatRoomPreview,
+  IosChatRoomPreview,
+} from './ChatRoomPreview';
 
 const previewCss = readFileSync('src/preview/preview.css', 'utf8');
 
@@ -17,7 +20,10 @@ beforeAll(() => {
 afterAll(() => previewStyles.remove());
 
 function renderChat(platform: 'ios' | 'android') {
-  return render(<PhonePreview project={createDefaultTheme()} platform={platform} screen="chatroom"
+  const ChatRoomPreview = platform === 'ios'
+    ? IosChatRoomPreview
+    : AndroidChatRoomPreview;
+  return render(<ChatRoomPreview project={createDefaultTheme()} platform={platform} screen="chatroom"
     selected="screen-background" onSelect={vi.fn()} />);
 }
 
@@ -28,7 +34,10 @@ describe('platform chatroom host layout', () => {
   ] as const)('keeps the %s composer surface transparent while controls retain the configured background', (platform, colorKey) => {
     const project = createDefaultTheme();
     project.colorValues[platform][colorKey] = '#123456';
-    const { container } = render(<PhonePreview project={project} platform={platform} screen="chatroom"
+    const ChatRoomPreview = platform === 'ios'
+      ? IosChatRoomPreview
+      : AndroidChatRoomPreview;
+    const { container } = render(<ChatRoomPreview project={project} platform={platform} screen="chatroom"
       selected="screen-background" onSelect={vi.fn()} />);
 
     const composer = container.querySelector<HTMLElement>('.kt-composer');

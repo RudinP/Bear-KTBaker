@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../../domain/theme';
 import { PhonePreview } from '../PhonePreview';
 import { ScreenRail } from '../ScreenRail';
+import {
+  PasscodePreview,
+  SplashPreview,
+} from './AuxiliaryScreens';
 
 const railProps = {
   current: 'chatroom' as const,
@@ -23,7 +27,7 @@ describe('platform auxiliary screens', () => {
   });
 
   it.each(['ios', 'android'] as const)('uses all four official passcode bullet slots on %s', (platform) => {
-    const { container } = render(<PhonePreview project={createDefaultTheme()} platform={platform} screen="passcode"
+    const { container } = render(<PasscodePreview project={createDefaultTheme()} platform={platform} screen="passcode"
       selected="passcode-keypad" onSelect={vi.fn()} />);
     expect(container.querySelectorAll('[data-passcode-bullet]')).toHaveLength(4);
     expect(screen.getByTestId('passcode-keypad')).toHaveAttribute(
@@ -33,10 +37,9 @@ describe('platform auxiliary screens', () => {
   });
 
   it('uses the installed iOS passcode copy, bullet geometry, and bottom-row controls', () => {
-    const { container } = render(<PhonePreview project={createDefaultTheme()} platform="ios" screen="passcode"
+    const { container } = render(<PasscodePreview project={createDefaultTheme()} platform="ios" screen="passcode"
       selected="passcode-keypad" onSelect={vi.fn()} />);
 
-    expect(screen.getByLabelText('카카오톡 미리보기')).toHaveAttribute('data-viewport', '402x874');
     expect(screen.getByRole('heading', { name: '암호 입력' })).toBeInTheDocument();
     expect(screen.getByText('카카오톡 암호를 입력해 주세요.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '키패드 취소' })).toHaveTextContent('취소');
@@ -50,7 +53,7 @@ describe('platform auxiliary screens', () => {
   });
 
   it('does not add the iOS cancel key or copy to the Android passcode screen', () => {
-    render(<PhonePreview project={createDefaultTheme()} platform="android" screen="passcode"
+    render(<PasscodePreview project={createDefaultTheme()} platform="android" screen="passcode"
       selected="passcode-keypad" onSelect={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: '암호' })).toBeInTheDocument();
@@ -70,5 +73,19 @@ describe('platform auxiliary screens', () => {
     render(<PhonePreview project={createDefaultTheme()} platform="android" screen="splash"
       selected="splash-image" onSelect={vi.fn()} />);
     expect(screen.getByText('Android 12 미만에서 적용')).toBeInTheDocument();
+  });
+
+  it('keeps the iOS splash empty and the Android splash background before its image', () => {
+    const project = createDefaultTheme();
+    const ios = render(<SplashPreview project={project} platform="ios" screen="splash"
+      selected="splash-image" onSelect={vi.fn()} />);
+    expect(ios.container.querySelector('.kt-splash')).toBeEmptyDOMElement();
+    ios.unmount();
+
+    const android = render(<SplashPreview project={project} platform="android" screen="splash"
+      selected="splash-image" onSelect={vi.fn()} />);
+    const splash = android.container.querySelector('.kt-splash')!;
+    expect(splash.firstElementChild).toHaveClass('kt-theme-background');
+    expect(splash.lastElementChild).toHaveClass('kt-splash-content');
   });
 });
