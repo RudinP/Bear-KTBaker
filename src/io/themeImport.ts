@@ -8,7 +8,7 @@ import {
   type KakaoResourceSlot,
   type PlatformResourceBinding,
 } from '../manifest/kakaoResources';
-import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS, KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
+import { ANDROID_SAMPLE_COLORS, KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
 import {
   androidPngCandidates,
   androidResourceIdentity,
@@ -17,22 +17,13 @@ import {
   type AndroidArchiveIndex,
 } from './androidArchiveResources';
 import type { AndroidCompiledMetadata } from './androidCompiledMetadata';
+import { decodeAndroidCompiledTheme, decodeAndroidSourceDocuments, type DecodedAndroidThemeData } from './themeImport/androidXmlDecoder';
+import { decodeIosCss, resolveIosBubbleGuides, type DecodedIosCss } from './themeImport/iosCssDecoder';
 import { parseCompiledNinePatchPng, parseNinePatchPng, stripNinePatchBorder } from './ninePatchPng';
 
 export { inspectCompiledAndroidApk } from './androidCompiledMetadata';
 export type { AndroidCompiledMetadata } from './androidCompiledMetadata';
-
-export type ThemeImportKind = 'project' | 'ios' | 'android-apk' | 'android-source';
-
-export function detectThemeImportKind(fileName: string): ThemeImportKind {
-  switch (path.extname(fileName).toLowerCase()) {
-    case '.ktstudio': return 'project';
-    case '.ktheme': return 'ios';
-    case '.apk': return 'android-apk';
-    case '.zip': return 'android-source';
-    default: throw new Error('지원하지 않는 파일입니다. .ktstudio, .ktheme, .apk 또는 .zip 파일을 선택해 주세요.');
-  }
-}
+export { detectThemeImportKind } from './themeImport/detectImportKind';
 
 function dataUrl(buffer: Buffer) {
   return `data:image/png;base64,${buffer.toString('base64')}`;
@@ -59,46 +50,6 @@ function importedSourceScale(resourceId: string, platform: 'ios' | 'android', fi
   return 3;
 }
 
-function cssBlock(css: string, block: string) {
-  return css.match(new RegExp(`${block.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? '';
-}
-
-function cssValue(css: string, block: string, property: string) {
-  const body = cssBlock(css, block);
-  return body.match(new RegExp(`${property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*([^;]+)`))?.[1].trim();
-}
-
-function color(value: string | undefined) {
-  return value?.match(/#[0-9a-f]{6,8}/i)?.[0];
-}
-
-function quoted(value: string | undefined) {
-  return value?.match(/['"]([^'"]+)['"]/)?.[1];
-}
-
-function quotedValues(value: string | undefined) {
-  return [...(value ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
-}
-
-function numbers(value: string | undefined) {
-  return [...(value ?? '').matchAll(/(-?\d+(?:\.\d+)?)px/g)].map((match) => Number(match[1]));
-}
-
-function iosGuides(width: number, height: number, scale: number, point: number[], insets: number[]): NinePatchGuides {
-  const x = (point[0] * scale) / width;
-  const y = (point[1] * scale) / height;
-  const [top, left, bottom, right] = insets;
-  return {
-    stretch: { x: [x, Math.min(1, x + scale / width)], y: [y, Math.min(1, y + scale / height)] },
-    content: {
-      left: (left * scale) / width,
-      top: (top * scale) / height,
-      right: (width - right * scale) / width,
-      bottom: (height - bottom * scale) / height,
-    },
-  };
-}
-
 function setBubbleGuides(project: ThemeProject, resourceId: string, guides: NinePatchGuides, platform: 'ios' | 'android') {
   const match = resourceId.match(/^chat\.bubble\.(me|you)\.(first|grouped)\.(normal|pressed)$/);
   if (!match) return;
@@ -109,21 +60,6 @@ function setBubbleGuides(project: ThemeProject, resourceId: string, guides: Nine
   appearance.stretchByPlatform = { ...appearance.stretchByPlatform, [platform]: guides };
 }
 
-function iosReferencedFiles(resourceId: string, binding: PlatformResourceBinding, css: string | undefined) {
-  if (!css || !binding.css) return [];
-  const references = quotedValues(cssValue(css, binding.css.block, binding.css.property));
-  const profile = resourceId.match(/^main\.profile\.(0[1-3])$/)?.[1];
-  const reference = profile ? references[Number(profile) - 1] : references[0];
-  if (!reference) return [];
-  const normalized = reference.replace(/^\.\//, '').replace(/^Images\//i, '');
-  const extension = path.extname(normalized) || '.png';
-  const stem = normalized.slice(0, normalized.length - extension.length);
-  const hasScale = /@\d+x$/i.test(stem);
-  const names = hasScale
-    ? [normalized]
-    : [`${stem}@3x${extension}`, `${stem}@2x${extension}`, normalized];
-  return names.map((name) => `Images/${name}`);
-}
 
 interface MappedImageImportResult {
   mappedIds: Set<string>;
@@ -151,10 +87,10 @@ function iosImageCandidates(
   zip: JSZip,
   resourceId: string,
   binding: PlatformResourceBinding,
-  iosCss?: string,
+  referencedFiles?: Record<string, readonly string[]>,
 ): MappedImageCandidate[] {
   return [...new Set([
-    ...iosReferencedFiles(resourceId, binding, iosCss),
+    ...(referencedFiles?.[resourceId] ?? []),
     ...orderedFiles(binding, 'ios'),
   ])].flatMap((candidate) => {
     const entry = zip.file(candidate);
@@ -221,7 +157,7 @@ async function importMappedImages(
     archiveKind: 'ios' | 'source' | 'apk';
     androidIndex?: AndroidArchiveIndex;
     resourceFiles?: Record<string, string[]>;
-    iosCss?: string;
+    iosReferencedFiles?: Record<string, readonly string[]>;
   },
 ): Promise<MappedImageImportResult> {
   const mappedIds = new Set<string>();
@@ -238,7 +174,7 @@ async function importMappedImages(
         bindingFiles: orderedFiles(binding, platform),
         resourceFiles: options.resourceFiles,
       })
-      : iosImageCandidates(zip, slot.id, binding, options.iosCss);
+      : iosImageCandidates(zip, slot.id, binding, options.iosReferencedFiles);
     const decodeErrors: string[] = [];
     let restored = false;
     for (const candidate of candidates) {
@@ -279,37 +215,22 @@ async function importMappedImages(
   return { mappedIds, failedResources };
 }
 
-function applyIosColors(project: ThemeProject, css: string) {
-  const parsedBindings = new Set<string>();
-  for (const binding of Object.keys(IOS_DEFAULT_COLORS)) {
-    const separator = binding.indexOf('|');
-    const parsed = color(cssValue(css, binding.slice(0, separator), binding.slice(separator + 1)));
-    if (parsed) {
-      project.colorValues.ios[binding] = parsed;
-      parsedBindings.add(binding);
-    }
+function applyIosCss(project: ThemeProject, decoded: DecodedIosCss) {
+  project.meta.name = decoded.metadata.name ?? project.meta.name;
+  project.meta.author = decoded.metadata.author ?? '';
+  project.meta.version = decoded.metadata.version ?? project.meta.version;
+  project.meta.themeId = decoded.metadata.themeId ?? project.meta.themeId;
+  project.meta.appearance = decoded.metadata.appearance;
+  Object.assign(project.colorValues.ios, decoded.colorValues);
+  Object.assign(project.colors, Object.fromEntries(
+    Object.entries(decoded.themeColors).filter(([, value]) => value !== undefined),
+  ));
+  for (const [screen, color] of Object.entries(decoded.screenColors)) {
+    if (color) project.screens[screen as keyof ThemeProject['screens']].background = { kind: 'color', color };
   }
-  for (const binding of Object.keys(IOS_SAMPLE_ALPHAS)) {
-    const separator = binding.indexOf('|');
-    const parsed = cssValue(css, binding.slice(0, separator), binding.slice(separator + 1))?.trim();
-    if (parsed && /^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(parsed)) project.colorValues.ios[binding] = parsed;
-  }
-  project.colors.header = color(cssValue(css, 'HeaderStyle-Main', '-ios-text-color')) ?? project.colors.header;
-  project.colors.primaryText = color(cssValue(css, 'MainViewStyle-Primary', '-ios-text-color')) ?? project.colors.primaryText;
-  project.colors.secondaryText = color(cssValue(css, 'MainViewStyle-Primary', '-ios-description-text-color')) ?? project.colors.secondaryText;
-  project.colors.inputBar = color(cssValue(css, 'InputBarStyle-Chat', 'background-color')) ?? project.colors.inputBar;
-  project.colors.accent = color(cssValue(css, 'InputBarStyle-Chat', '-ios-send-normal-background-color')) ?? project.colors.accent;
-  const main = color(cssValue(css, 'MainViewStyle-Primary', 'background-color'));
-  const chat = color(cssValue(css, 'BackgroundStyle-ChatRoom', 'background-color'));
-  const passcode = color(cssValue(css, 'BackgroundStyle-Passcode', 'background-color'));
-  if (main) for (const screen of ['friends', 'chats', 'now', 'more'] as const) project.screens[screen].background = { kind: 'color', color: main };
-  if (chat) project.screens.chatroom.background = { kind: 'color', color: chat };
-  if (chat) project.screens.notification.background = { kind: 'color', color: chat };
-  if (passcode) project.screens.passcode.background = { kind: 'color', color: passcode };
-  project.chat.bubbles.me.normal.textColor = color(cssValue(css, 'MessageCellStyle-Send', '-ios-text-color')) ?? project.chat.bubbles.me.normal.textColor;
-  project.chat.bubbles.you.normal.textColor = color(cssValue(css, 'MessageCellStyle-Receive', '-ios-text-color')) ?? project.chat.bubbles.you.normal.textColor;
-  project.chat.unreadColor = color(cssValue(css, 'MessageCellStyle-Send', '-ios-unread-text-color')) ?? project.chat.unreadColor;
-  return parsedBindings;
+  if (decoded.bubbleTextColors.me) project.chat.bubbles.me.normal.textColor = decoded.bubbleTextColors.me;
+  if (decoded.bubbleTextColors.you) project.chat.bubbles.you.normal.textColor = decoded.bubbleTextColors.you;
+  if (decoded.unreadColor) project.chat.unreadColor = decoded.unreadColor;
 }
 
 function mirrorSemanticResources(project: ThemeProject, source: 'ios' | 'android') {
@@ -349,26 +270,11 @@ function mirrorSemanticColors(project: ThemeProject, source: 'ios' | 'android', 
   }
 }
 
-function applyIosBubbleGuides(project: ThemeProject, css: string) {
-  const configs = [
-    ['me', 'Send', 'first', 'normal', '-ios-background-image', '-ios-title-edgeinsets'],
-    ['me', 'Send', 'first', 'pressed', '-ios-selected-background-image', '-ios-title-edgeinsets'],
-    ['me', 'Send', 'grouped', 'normal', '-ios-group-background-image', '-ios-group-title-edgeinsets'],
-    ['me', 'Send', 'grouped', 'pressed', '-ios-group-selected-background-image', '-ios-group-title-edgeinsets'],
-    ['you', 'Receive', 'first', 'normal', '-ios-background-image', '-ios-title-edgeinsets'],
-    ['you', 'Receive', 'first', 'pressed', '-ios-selected-background-image', '-ios-title-edgeinsets'],
-    ['you', 'Receive', 'grouped', 'normal', '-ios-group-background-image', '-ios-group-title-edgeinsets'],
-    ['you', 'Receive', 'grouped', 'pressed', '-ios-group-selected-background-image', '-ios-group-title-edgeinsets'],
-  ] as const;
-  for (const [side, direction, sequence, state, imageProperty, insetProperty] of configs) {
-    const id = `chat.bubble.${side}.${sequence}.${state}`;
-    const asset = project.resources[id];
-    if (!asset?.width || !asset.height) continue;
-    const point = numbers(cssValue(css, `MessageCellStyle-${direction}`, imageProperty)).slice(-2);
-    const insets = numbers(cssValue(css, `MessageCellStyle-${direction}`, insetProperty));
-    if (point.length !== 2 || insets.length !== 4) continue;
-    const scale = /@3x/.test(asset.fileName) ? 3 : /@2x/.test(asset.fileName) ? 2 : 1;
-    setBubbleGuides(project, id, iosGuides(asset.width, asset.height, scale, point, insets), 'ios');
+function applyIosBubbleGuides(project: ThemeProject, decoded: DecodedIosCss) {
+  for (const declaration of decoded.bubbleGuides) {
+    const asset = project.resources[declaration.resourceId];
+    const guides = asset && resolveIosBubbleGuides(declaration, asset);
+    if (guides) setBubbleGuides(project, declaration.resourceId, guides, 'ios');
   }
 }
 
@@ -377,60 +283,25 @@ export async function importIosKtheme(source: Buffer, suggestedName: string) {
   const css = await zip.file('KakaoTalkTheme.css')?.async('string');
   if (!css) throw new Error('KakaoTalkTheme.css가 없는 iPhone 테마입니다.');
   const project = createDefaultTheme(suggestedName.replace(/\.ktheme$/i, ''), false);
-  project.meta.name = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-name')) ?? project.meta.name;
-  project.meta.author = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-author-name')) ?? '';
-  project.meta.version = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-version')) ?? project.meta.version;
-  project.meta.themeId = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-id')) ?? project.meta.themeId;
-  project.meta.appearance = quoted(cssValue(css, 'ManifestStyle', '-kakaotalk-theme-style')) === 'dark' ? 'dark' : 'light';
-  const importedColors = applyIosColors(project, css);
-  await importMappedImages(zip, project, 'ios', { archiveKind: 'ios', iosCss: css });
+  const decoded = decodeIosCss(css);
+  applyIosCss(project, decoded);
+  await importMappedImages(zip, project, 'ios', { archiveKind: 'ios', iosReferencedFiles: decoded.referencedFiles });
   migrateLegacyNowTabAssets(project);
-  applyIosBubbleGuides(project, css);
+  applyIosBubbleGuides(project, decoded);
   mirrorSemanticResources(project, 'ios');
-  mirrorSemanticColors(project, 'ios', importedColors);
+  mirrorSemanticColors(project, 'ios', new Set(decoded.importedColorBindings));
   return project;
 }
 
-function xmlColor(xml: string, name: string) {
-  return xml.match(new RegExp(`<color\\s+name=["']${name}["']\\s*>([^<]+)</color>`))?.[1].trim();
-}
-
-function decodeXmlText(value: string | undefined) {
-  return value?.replace(/&#(x[0-9a-f]+|\d+);|&(amp|lt|gt|quot|apos);/gi, (_entity, numeric: string | undefined, named: string | undefined) => {
-    if (numeric) {
-      const codePoint = numeric[0].toLowerCase() === 'x'
-        ? Number.parseInt(numeric.slice(1), 16)
-        : Number.parseInt(numeric, 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : _entity;
-    }
-    return ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" } as Record<string, string>)[(named ?? '').toLowerCase()] ?? _entity;
-  });
-}
-
-function applyAndroidColors(project: ThemeProject, values: Record<string, string>) {
-  const parsedBindings = new Set<string>();
-  for (const [name, value] of Object.entries(values)) {
-    if (name in ANDROID_SAMPLE_COLORS) {
-      project.colorValues.android[name] = value;
-      parsedBindings.add(name);
-    }
+function applyAndroidThemeData(project: ThemeProject, decoded: DecodedAndroidThemeData) {
+  Object.assign(project.meta, decoded.metadata);
+  Object.assign(project.colorValues.android, decoded.colorValues);
+  Object.assign(project.colors, Object.fromEntries(
+    Object.entries(decoded.themeColors).filter(([, value]) => value !== undefined),
+  ));
+  for (const [screen, color] of Object.entries(decoded.screenColors)) {
+    if (color) project.screens[screen as keyof ThemeProject['screens']].background = { kind: 'color', color };
   }
-  project.colors.header = values.theme_header_color ?? project.colors.header;
-  project.colors.primaryText = values.theme_title_color ?? project.colors.primaryText;
-  project.colors.secondaryText = values.theme_description_color ?? project.colors.secondaryText;
-  project.colors.inputBar = values.theme_chatroom_input_bar_background_color ?? project.colors.inputBar;
-  project.colors.accent = values.theme_chatroom_input_bar_send_button_color ?? project.colors.accent;
-  project.colors.notificationBackground = values.theme_notification_background_color ?? project.colors.notificationBackground;
-  project.colors.notificationTitle = values.theme_notification_color ?? project.colors.notificationTitle;
-  project.colors.notificationMessage = values.theme_notification_color ?? project.colors.notificationMessage;
-  const main = values.theme_background_color;
-  const chat = values.theme_chatroom_background_color;
-  const passcode = values.theme_passcode_background_color;
-  if (main) for (const screen of ['friends', 'chats', 'now', 'more'] as const) project.screens[screen].background = { kind: 'color', color: main };
-  if (chat) project.screens.chatroom.background = { kind: 'color', color: chat };
-  if (chat) project.screens.notification.background = { kind: 'color', color: chat };
-  if (passcode) project.screens.passcode.background = { kind: 'color', color: passcode };
-  return parsedBindings;
 }
 
 interface AndroidArchiveImport {
@@ -468,41 +339,19 @@ async function finishAndroidImport({
   let importedColors = new Set<string>();
 
   if (archiveKind === 'apk') {
-    if (compiledMetadata?.appearance) project.meta.appearance = compiledMetadata.appearance;
-    if (compiledMetadata?.colors) {
-      importedColors = applyAndroidColors(project, compiledMetadata.colors);
+    if (compiledMetadata) {
+      const decoded = decodeAndroidCompiledTheme(compiledMetadata);
+      applyAndroidThemeData(project, decoded);
+      importedColors = new Set(decoded.importedColorBindings);
     }
-    if (compiledMetadata?.name) project.meta.name = compiledMetadata.name;
-    if (compiledMetadata?.version) project.meta.version = compiledMetadata.version;
-    if (compiledMetadata?.themeId) project.meta.themeId = compiledMetadata.themeId;
   } else {
     const manifest = await index.find('src/main/AndroidManifest.xml')?.async('string');
-    project.meta.appearance = manifest
-      && /<meta-data\b(?=[^>]*android:name=["']com\.kakao\.talk\.theme_style["'])(?=[^>]*android:value=["']dark["'])[^>]*\/>/i.test(manifest)
-      ? 'dark'
-      : 'light';
     const colors = await index.find('src/main/theme/values/colors.xml')?.async('string');
-    if (colors) {
-      const parsedColors: Record<string, string> = {};
-      for (const name of Object.keys(ANDROID_SAMPLE_COLORS)) {
-        const parsed = xmlColor(colors, name);
-        if (parsed) parsedColors[name] = parsed;
-      }
-      importedColors = applyAndroidColors(project, parsedColors);
-    }
     const strings = await index.find('src/main/theme/values/strings.xml')?.async('string');
-    const title = decodeXmlText(
-      strings?.match(/<string\s+name=["']theme_title["']>([^<]+)</)?.[1],
-    );
     const gradle = await (index.find('build.gradle.kts') ?? index.find('build.gradle'))?.async('string');
-    const sourceVersion = gradle?.match(/\bversionName\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
-      ?? manifest?.match(/\bandroid:versionName=["']([^"']+)["']/)?.[1];
-    const sourceThemeId = gradle?.match(/\bapplicationId\s*(?:=\s*)?["']([^"']+)["']/)?.[1]
-      ?? manifest?.match(/\bpackage=["']([^"']+)["']/)?.[1]
-      ?? gradle?.match(/\bnamespace\s*(?:=\s*)?["']([^"']+)["']/)?.[1];
-    if (title) project.meta.name = title;
-    if (sourceVersion) project.meta.version = sourceVersion;
-    if (sourceThemeId) project.meta.themeId = sourceThemeId;
+    const decoded = decodeAndroidSourceDocuments({ manifest, colors, strings, gradle });
+    applyAndroidThemeData(project, decoded);
+    importedColors = new Set(decoded.importedColorBindings);
   }
 
   mirrorSemanticResources(project, 'android');
