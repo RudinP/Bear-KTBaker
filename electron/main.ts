@@ -1,10 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron';
-import { execFile } from 'node:child_process';
-import { access, cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
 import JSZip from 'jszip';
 import { androidResourceIdentity } from '../src/io/androidArchiveResources';
 import { buildAndroidColorsXml, buildAndroidManifest, buildAndroidStringsXml } from '../src/io/androidTheme';
@@ -19,23 +17,19 @@ import { generateCleanIosThemeArchive } from '../src/io/archiveHygiene';
 import { buildNinePatchPng, replaceNinePatchInterior, stripNinePatchBorder } from '../src/io/ninePatchPng';
 import { getMappedResourceWrites } from '../src/io/resourceWrites';
 import { flexibleBubbleTargetSize, sourceHasNinePatchBorder, uploadSourceScale } from '../src/io/resourceGeometry';
-import {
-  detectThemeImportKind,
-  importAndroidSourceZip,
-  importAndroidThemeArchive,
-  importIosKtheme,
-  inspectCompiledAndroidApk,
-  type AndroidCompiledMetadata,
-} from '../src/io/themeImport';
-import { ANDROID_SAMPLE_COLORS } from '../src/manifest/kakaoColors';
 import { getResourceSlot, type ResourceRenderMode } from '../src/manifest/kakaoResources';
 import { resolveBubbleGuides } from '../src/manifest/bubbleGuideResolver';
-import { parseThemeProject, type ThemeProject } from '../src/domain/theme';
+import type { ThemeProject } from '../src/domain/theme';
 import {
   createOpenProject,
   type OpenedProject,
 } from '../src/application/theme/openProject';
+import {
+  createImportTheme,
+  type ImportThemeResult,
+} from '../src/application/theme/importTheme';
 import { createSaveProject } from '../src/application/theme/saveProject';
+import { createAndroidApkInspector } from './adapters/androidToolRunner';
 import { createElectronDialogPort } from './adapters/electronDialog';
 import { createNodeFileSystemPort } from './adapters/nodeFileSystem';
 import { historyCommandForInput } from './historyShortcut';
@@ -54,7 +48,6 @@ import {
   type TrustedSenderPolicy,
 } from './ipc/trustedSender';
 
-const execFileAsync = promisify(execFile);
 const devUrl = process.env.VITE_DEV_SERVER_URL;
 const senderPolicy: TrustedSenderPolicy = {
   developmentServerUrl: devUrl,
@@ -63,10 +56,16 @@ const senderPolicy: TrustedSenderPolicy = {
   ).href,
 };
 const dialogs = createElectronDialogPort(dialog);
-const { files } = createNodeFileSystemPort();
+const { files, paths } = createNodeFileSystemPort();
 const openProject: () => Promise<OpenedProject | null> =
   createOpenProject({ dialogs, files });
 const saveProject = createSaveProject({ dialogs, files });
+const importTheme: () => Promise<ImportThemeResult | null> = createImportTheme({
+  dialogs,
+  files,
+  paths,
+  androidInspector: createAndroidApkInspector(),
+});
 
 // macOS builds the application menu from Electron's runtime name, not the
 // BrowserWindow title or electron-builder productName.
@@ -327,101 +326,6 @@ async function exportAndroid(project: ThemeProject) {
   } finally {
     await rm(buildDir, { recursive: true, force: true });
   }
-}
-
-async function androidBuildTool(name: 'aapt' | 'aapt2') {
-  const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
-    || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library/Android/sdk')
-      : process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || '', 'Android/Sdk')
-        : path.join(process.env.HOME || '', 'Android/Sdk'));
-  try {
-    const versions = (await readdir(path.join(sdk, 'build-tools')))
-      .sort((left, right) => right.localeCompare(left, undefined, { numeric: true }));
-    for (const version of versions) {
-      const candidate = path.join(sdk, 'build-tools', version, `${name}${process.platform === 'win32' ? '.exe' : ''}`);
-      try { await access(candidate); return candidate; } catch { /* try the next installed build-tools version */ }
-    }
-  } catch { /* APK images can still be imported without build-tools metadata */ }
-  return undefined;
-}
-
-function parseCompiledColors(output: string) {
-  const colors: Record<string, string> = {};
-  let current: string | undefined;
-  for (const line of output.split(/\r?\n/)) {
-    const resource = line.match(/\bcolor\/(theme_[a-z0-9_]+)/i)?.[1];
-    if (resource) { current = resource; continue; }
-    const value = current ? line.match(/^\s*\(\)\s+#([0-9a-f]{8})\s*$/i)?.[1] : undefined;
-    if (!current || !value || !(current in ANDROID_SAMPLE_COLORS)) continue;
-    colors[current] = value.slice(0, 2).toLowerCase() === 'ff'
-      ? `#${value.slice(2).toUpperCase()}`
-      : `#${value.toUpperCase()}`;
-    current = undefined;
-  }
-  return colors;
-}
-
-async function inspectAndroidApk(file: string) {
-  let metadata: AndroidCompiledMetadata = {};
-  try {
-    metadata = await inspectCompiledAndroidApk(await readFile(file));
-  } catch {
-    // Damaged or uncommon resource tables may still be readable by an Android
-    // SDK installed on the machine. External tools are fallback-only.
-  }
-
-  const needsColors = Object.keys(metadata.colors ?? {}).length < Object.keys(ANDROID_SAMPLE_COLORS).length;
-  const needsManifest = !metadata.themeId || !metadata.version || !metadata.name || !metadata.appearance;
-  if (!needsColors && !needsManifest) return metadata;
-
-  const [aapt, aapt2] = await Promise.all([
-    needsManifest ? androidBuildTool('aapt') : Promise.resolve(undefined),
-    needsColors ? androidBuildTool('aapt2') : Promise.resolve(undefined),
-  ]);
-  if (needsColors && aapt2) {
-    try {
-      const { stdout } = await execFileAsync(aapt2, ['dump', 'resources', file], { maxBuffer: 20_000_000 });
-      metadata.colors = { ...parseCompiledColors(stdout), ...metadata.colors };
-    } catch { /* keep importing the APK's image resources */ }
-  }
-  if (needsManifest && aapt) {
-    try {
-      const { stdout } = await execFileAsync(aapt, ['dump', 'badging', file], { maxBuffer: 5_000_000 });
-      metadata.themeId ??= stdout.match(/^package:\s+name='([^']+)'/m)?.[1];
-      metadata.version ??= stdout.match(/^package:.*\bversionName='([^']+)'/m)?.[1];
-      metadata.name ??= stdout.match(/^application-label-ko:'([^']+)'/m)?.[1]
-        ?? stdout.match(/^application-label:'([^']+)'/m)?.[1];
-    } catch { /* metadata is optional; mapped images remain editable */ }
-    if (!metadata.appearance) try {
-      const { stdout } = await execFileAsync(aapt, ['dump', 'xmltree', file, 'AndroidManifest.xml'], { maxBuffer: 5_000_000 });
-      metadata.appearance = /com\.kakao\.talk\.theme_style[\s\S]{0,500}android:value[^\n]*["']dark["']/i.test(stdout) ? 'dark' : 'light';
-    } catch { /* older build-tools may not expose manifest meta-data */ }
-  }
-  return metadata;
-}
-
-async function importTheme() {
-  const result = await dialog.showOpenDialog({ title: '기존 테마 또는 프로젝트 열기', properties: ['openFile'], filters: [
-    { name: '지원하는 테마', extensions: ['ktstudio', 'ktheme', 'apk', 'zip'] },
-  ] });
-  if (result.canceled || !result.filePaths[0]) return null;
-  const file = result.filePaths[0];
-  const kind = detectThemeImportKind(file);
-  if (kind === 'project') return { kind: 'project' as const, project: parseThemeProject(await readFile(file, 'utf8')) };
-  if (kind === 'ios') {
-    return { kind: 'ios' as const, project: await importIosKtheme(await readFile(file), path.basename(file)) };
-  }
-  if (kind === 'android-apk') {
-    const metadata = await inspectAndroidApk(file);
-    return {
-      kind: 'android' as const,
-      project: await importAndroidThemeArchive(await readFile(file), path.basename(file), metadata),
-    };
-  }
-  return {
-    kind: 'android' as const,
-    project: await importAndroidSourceZip(await readFile(file), path.basename(file)),
-  };
 }
 
 function registerIpc() {
