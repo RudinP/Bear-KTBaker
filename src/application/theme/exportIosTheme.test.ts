@@ -14,10 +14,11 @@ const templateCss = [
 
 async function archive(
   entries: Record<string, string | Uint8Array>,
+  createFolders = true,
 ) {
   const zip = new JSZip();
   for (const [name, contents] of Object.entries(entries)) {
-    zip.file(name, contents);
+    zip.file(name, contents, { createFolders });
   }
   return zip.generateAsync({ type: 'uint8array' });
 }
@@ -123,6 +124,29 @@ describe('export iOS theme', () => {
     );
     expect(entries.map((entry) => entry.relativePath))
       .toContain('Images/base.png');
+  });
+
+  it('removes case-insensitive Apple metadata while preserving clean entry order and implicit Images', async () => {
+    readBytes.mockResolvedValue(await archive({
+      'KakaoTalkTheme.css': templateCss,
+      '.ds_store': 'finder',
+      '.COM.APPLE.QUARANTINE': 'quarantine',
+      'Images/com.apple.metadata:kMDItemWhereFroms': 'metadata',
+      'Images/nested/.Com.Apple.Metadata:FinderComment':
+        'nested metadata',
+      'Images/base.png': new Uint8Array([1, 2, 3]),
+      'after.txt': 'after',
+    }, false));
+
+    await exportIosTheme(project);
+
+    const output = writeBytes.mock.calls[0][1] as Uint8Array;
+    const entries = await decodeArchiveEntries(output);
+    expect(entries.map((entry) => entry.relativePath)).toEqual([
+      'KakaoTalkTheme.css',
+      'Images/base.png',
+      'after.txt',
+    ]);
   });
 
   it('normalizes output write failures at the filesystem boundary', async () => {

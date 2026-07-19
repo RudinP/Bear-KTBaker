@@ -365,15 +365,42 @@ export async function injectStandaloneDex(resourceApk: Buffer, classesDex: Buffe
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
+let activeSignerGlobalPatches = 0;
+let signerOriginalBlob: typeof globalThis.Blob | undefined;
+let signerOriginalLog: typeof console.log | undefined;
+let signerUsesNodeBlob = false;
+
+function acquireSignerGlobalPatch() {
+  if (activeSignerGlobalPatches === 0) {
+    signerOriginalBlob = globalThis.Blob;
+    signerOriginalLog = console.log;
+    signerUsesNodeBlob = typeof signerOriginalBlob?.prototype?.arrayBuffer
+      !== 'function';
+    if (signerUsesNodeBlob) {
+      Object.assign(globalThis, { Blob: NodeBlob });
+    }
+    console.log = (...args: unknown[]) => {
+      if (args[0] !== '<<<') signerOriginalLog?.(...args);
+    };
+  }
+  activeSignerGlobalPatches += 1;
+}
+
+function releaseSignerGlobalPatch() {
+  activeSignerGlobalPatches -= 1;
+  if (activeSignerGlobalPatches !== 0) return;
+  if (signerOriginalLog) console.log = signerOriginalLog;
+  if (signerUsesNodeBlob) {
+    Object.assign(globalThis, { Blob: signerOriginalBlob });
+  }
+  signerOriginalBlob = undefined;
+  signerOriginalLog = undefined;
+  signerUsesNodeBlob = false;
+}
+
 export async function signStandaloneApk(unsignedApk: Buffer, identity: AndroidSigningIdentity) {
   const signer = new ApkSignerV2(identity.password, identity.alias);
-  const originalBlob = globalThis.Blob;
-  const originalLog = console.log;
-  const needsNodeBlob = typeof originalBlob?.prototype?.arrayBuffer !== 'function';
-  if (needsNodeBlob) Object.assign(globalThis, { Blob: NodeBlob });
-  console.log = (...args: unknown[]) => {
-    if (args[0] !== '<<<') originalLog(...args);
-  };
+  acquireSignerGlobalPatch();
   let dataUrl: string;
   try {
     dataUrl = await signer.signPackageV2(
@@ -382,8 +409,7 @@ export async function signStandaloneApk(unsignedApk: Buffer, identity: AndroidSi
       'KakaoTalk Theme Studio',
     );
   } finally {
-    console.log = originalLog;
-    if (needsNodeBlob) Object.assign(globalThis, { Blob: originalBlob });
+    releaseSignerGlobalPatch();
   }
   const separator = dataUrl.indexOf(',');
   if (separator < 0) throw new Error('Android APK 서명 결과를 읽지 못했습니다.');

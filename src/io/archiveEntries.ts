@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { isMacosArchiveJunk } from './archiveHygiene';
 
 export interface ArchiveEntry {
   relativePath: string;
@@ -18,15 +19,6 @@ function assertSafeArchivePath(relativePath: string) {
   ) {
     throw new Error('압축 파일에 안전하지 않은 경로가 있습니다.');
   }
-}
-
-function isMacOsJunkPath(relativePath: string) {
-  return relativePath
-    .split('/')
-    .some((segment) =>
-      segment === '__MACOSX'
-      || segment === '.DS_Store'
-      || segment.startsWith('._'));
 }
 
 export async function decodeArchiveEntries(
@@ -57,7 +49,7 @@ export async function encodeCleanArchiveEntries(
   const zip = new JSZip();
   for (const entry of entries) {
     assertSafeArchivePath(entry.relativePath);
-    if (isMacOsJunkPath(entry.relativePath)) continue;
+    if (isMacosArchiveJunk(entry.relativePath)) continue;
     if (entry.directory) {
       zip.folder(entry.relativePath);
     } else {

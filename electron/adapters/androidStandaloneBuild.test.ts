@@ -10,6 +10,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { ApkSignerV2 } from 'android-package-signer';
 import JSZip from 'jszip';
 import * as forge from 'node-forge';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,6 +28,16 @@ import {
   verifyStandaloneApkStructure,
 } from './androidStandaloneBuild';
 import { createAndroidImageExpectation } from '../../src/io/androidImageVerification';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (cause: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 describe('standalone Android APK build support', () => {
   it('resolves the universal macOS AAPT2 and shared runtime files', () => {
@@ -354,6 +365,128 @@ describe('standalone Android APK build support', () => {
     });
     expect(log.mock.calls.some(([first]) => first === '<<<')).toBe(false);
     log.mockRestore();
+  });
+
+  it('keeps shared console and Blob patches active until overlapping signers succeed', async () => {
+    const originalBlob = globalThis.Blob;
+    const originalLog = console.log;
+    const legacyBlob = class LegacyBlob {} as unknown as typeof Blob;
+    const forwardedLog = vi.fn();
+    const first = deferred<string>();
+    const second = deferred<string>();
+    let signerCall = 0;
+    const signPackageV2 = vi.spyOn(
+      ApkSignerV2.prototype,
+      'signPackageV2',
+    ).mockImplementation(() => {
+      console.log('<<<', signerCall);
+      console.log('forwarded', signerCall);
+      return signerCall++ === 0 ? first.promise : second.promise;
+    });
+    Object.assign(globalThis, { Blob: legacyBlob });
+    console.log = forwardedLog;
+
+    try {
+      const identity: AndroidSigningIdentity = {
+        schema: 1,
+        alias: 'kakaotheme',
+        password: 'password',
+        pkcs12DataUrl: 'data:application/x-pkcs12;base64,AA==',
+      };
+      const firstSigning = signStandaloneApk(
+        Buffer.from('first'),
+        identity,
+      );
+      const secondSigning = signStandaloneApk(
+        Buffer.from('second'),
+        identity,
+      );
+
+      first.resolve('data:application/zip;base64,RklSU1Q=');
+      await expect(firstSigning).resolves.toEqual(
+        Buffer.from('FIRST'),
+      );
+      const blobWhileSecondIsPending = globalThis.Blob;
+      const logWhileSecondIsPending = console.log;
+      second.resolve('data:application/zip;base64,U0VDT05E');
+      await expect(secondSigning).resolves.toEqual(
+        Buffer.from('SECOND'),
+      );
+
+      expect(signPackageV2).toHaveBeenCalledTimes(2);
+      expect(blobWhileSecondIsPending).not.toBe(legacyBlob);
+      expect(
+        blobWhileSecondIsPending.prototype.arrayBuffer,
+      ).toBeTypeOf('function');
+      expect(logWhileSecondIsPending).not.toBe(forwardedLog);
+      expect(forwardedLog).toHaveBeenCalledTimes(2);
+      expect(forwardedLog).toHaveBeenNthCalledWith(
+        1,
+        'forwarded',
+        0,
+      );
+      expect(forwardedLog).toHaveBeenNthCalledWith(
+        2,
+        'forwarded',
+        1,
+      );
+      expect(globalThis.Blob).toBe(legacyBlob);
+      expect(console.log).toBe(forwardedLog);
+    } finally {
+      signPackageV2.mockRestore();
+      Object.assign(globalThis, { Blob: originalBlob });
+      console.log = originalLog;
+    }
+  });
+
+  it('restores the exact shared globals after the later overlapping signer fails', async () => {
+    const originalBlob = globalThis.Blob;
+    const originalLog = console.log;
+    const legacyBlob = class LegacyBlob {} as unknown as typeof Blob;
+    const forwardedLog = vi.fn();
+    const first = deferred<string>();
+    const second = deferred<string>();
+    let signerCall = 0;
+    const signPackageV2 = vi.spyOn(
+      ApkSignerV2.prototype,
+      'signPackageV2',
+    ).mockImplementation(() =>
+      signerCall++ === 0 ? first.promise : second.promise);
+    Object.assign(globalThis, { Blob: legacyBlob });
+    console.log = forwardedLog;
+
+    try {
+      const identity: AndroidSigningIdentity = {
+        schema: 1,
+        alias: 'kakaotheme',
+        password: 'password',
+        pkcs12DataUrl: 'data:application/x-pkcs12;base64,AA==',
+      };
+      const firstSigning = signStandaloneApk(
+        Buffer.from('first'),
+        identity,
+      );
+      const secondSigning = signStandaloneApk(
+        Buffer.from('second'),
+        identity,
+      );
+
+      first.resolve('data:application/zip;base64,RklSU1Q=');
+      await expect(firstSigning).resolves.toEqual(
+        Buffer.from('FIRST'),
+      );
+      second.reject(new Error('second signer failed'));
+      await expect(secondSigning).rejects.toThrow(
+        'second signer failed',
+      );
+
+      expect(globalThis.Blob).toBe(legacyBlob);
+      expect(console.log).toBe(forwardedLog);
+    } finally {
+      signPackageV2.mockRestore();
+      Object.assign(globalThis, { Blob: originalBlob });
+      console.log = originalLog;
+    }
   });
 
   it('rejects an unsigned ZIP even when runtime contents contain the signing magic', async () => {

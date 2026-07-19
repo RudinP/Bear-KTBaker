@@ -131,6 +131,59 @@ describe('archive entries', () => {
       .toEqual(['assets/icon.png']);
   });
 
+  it('applies the complete case-insensitive macOS metadata policy without reordering survivors', async () => {
+    const encoded = await encodeCleanArchiveEntries([
+      {
+        relativePath: 'KakaoTalkTheme.css',
+        directory: false,
+        contents: new Uint8Array([1]),
+      },
+      {
+        relativePath: '.ds_store',
+        directory: false,
+        contents: new Uint8Array([2]),
+      },
+      {
+        relativePath: '.COM.APPLE.QUARANTINE',
+        directory: false,
+        contents: new Uint8Array([3]),
+      },
+      {
+        relativePath:
+          'Images/com.apple.metadata:kMDItemWhereFroms',
+        directory: false,
+        contents: new Uint8Array([4]),
+      },
+      {
+        relativePath:
+          'Images/nested/.Com.Apple.Metadata:FinderComment',
+        directory: false,
+        contents: new Uint8Array([5]),
+      },
+      {
+        relativePath: 'Images/theme.png',
+        directory: false,
+        contents: new Uint8Array([6]),
+      },
+      {
+        relativePath: 'after.txt',
+        directory: false,
+        contents: new Uint8Array([7]),
+      },
+    ]);
+
+    const entries = await decodeArchiveEntries(encoded);
+
+    expect(entries.map((entry) => entry.relativePath)).toEqual([
+      'KakaoTalkTheme.css',
+      'Images/theme.png',
+      'after.txt',
+    ]);
+    expect(entries.some(
+      (entry) => entry.relativePath === 'Images/',
+    )).toBe(false);
+  });
+
   it.each([
     '',
     'bad\0name.png',
