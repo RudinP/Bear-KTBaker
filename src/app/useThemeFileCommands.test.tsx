@@ -13,6 +13,16 @@ type FileClient = Pick<
   'isAvailable' | 'importTheme' | 'saveProject' | 'subscribeFileCommands'
 >;
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 function createFakeClient() {
   let listener: ((command: ThemeFileCommand) => void) | undefined;
   const unsubscribe = vi.fn();
@@ -160,5 +170,138 @@ describe('useThemeFileCommands', () => {
     view.unmount();
     expect(fake.unsubscribe).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not let an older import overwrite a newer import', async () => {
+    const fake = createFakeClient();
+    const older = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    const newer = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    vi.mocked(fake.client.importTheme)
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    const replaceProject = vi.fn();
+    const { result } = renderFileCommands({ client: fake.client, replaceProject });
+    const oldProject = createDefaultTheme('오래된 불러오기');
+    const newProject = createDefaultTheme('새 불러오기');
+
+    const first = result.current.openTheme();
+    const second = result.current.openTheme();
+    await act(async () => {
+      newer.resolve({ kind: 'project', project: newProject });
+      await newer.promise;
+    });
+    await act(async () => {
+      older.resolve({ kind: 'project', project: oldProject });
+      await older.promise;
+    });
+    await Promise.all([first, second]);
+
+    expect(replaceProject).toHaveBeenCalledTimes(1);
+    expect(replaceProject).toHaveBeenCalledWith(newProject);
+    expect(result.current.fileNotice).toEqual({
+      kind: 'status', text: '테마와 프로젝트 내용을 불러왔습니다.',
+    });
+  });
+
+  it('keeps a newer cancellation notice-free when an older import later resolves', async () => {
+    const fake = createFakeClient();
+    const older = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    const newer = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    vi.mocked(fake.client.importTheme)
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    const replaceProject = vi.fn();
+    const { result } = renderFileCommands({ client: fake.client, replaceProject });
+
+    const first = result.current.openTheme();
+    const second = result.current.openTheme();
+    await act(async () => {
+      newer.resolve(null);
+      await newer.promise;
+    });
+    await act(async () => {
+      older.resolve({ kind: 'project', project: createDefaultTheme('오래된 결과') });
+      await older.promise;
+    });
+    await Promise.all([first, second]);
+
+    expect(replaceProject).not.toHaveBeenCalled();
+    expect(result.current.fileNotice).toBeNull();
+  });
+
+  it('keeps a newer cancellation notice-free when an older import later fails', async () => {
+    const fake = createFakeClient();
+    const older = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    const newer = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    vi.mocked(fake.client.importTheme)
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    const { result } = renderFileCommands({ client: fake.client });
+
+    const first = result.current.openTheme();
+    const second = result.current.openTheme();
+    await act(async () => {
+      newer.resolve(null);
+      await newer.promise;
+    });
+    await act(async () => {
+      older.reject(new Error('오래된 오류'));
+      await older.promise.catch(() => undefined);
+    });
+    await Promise.all([first, second]);
+
+    expect(result.current.fileNotice).toBeNull();
+  });
+
+  it('ignores a pending import after unmount without creating state or timer effects', async () => {
+    vi.useFakeTimers();
+    const fake = createFakeClient();
+    const pending = createDeferred<Awaited<ReturnType<FileClient['importTheme']>>>();
+    vi.mocked(fake.client.importTheme).mockReturnValue(pending.promise);
+    const replaceProject = vi.fn();
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
+    const view = renderFileCommands({ client: fake.client, replaceProject });
+
+    const operation = view.result.current.openTheme();
+    view.unmount();
+    await act(async () => {
+      pending.resolve({ kind: 'project', project: createDefaultTheme('늦은 결과') });
+      await pending.promise;
+    });
+    await operation;
+
+    expect(replaceProject).not.toHaveBeenCalled();
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps one native subscription while using the latest project for native saves', async () => {
+    const fake = createFakeClient();
+    const firstProject = createDefaultTheme('이전 프로젝트');
+    const latestProject = createDefaultTheme('최신 프로젝트');
+    const view = renderHook(
+      ({ project }) => useThemeFileCommands({
+        project,
+        replaceProject: vi.fn(),
+        client: fake.client,
+      }),
+      { initialProps: { project: firstProject } },
+    );
+
+    view.rerender({ project: latestProject });
+    expect(fake.client.subscribeFileCommands).toHaveBeenCalledOnce();
+    expect(fake.unsubscribe).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fake.emit('save-project');
+      await Promise.resolve();
+    });
+    expect(fake.client.saveProject).toHaveBeenCalledWith(
+      expect.stringContaining('최신 프로젝트'),
+      '최신 프로젝트',
+    );
+
+    view.unmount();
+    expect(fake.unsubscribe).toHaveBeenCalledOnce();
   });
 });
