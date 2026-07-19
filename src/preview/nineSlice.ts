@@ -8,12 +8,12 @@ export interface EdgeInsets {
   left: number;
 }
 
-export interface SliceRect extends Size {
+interface SliceRect extends Size {
   x: number;
   y: number;
 }
 
-export interface NineSliceCell {
+interface NineSliceCell {
   row: 0 | 1 | 2;
   column: 0 | 1 | 2;
   source: SliceRect;

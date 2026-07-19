@@ -4,7 +4,7 @@ import { PNG } from 'pngjs';
 import { stripNinePatchBorder } from './ninePatchPng';
 
 export type AndroidArchiveKind = 'apk' | 'source';
-export type AndroidResourceType = 'drawable' | 'mipmap';
+type AndroidResourceType = 'drawable' | 'mipmap';
 
 export interface AndroidResourceIdentity {
   key: `${AndroidResourceType}/${string}`;
@@ -15,7 +15,7 @@ export interface AndroidResourceIdentity {
   sourcePath: string;
 }
 
-export interface AndroidArchiveCandidate {
+interface AndroidArchiveCandidate {
   path: string;
   entry: JSZip.JSZipObject;
   identity: AndroidResourceIdentity;

@@ -36,7 +36,7 @@ export interface ImageAsset {
   mirroredFromPlatform?: Platform;
 }
 
-export type VisualFill =
+type VisualFill =
   | { kind: 'color'; color: string }
   | { kind: 'image'; color: string; image: ImageAsset };
 
@@ -54,7 +54,7 @@ export interface BubbleAppearance {
   guideEditedByPlatform?: Partial<Record<Platform, true>>;
 }
 
-export interface BubbleSet {
+interface BubbleSet {
   normal: BubbleAppearance;
   pressed: BubbleAppearance;
   grouped: BubbleAppearance;

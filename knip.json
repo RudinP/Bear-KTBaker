@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/electron.d.ts",
+    "electron/main.ts",
+    "electron/preload.ts",
+    "scripts/*.ts",
+    "src/**/*.test.{ts,tsx}",
+    "electron/**/*.test.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/**/*.ts",
+    "scripts/**/*.ts",
+    "*.{ts,tsx}"
+  ]
+}

@@ -10,7 +10,7 @@ export interface Rect extends Size {
   y: number;
 }
 
-export interface HostChatLayout {
+interface HostChatLayout {
   showsDateChip: boolean;
   messageInset: { top: number; left: number; right: number };
   bubbleContentInset: { top: number; right: number; bottom: number; left: number };
@@ -35,7 +35,7 @@ export interface HostChatLayout {
   composerIconSize: { menu: number; emoji: number; hash: number; send: number };
 }
 
-export interface HostTabBarLayout {
+interface HostTabBarLayout {
   frame: Rect;
   backgroundLogicalSize: Size;
   iconSize: number;
@@ -43,7 +43,7 @@ export interface HostTabBarLayout {
   bottomBanner: { frame: Rect; adPill: Rect };
 }
 
-export interface HostPasscodeLayout {
+interface HostPasscodeLayout {
   imageSurface: Rect;
   titleTop: number;
   bulletTop: number;

@@ -1,6 +1,6 @@
 export type ResourceRenderMode = 'contain' | 'cover' | 'top-center-crop' | 'top-center-cover' | 'center-crop' | 'stretch';
 
-export interface ResourceRenderRule {
+interface ResourceRenderRule {
   mode: ResourceRenderMode;
   iosStretchPoint?: readonly [number, number];
   iosContentInsets?: readonly [number, number, number, number];

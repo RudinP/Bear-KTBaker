@@ -46,7 +46,7 @@ export function opaqueColor(value: string) {
   return value;
 }
 
-export function setColorSlot(project: ThemeProject, _platform: Platform, slotId: string, value: string) {
+export function setColorSlot(project: ThemeProject, _platform: Platform, slotId: string, value: string): ThemeProject {
   const slot = getColorSlot(slotId);
   const colorValues = {
     ios: { ...project.colorValues.ios },

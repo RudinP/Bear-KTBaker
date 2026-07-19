@@ -1,7 +1,7 @@
 import type { ImageAsset, Platform, ThemeProject } from './theme';
 import { KAKAO_RESOURCE_SLOTS } from '../manifest/kakaoResources';
 
-export type LegacyImageMap = Record<string, ImageAsset>;
+type LegacyImageMap = Record<string, ImageAsset>;
 
 export interface LegacyProjectImageCandidates {
   currentPlatformResources: Record<Platform, LegacyImageMap>;

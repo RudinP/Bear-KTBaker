@@ -1,4 +1,4 @@
-export type KakaoColorTarget =
+type KakaoColorTarget =
   | 'screen-background' | 'header' | 'tabbar' | 'bubble-me' | 'bubble-you'
   | 'inputbar' | 'inputbar-field' | 'inputbar-menu' | 'inputbar-send'
   | 'passcode-keypad' | 'notification' | 'direct-share' | 'content';

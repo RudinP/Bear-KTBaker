@@ -2,7 +2,6 @@ import { guidesToIosMetrics, type NinePatchGuides } from '../domain/ninePatch';
 import type { Size } from './layout';
 
 export { officialSampleBubbleGuides } from '../manifest/bubbleGuideResolver';
-export type { BubbleSide } from '../manifest/bubbleGuideResolver';
 
 function iosExportScale(sourceScale: number): 1 | 2 | 3 {
   if (sourceScale === 1 || sourceScale === 2) return sourceScale;

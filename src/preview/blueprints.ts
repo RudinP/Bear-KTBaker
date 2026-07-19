@@ -3,12 +3,12 @@ import { getHostLayout } from './layout';
 
 export const KAKAO_PREVIEW_VERSION = '26.5.0';
 
-export interface PreviewRect {
+interface PreviewRect {
   top: number;
   height: number;
 }
 
-export type PreviewLayoutKind = 'main-list' | 'chatroom' | 'more' | 'passcode' | 'splash';
+type PreviewLayoutKind = 'main-list' | 'chatroom' | 'more' | 'passcode' | 'splash';
 
 export interface ScreenBlueprint {
   kind: PreviewLayoutKind;
@@ -42,10 +42,6 @@ function fromHost(platform: Platform, screen: ScreenId): ScreenBlueprint {
 
 export function getScreenBlueprint(platform: Platform, screen: ScreenId): ScreenBlueprint {
   return fromHost(platform, screen);
-}
-
-export function getChatroomBlueprint(platform: Platform): ScreenBlueprint {
-  return getScreenBlueprint(platform, 'chatroom');
 }
 
 const editTargets: Record<ScreenId, EditableElementId[]> = {
