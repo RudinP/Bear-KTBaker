@@ -1,5 +1,9 @@
 import type { ImageAsset, Platform, ThemeProject } from '../model';
 import { KAKAO_RESOURCE_SLOTS } from '../../../manifest/kakaoResources';
+import {
+  repairImageAsset,
+  repairImageAssetMap,
+} from '../runtimeValidation';
 
 type LegacyImageMap = Record<string, ImageAsset>;
 
@@ -33,21 +37,16 @@ function child(value: unknown, key: string) {
 }
 
 export function isUsableImageAsset(value: unknown): value is ImageAsset {
-  const candidate = record(value);
-  return typeof candidate?.fileName === 'string'
-    && candidate.fileName.trim().length > 0
-    && typeof candidate.dataUrl === 'string'
-    && candidate.dataUrl.trim().length > 0;
+  return repairImageAsset(value) !== undefined;
 }
 
 function validAssetMap(value: unknown): LegacyImageMap {
-  return Object.fromEntries(Object.entries(record(value) ?? {})
-    .filter((entry): entry is [string, ImageAsset] => isUsableImageAsset(entry[1]))
-    .map(([id, asset]) => [id, { ...asset }]));
+  return repairImageAssetMap(value).valid;
 }
 
 function setCandidate(target: LegacyImageMap, id: string, value: unknown) {
-  if (target[id] === undefined && isUsableImageAsset(value)) target[id] = { ...value };
+  const repaired = repairImageAsset(value);
+  if (target[id] === undefined && repaired) target[id] = repaired;
 }
 
 function setCandidates(target: LegacyImageMap, entries: readonly CandidateEntry[]) {

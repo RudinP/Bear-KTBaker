@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../../src/domain/theme/defaults';
+import { parseThemeProject } from '../../src/domain/theme/codec';
 import { nestedAssetsV1Fixture } from '../../src/test/fixtures/legacyThemeProjects';
 import {
   parseProjectSaveRequest,
@@ -119,6 +120,53 @@ describe('IPC request validation', () => {
     expect(() => parseThemeProjectRequest('not a project')).toThrow(
       expect.objectContaining({ code: 'KTB-IPC-INVALID-REQUEST' }),
     );
+  });
+
+  it('repairs malformed known ThemeProject fields at the IPC boundary', () => {
+    const project = createDefaultTheme('IPC 복구') as unknown as Record<string, any>;
+    project.meta.name = 42;
+    project.targets.ios = 'yes';
+    project.colors.header = 9;
+    project.platformResources.ios['main.background'] = {
+      fileName: 'background.png',
+      dataUrl: 'data:image/png;base64,YmFja2dyb3VuZA==',
+      width: 'wide',
+    };
+    project.chat.bubbles.me.normal.stretch = {
+      stretch: { x: [0, 1], y: false },
+      content: null,
+    };
+
+    const parsed = parseThemeProjectRequest(project);
+
+    expect(parsed.meta.name).toBe('새 카카오톡 테마');
+    expect(parsed.targets.ios).toBe(true);
+    expect(parsed.colors.header).toBe('#664242');
+    expect(parsed.platformResources.ios['main.background']).toEqual({
+      fileName: 'background.png',
+      dataUrl: 'data:image/png;base64,YmFja2dyb3VuZA==',
+    });
+    expect(parsed.chat.bubbles.me.normal.stretch).toEqual(
+      createDefaultTheme().chat.bubbles.me.normal.stretch,
+    );
+  });
+
+  it('accepts preserved unknown platform fields after renderer transport cloning', () => {
+    const rendererProject = structuredClone(parseThemeProject(JSON.stringify({
+      schema: 'kakao-theme-studio',
+      schemaVersion: 1,
+      platformResources: {
+        legacyDesktop: { keep: 'root' },
+        ios: {
+          'future.metadata': { keep: 'ios' },
+        },
+        android: {
+          'future.metadata': { keep: 'android' },
+        },
+      },
+    })));
+
+    expect(() => parseThemeProjectRequest(rendererProject)).not.toThrow();
   });
 
   it('preserves plain legacy fields for project codec migration', () => {

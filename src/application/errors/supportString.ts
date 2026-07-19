@@ -1,6 +1,7 @@
 import {
   ERROR_CATALOG,
   normalizeErrorCode,
+  resolveCatalogDiagnostic,
 } from './errorCatalog';
 import {
   sanitizeSafeContext,
@@ -11,10 +12,16 @@ export function formatThemeStudioSupportString(
   error: Pick<
     ThemeStudioErrorDetails,
     'code' | 'stage' | 'message' | 'safeContext'
-  >,
+  > & Partial<Pick<ThemeStudioErrorDetails, 'operation'>>,
 ) {
   const code = normalizeErrorCode(error.code);
-  const catalog = ERROR_CATALOG[code];
+  const catalog = error.operation
+    ? resolveCatalogDiagnostic(code, {
+        operation: error.operation,
+        stage: error.stage,
+        message: error.message,
+      })
+    : ERROR_CATALOG[code];
   const safeContext = sanitizeSafeContext(error.safeContext);
   const lines = [`[${code}]`, catalog.message, `단계: ${catalog.stage}`];
   if (safeContext?.exitCode !== undefined) {

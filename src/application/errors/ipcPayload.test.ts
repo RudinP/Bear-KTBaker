@@ -6,6 +6,47 @@ import {
   serializeThemeStudioError,
   type ThemeIpcResult,
 } from './ipcPayload';
+import { formatThemeStudioSupportString } from './supportString';
+
+const reusedDiagnosticVariants = [
+  ['KTB-PROJECT-INVALID-FORMAT', 'project:save', '프로젝트 파일 검증', '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.'],
+  ['KTB-PROJECT-INVALID-FORMAT', 'theme:import', '프로젝트 파일 검증', '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.'],
+  ['KTB-PROJECT-MIGRATION', 'project:save', '이전 프로젝트 변환', '이전 버전 프로젝트를 변환하지 못했습니다.'],
+  ['KTB-PROJECT-MIGRATION', 'theme:import', '이전 프로젝트 변환', '이전 버전 프로젝트를 변환하지 못했습니다.'],
+  ['KTB-FS-READ', 'project:open', '프로젝트 파일 읽기', '프로젝트 파일을 읽지 못했습니다.'],
+  ['KTB-FS-READ', 'project:open', '프로젝트 열기', '프로젝트를 열지 못했습니다.'],
+  ['KTB-FS-READ', 'theme:import', '선택한 테마 파일 읽기', '선택한 테마 파일을 읽지 못했습니다.'],
+  ['KTB-FS-READ', 'theme:export-android', 'Android 템플릿 읽기', 'Android 테마 템플릿을 읽지 못했습니다.'],
+  ['KTB-FS-READ', 'theme:export-android', 'Android 템플릿 압축 읽기', 'Android 테마 템플릿 압축을 읽지 못했습니다.'],
+  ['KTB-FS-READ', 'theme:export-android', 'Android 이미지 템플릿 읽기', 'Android 이미지 템플릿을 읽지 못했습니다.'],
+  ['KTB-FS-WRITE', 'project:save', '프로젝트 파일 쓰기', '프로젝트 파일을 저장하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'project:save', '프로젝트 저장', '프로젝트를 저장하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'theme:export-ios', 'iPhone 테마 파일 쓰기', 'iPhone 테마 파일을 저장하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'theme:export-android', 'Android 템플릿 압축 해제', 'Android 테마 템플릿을 준비하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'theme:export-android', 'Android 메타데이터 생성', 'Android 테마 메타데이터를 만들지 못했습니다.'],
+  ['KTB-FS-WRITE', 'theme:export-android', 'Android APK 파일 복사', '완성된 Android APK를 저장하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'theme:export-android', 'Android 이미지 리소스 쓰기', 'Android 이미지 리소스를 저장하지 못했습니다.'],
+  ['KTB-FS-WRITE', 'screenshots:save', '홍보 이미지 파일 쓰기', '홍보 이미지를 저장하지 못했습니다.'],
+  ['KTB-FS-TEMP', 'theme:export-android', 'Android 임시 폴더 생성', 'Android 임시 작업 폴더를 만들지 못했습니다.'],
+  ['KTB-FS-TEMP', 'theme:export-android', 'Android 임시 폴더 정리', 'Android 임시 작업 폴더를 정리하지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'theme:export-ios', 'iPhone 이미지 디코딩', 'iPhone 테마 이미지를 읽지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'theme:export-ios', 'iPhone 이미지 변환', 'iPhone 테마 이미지를 변환하지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'theme:export-android', 'Android 이미지 디코딩', 'Android 테마 이미지를 읽지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'theme:export-android', 'Android 이미지 템플릿 디코딩', 'Android 이미지 템플릿을 읽지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'theme:export-android', 'Android 이미지 변환', 'Android 테마 이미지를 변환하지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'screenshots:save', '홍보 이미지 디코딩', '홍보 이미지 데이터를 읽지 못했습니다.'],
+  ['KTB-IMAGE-DECODE', 'screenshots:save', '홍보 이미지 디코딩', '홍보 이미지는 PNG 형식이어야 합니다.'],
+  ['KTB-IMAGE-NINE-PATCH', 'theme:export-android', 'Android 9-patch 템플릿 적용', 'Android 9-patch 기준 이미지를 찾지 못했습니다.'],
+  ['KTB-IOS-EXPORT-TEMPLATE', 'theme:export-ios', 'iPhone 템플릿 읽기', 'iPhone 테마 템플릿을 읽지 못했습니다.'],
+  ['KTB-IOS-EXPORT-TEMPLATE', 'theme:export-ios', 'iPhone 템플릿 압축 읽기', 'iPhone 테마 템플릿을 읽지 못했습니다.'],
+  ['KTB-IOS-EXPORT-TEMPLATE', 'theme:export-ios', 'iPhone 템플릿 CSS 읽기', 'iPhone 테마 템플릿 CSS를 읽지 못했습니다.'],
+  ['KTB-IPC-INVALID-REQUEST', 'ipc:validate', '요청 데이터 검증', '앱 요청 데이터가 올바르지 않습니다.'],
+  ['KTB-IPC-INVALID-REQUEST', 'screenshots:save', '홍보 이미지 파일명 검증', '홍보 이미지 파일명이 올바르지 않습니다.'],
+  ['KTB-UNKNOWN-UNEXPECTED', 'theme:import', '테마 가져오기', '테마를 가져오지 못했습니다.'],
+  ['KTB-UNKNOWN-UNEXPECTED', 'theme:export-android', 'Android 테마 내보내기', 'Android 테마를 내보내지 못했습니다.'],
+  ['KTB-UNKNOWN-UNEXPECTED', 'theme:export-android', 'Android APK 빌드', 'Android APK를 만들지 못했습니다.'],
+  ['KTB-UNKNOWN-UNEXPECTED', 'ipc:validate', '오류 응답 검증', '앱 오류 응답을 읽지 못했습니다.'],
+] as const;
 
 describe('ThemeStudioError IPC payload', () => {
   it('serializes only allowlisted context', () => {
@@ -229,6 +270,28 @@ describe('ThemeStudioError IPC payload', () => {
     })).toBe(false);
   });
 
+  it.each(reusedDiagnosticVariants)(
+    'preserves the catalog-owned %s variant for %s / %s through IPC and support formatting',
+    (code, operation, stage, message) => {
+      const payload = serializeThemeStudioError(new ThemeStudioError({
+        code,
+        operation,
+        stage,
+        message,
+      }));
+      const reconstructed = reconstructThemeStudioError(payload);
+
+      expect(payload).toMatchObject({ code, operation, stage, message });
+      expect(isThemeStudioErrorPayload(payload)).toBe(true);
+      expect(reconstructed).toMatchObject({ code, operation, stage, message });
+      expect(formatThemeStudioSupportString(reconstructed)).toBe([
+        `[${code}]`,
+        message,
+        `단계: ${stage}`,
+      ].join('\n'));
+    },
+  );
+
   it('uses the unknown catalog entry after runtime code mutation', () => {
     const error = new ThemeStudioError({
       code: 'KTB-FS-WRITE',
@@ -245,7 +308,7 @@ describe('ThemeStudioError IPC payload', () => {
 
     expect(serializeThemeStudioError(error)).toMatchObject({
       code: 'KTB-UNKNOWN-UNEXPECTED',
-      operation: 'project:save',
+      operation: 'ipc:validate',
       stage: '알 수 없는 작업',
       message: '예상하지 못한 오류가 발생했습니다.',
     });

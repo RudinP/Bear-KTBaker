@@ -1,8 +1,9 @@
 import {
-  ERROR_CATALOG,
   type ErrorCode,
+  isCatalogDiagnostic,
   isErrorCode,
   normalizeErrorCode,
+  resolveCatalogDiagnostic,
   type ThemeOperation,
 } from './errorCatalog';
 import {
@@ -57,10 +58,11 @@ function serializeThemeStudioErrorInternal(
 ): ThemeStudioErrorPayload {
   seen.add(error);
   const code = normalizeErrorCode(error.code);
-  const catalog = ERROR_CATALOG[code];
-  const operation = THEME_OPERATIONS.has(error.operation)
-    ? error.operation
-    : catalog.operation;
+  const catalog = resolveCatalogDiagnostic(code, {
+    operation: error.operation,
+    stage: error.stage,
+    message: error.message,
+  });
   const safeContext = sanitizeSafeContext(error.safeContext);
   const nestedCause = error.cause instanceof ThemeStudioError
     && depth < MAX_STRUCTURED_ERROR_DEPTH
@@ -70,7 +72,7 @@ function serializeThemeStudioErrorInternal(
   return {
     name: 'ThemeStudioError',
     code,
-    operation,
+    operation: catalog.operation,
     stage: catalog.stage,
     message: catalog.message,
     ...(safeContext ? { safeContext } : {}),
@@ -101,13 +103,14 @@ function isThemeStudioErrorPayloadInternal(
   if (value.name !== 'ThemeStudioError' || !isErrorCode(value.code)) {
     return false;
   }
-  const catalog = ERROR_CATALOG[value.code];
   return typeof value.operation === 'string'
-    && THEME_OPERATIONS.has(
-      value.operation as ThemeOperation,
-    )
-    && value.stage === catalog.stage
-    && value.message === catalog.message
+    && typeof value.stage === 'string'
+    && typeof value.message === 'string'
+    && isCatalogDiagnostic(value.code, {
+      operation: value.operation as ThemeOperation,
+      stage: value.stage,
+      message: value.message,
+    })
     && (
       !Object.hasOwn(value, 'safeContext')
       || value.safeContext === undefined
@@ -123,16 +126,6 @@ function isThemeStudioErrorPayloadInternal(
       )
     );
 }
-
-const THEME_OPERATIONS = new Set<ThemeOperation>([
-  'project:open',
-  'project:save',
-  'theme:import',
-  'theme:export-ios',
-  'theme:export-android',
-  'screenshots:save',
-  'ipc:validate',
-]);
 
 export function reconstructThemeStudioError(
   payload: ThemeStudioErrorPayload,

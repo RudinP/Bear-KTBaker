@@ -123,4 +123,46 @@ describe('preload ThemeStudio API', () => {
       ].join('\n'),
     );
   });
+
+  it.each([
+    ['rejected invocation', () => electron.invoke.mockRejectedValueOnce(
+      new Error('/Users/person/private.ktstudio token=secret'),
+    )],
+    ['undefined response', () => electron.invoke.mockResolvedValueOnce(undefined)],
+    ['null response', () => electron.invoke.mockResolvedValueOnce(null)],
+    ['missing success value', () => electron.invoke.mockResolvedValueOnce({ ok: true })],
+    ['invalid failure payload', () => electron.invoke.mockResolvedValueOnce({
+      ok: false,
+      error: new Error('/Users/person/private.ktstudio token=secret'),
+    })],
+    ['unknown envelope field', () => electron.invoke.mockResolvedValueOnce({
+      ok: true,
+      value: '/theme.ktstudio',
+      privatePath: '/Users/person/private.ktstudio',
+    })],
+    ['hostile malformed response', () => electron.invoke.mockResolvedValueOnce(
+      new Proxy({}, {
+        getPrototypeOf() {
+          throw new Error('/Users/person/private.ktstudio token=secret');
+        },
+      }),
+    )],
+  ])('maps a %s to the privacy-safe bridge diagnostic', async (_label, arrange) => {
+    arrange();
+
+    let failure: unknown;
+    try {
+      await api.openProject();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(String(failure)).toContain('[KTB-IPC-BRIDGE-UNAVAILABLE]');
+    expect(String(failure)).toContain('Electron 앱 기능에 연결하지 못했습니다.');
+    expect(String(failure)).toContain('단계: 렌더러 브리지 연결');
+    expect(String(failure)).not.toContain('/Users/person');
+    expect(String(failure)).not.toContain('token=secret');
+    expect(String(failure)).not.toContain('TypeError');
+  });
 });

@@ -2,7 +2,7 @@ import { ANDROID_SAMPLE_COLORS, IOS_DEFAULT_COLORS, IOS_SAMPLE_ALPHAS } from '..
 import { DEFAULT_NINE_PATCH, type NinePatchGuides } from '../ninePatch';
 import type { BubbleAppearance, ThemeProject } from './model';
 
-export function cloneGuides(): NinePatchGuides {
+function cloneGuides(): NinePatchGuides {
   return JSON.parse(JSON.stringify(DEFAULT_NINE_PATCH)) as NinePatchGuides;
 }
 

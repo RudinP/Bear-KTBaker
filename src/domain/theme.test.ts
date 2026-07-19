@@ -361,7 +361,10 @@ describe('legacy schema-v1 image migration', () => {
     expect(restored.platformResources.ios['common.theme-icon']?.fileName).toBe('theme-icon.png');
     expect(restored.platformResources.android['common.theme-icon']?.fileName).toBe('theme-icon.png');
     expect((restored as unknown as Record<string, unknown>).legacyMystery).toEqual({ keep: true });
-    expect(restored.resources['main.profile.02']).toEqual({ fileName: '', dataUrl: '' });
+    expect(restored.resources['main.profile.02']).toBeUndefined();
+    expect(
+      JSON.parse(serializeThemeProject(restored)).resources['main.profile.02'],
+    ).toEqual({ fileName: '', dataUrl: '' });
     expect(restored.platformResources.ios['main.profile.02']).toBeUndefined();
     expect(restored.platformResources.android['main.profile.02']).toBeUndefined();
     expect(getMappedResourceWrites(restored, 'ios').some(({ resourceId }) => resourceId === 'main.profile.02'))

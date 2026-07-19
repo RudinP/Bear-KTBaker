@@ -1,0 +1,47 @@
+{
+  "schema": "kakao-theme-studio",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "알 수 없는 플랫폼 리소스"
+  },
+  "platformResources": {
+    "__proto__": {
+      "keep": "root-prototype-key"
+    },
+    "legacyDesktop": {
+      "format": "desktop-v2",
+      "keep": true
+    },
+    "ios": {
+      "__proto__": {
+        "keep": "ios-prototype-key"
+      },
+      "future.ios.metadata": {
+        "format": "heic",
+        "scale": "automatic"
+      },
+      "main.background": {
+        "fileName": "ios-background.png",
+        "dataUrl": "data:image/png;base64,aW9z",
+        "futureAssetFlag": {
+          "keep": "ios-asset"
+        }
+      }
+    },
+    "android": {
+      "__proto__": {
+        "keep": "android-prototype-key"
+      },
+      "future.android.metadata": {
+        "density": "adaptive"
+      },
+      "main.background": {
+        "fileName": "android-background.png",
+        "dataUrl": "data:image/png;base64,YW5kcm9pZA==",
+        "futureAssetFlag": {
+          "keep": "android-asset"
+        }
+      }
+    }
+  }
+}

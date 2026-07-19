@@ -55,6 +55,19 @@ interface BubbleSet {
   groupedPressed: BubbleAppearance;
 }
 
+interface PreservedThemeProjectFields {
+  resources?: Record<string, unknown>;
+  platformResources?: {
+    root?: Record<string, unknown>;
+    ios?: Record<string, unknown>;
+    android?: Record<string, unknown>;
+  };
+  colorValues?: {
+    ios?: Record<string, unknown>;
+    android?: Record<string, unknown>;
+  };
+}
+
 export interface ThemeProject {
   schema: 'kakao-theme-studio';
   schemaVersion: 1;
@@ -86,4 +99,10 @@ export interface ThemeProject {
     bubbles: { me: BubbleSet; you: BubbleSet };
     unreadColor: string;
   };
+  /**
+   * Internal codec transport for unsupported schema-v1 fields that cannot
+   * safely inhabit a typed runtime map. serializeThemeProject restores these
+   * values to their original locations and omits this transport property.
+   */
+  __preservedUnknownFields?: PreservedThemeProjectFields;
 }

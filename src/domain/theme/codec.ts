@@ -6,7 +6,43 @@ import {
 import { ThemeProjectCodecFailure } from './codecFailure';
 
 export function serializeThemeProject(project: ThemeProject): string {
-  return JSON.stringify(project, null, 2);
+  const {
+    __preservedUnknownFields: preserved,
+    resources,
+    platformResources,
+    colorValues,
+    ...root
+  } = project;
+  const serialized = {
+    ...root,
+    resources: {
+      ...(preserved?.resources ?? {}),
+      ...resources,
+    },
+    platformResources: {
+      ...(preserved?.platformResources?.root ?? {}),
+      ios: {
+        ...(preserved?.platformResources?.ios ?? {}),
+        ...platformResources.ios,
+      },
+      android: {
+        ...(preserved?.platformResources?.android ?? {}),
+        ...platformResources.android,
+      },
+    },
+    colorValues: {
+      ...colorValues,
+      ios: {
+        ...(preserved?.colorValues?.ios ?? {}),
+        ...colorValues.ios,
+      },
+      android: {
+        ...(preserved?.colorValues?.android ?? {}),
+        ...colorValues.android,
+      },
+    },
+  };
+  return JSON.stringify(serialized, null, 2);
 }
 
 export function parseThemeProject(source: string): ThemeProject {
