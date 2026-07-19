@@ -395,7 +395,7 @@ export const ERROR_CATALOG = {
         operation: 'theme:export-android',
         stage: 'Android APK 빌드',
         message: 'Android APK를 만들지 못했습니다.',
-        source: 'electron/adapters/androidToolRunner.ts#createAndroidToolRunner',
+        source: 'electron/adapters/androidToolRunner.ts#createAndroidApkBuilder',
       },
       {
         operation: 'ipc:validate',

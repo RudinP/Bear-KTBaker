@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import {
   ERROR_CATALOG,
@@ -45,8 +46,49 @@ describe('diagnostic error catalog', () => {
         expect(rest, location.source).toHaveLength(0);
         expect(anchor, location.source).toBeTruthy();
         const contents = await readFile(resolve(file), 'utf8');
-        expect(contents, location.source).toContain(anchor);
+        const sourceFile = ts.createSourceFile(
+          file,
+          contents,
+          ts.ScriptTarget.Latest,
+          true,
+          file.endsWith('.tsx')
+            ? ts.ScriptKind.TSX
+            : ts.ScriptKind.TS,
+        );
+        expect(
+          collectDeclaredIdentifiers(sourceFile),
+          location.source,
+        ).toContain(anchor);
       }
     }
   });
 });
+
+function collectDeclaredIdentifiers(
+  sourceFile: ts.SourceFile,
+): string[] {
+  const identifiers = new Set<string>();
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isFunctionDeclaration(node)
+      || ts.isClassDeclaration(node)
+      || ts.isInterfaceDeclaration(node)
+      || ts.isTypeAliasDeclaration(node)
+      || ts.isEnumDeclaration(node)
+      || ts.isMethodDeclaration(node)
+      || ts.isPropertyDeclaration(node)
+    ) {
+      if (node.name && ts.isIdentifier(node.name)) {
+        identifiers.add(node.name.text);
+      }
+    } else if (
+      ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+    ) {
+      identifiers.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return [...identifiers];
+}
