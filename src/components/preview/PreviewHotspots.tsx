@@ -12,7 +12,10 @@ import { calculateImagePlacement, placementBackgroundStyle, resolveAssetScale } 
 import { IosBubbleArtwork } from '../IosBubbleArtwork';
 import { IosBubbleLabel } from '../IosBubbleLabel';
 import { NineSliceImage } from '../NineSliceImage';
-import { type PreviewProps, PROFILE_RESOURCE_IDS, type ProfileResourceId } from './PreviewTypes';
+import {
+  PROFILE_RESOURCE_IDS, type ProfileResourceId,
+} from '../../manifest/profileResourceIds';
+import type { PreviewProps } from './PreviewTypes';
 
 export function colorAtAlpha(value: string, alpha: number) {
   const match = /^#([0-9a-f]{6})/i.exec(cssColor(value));

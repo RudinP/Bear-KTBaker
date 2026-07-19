@@ -12,6 +12,7 @@ import {
 import { PhonePreview } from './preview/PhonePreview';
 import { MiniBubble } from './BubbleStates';
 import type { Platform, ThemeProject } from '../domain/theme/model';
+import { PROFILE_RESOURCE_IDS } from '../manifest/profileResourceIds';
 import { resolveResourceUrl } from '../manifest/resourceResolver';
 import { previewFontFamily } from '../preview/fontFamily';
 import { getHostLayout } from '../preview/layout';
@@ -20,7 +21,6 @@ const POSTER_WIDTH = 1000;
 const POSTER_HEIGHT = 800;
 const POSTER_PIXEL_RATIO = 2;
 const POSTER_TABS = ['friends', 'chats', 'now', 'shopping', 'more'] as const;
-const PROFILE_RESOURCE_IDS = ['main.profile.01', 'main.profile.02', 'main.profile.03'] as const;
 const PASSCODE_FRAME = { width: 212, height: 430 } as const;
 
 function cssString(value: string) {

@@ -11,8 +11,9 @@ import {
   screenStyle,
 } from './PreviewHotspots';
 import {
-  PROFILE_RESOURCE_IDS, type PreviewProps, type ProfileResourceId,
-} from './PreviewTypes';
+  PROFILE_RESOURCE_IDS, type ProfileResourceId,
+} from '../../manifest/profileResourceIds';
+import type { PreviewProps } from './PreviewTypes';
 
 const tabs = [
   ['friends', '친구', 'friends'], ['chats', '채팅', 'chats'], ['now', '지금', 'now'],

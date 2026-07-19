@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -223,6 +224,106 @@ function importsPackage(specifier: string, packageName: string) {
   return specifier === packageName || specifier.startsWith(`${packageName}/`);
 }
 
+function isNodeRuntimeImport(specifier: string) {
+  return isBuiltin(specifier);
+}
+
+function isDomainDependencyViolation(
+  file: string,
+  specifier: string,
+  compilerOptions = compilerOptionsForFile(file),
+) {
+  const forbiddenPackages = ['react', 'electron', 'jszip', 'pngjs'];
+  const target = resolvedRepositoryTarget(file, specifier, compilerOptions);
+  return (
+    isNodeRuntimeImport(specifier) ||
+    forbiddenPackages.some((packageName) =>
+      importsPackage(specifier, packageName),
+    ) ||
+    [
+      'src/application/',
+      'src/app/',
+      'src/components/',
+      'src/io/',
+      'electron/',
+    ].some((forbiddenLayer) => target?.startsWith(forbiddenLayer))
+  );
+}
+
+function isApplicationDependencyViolation(file: string, specifier: string) {
+  const forbiddenPackages = ['react', 'react-dom', 'electron'];
+  const target = resolvedRepositoryTarget(file, specifier);
+  return (
+    isNodeRuntimeImport(specifier) ||
+    forbiddenPackages.some((packageName) =>
+      importsPackage(specifier, packageName),
+    ) ||
+    target?.startsWith('src/components/') ||
+    target?.startsWith('electron/')
+  );
+}
+
+function accessPath(expression: ts.Expression): string[] | undefined {
+  if (ts.isParenthesizedExpression(expression)) {
+    return accessPath(expression.expression);
+  }
+  if (
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isNonNullExpression(expression) ||
+    ts.isSatisfiesExpression(expression)
+  ) {
+    return accessPath(expression.expression);
+  }
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (ts.isPropertyAccessExpression(expression)) {
+    const parent = accessPath(expression.expression);
+    return parent ? [...parent, expression.name.text] : undefined;
+  }
+  if (ts.isElementAccessExpression(expression)) {
+    const parent = accessPath(expression.expression);
+    const argument = expression.argumentExpression;
+    if (
+      !parent ||
+      !argument ||
+      (!ts.isStringLiteralLike(argument) &&
+        !ts.isNoSubstitutionTemplateLiteral(argument))
+    ) {
+      return undefined;
+    }
+    return [...parent, argument.text];
+  }
+  return undefined;
+}
+
+function hasDirectThemeStudioAccess(sourceText: string) {
+  const sourceFile = ts.createSourceFile(
+    'renderer-access.tsx',
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let found = false;
+
+  function visit(node: ts.Node) {
+    if (
+      !found &&
+      (ts.isPropertyAccessExpression(node) ||
+        ts.isElementAccessExpression(node))
+    ) {
+      const pathSegments = accessPath(node);
+      found =
+        pathSegments?.join('.') === 'window.themeStudio' ||
+        pathSegments?.join('.') === 'globalThis.window.themeStudio';
+    }
+    if (!found) ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
 const allFiles = sourceRoots.flatMap(collectFiles);
 const productionFiles = allFiles.filter(isProductionSource);
 const importsByFile = new Map(
@@ -310,19 +411,95 @@ describe('repository module resolution', () => {
   });
 });
 
+describe('architecture gate self-tests', () => {
+  const domainImporter = path.join(projectRoot, 'src/domain/theme/model.ts');
+  const applicationImporter = path.join(
+    projectRoot,
+    'src/application/theme/importTheme.ts',
+  );
+  const aliasCompilerOptions: ts.CompilerOptions = {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    baseUrl: projectRoot,
+    paths: {
+      '@application/*': ['src/application/*'],
+      '@app/*': ['src/app/*'],
+      '@components/*': ['src/components/*'],
+      '@io/*': ['src/io/*'],
+      '@electron/*': ['electron/*'],
+    },
+  };
+
+  it.each([
+    'fs',
+    'node:fs',
+    'path',
+    'node:path',
+    'child_process',
+    'node:child_process',
+  ])('rejects the Node built-in %s from domain and application', (specifier) => {
+    expect(
+      isDomainDependencyViolation(domainImporter, specifier),
+    ).toBe(true);
+    expect(
+      isApplicationDependencyViolation(applicationImporter, specifier),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['@application/theme/importTheme', 'src/application/'],
+    ['@app/themeStudioClient', 'src/app/'],
+    ['@components/ScreenshotStudio', 'src/components/'],
+    ['@io/themeImport/importIosTheme', 'src/io/'],
+    ['@electron/main', 'electron/'],
+  ])('rejects a domain alias into the outward layer %s', (specifier, target) => {
+    expect(
+      resolvedRepositoryTarget(
+        domainImporter,
+        specifier,
+        aliasCompilerOptions,
+      ),
+    ).toEqual(expect.stringMatching(`^${target}`));
+    expect(
+      isDomainDependencyViolation(
+        domainImporter,
+        specifier,
+        aliasCompilerOptions,
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    'window.themeStudio',
+    'window?.themeStudio',
+    "window['themeStudio']",
+    "window?.['themeStudio']",
+    'globalThis.window.themeStudio',
+    'globalThis.window?.themeStudio',
+    "globalThis['window']['themeStudio']",
+  ])('detects renderer bridge access in %s', (expression) => {
+    expect(hasDirectThemeStudioAccess(`void ${expression};`)).toBe(true);
+  });
+
+  it.each([
+    "'window.themeStudio'",
+    '`window?.themeStudio`',
+    '// window.themeStudio',
+    'const otherWindow = { themeStudio: true }; void otherWindow.themeStudio;',
+    'const value = { window: { themeStudio: true } }; void value.window.themeStudio;',
+  ])('does not treat non-bridge source as access: %s', (sourceText) => {
+    expect(hasDirectThemeStudioAccess(sourceText)).toBe(false);
+  });
+});
+
 describe('dependency direction', () => {
   it('keeps domain modules independent from runtime frameworks and Node', () => {
-    const forbiddenPackages = ['react', 'electron', 'jszip', 'pngjs'];
     const violations = productionFiles
       .filter((file) => repositoryPath(file).startsWith('src/domain/'))
       .flatMap((file) =>
         (importsByFile.get(file) ?? [])
-          .filter(
-            (specifier) =>
-              specifier.startsWith('node:') ||
-              forbiddenPackages.some((packageName) =>
-                importsPackage(specifier, packageName),
-              ),
+          .filter((specifier) =>
+            isDomainDependencyViolation(file, specifier),
           )
           .map((specifier) => `${repositoryPath(file)} imports ${specifier}`),
       );
@@ -331,22 +508,13 @@ describe('dependency direction', () => {
   });
 
   it('keeps application modules independent from UI and platform runtimes', () => {
-    const forbiddenPackages = ['react', 'react-dom', 'electron'];
     const violations = productionFiles
       .filter((file) => repositoryPath(file).startsWith('src/application/'))
       .flatMap((file) =>
         (importsByFile.get(file) ?? [])
-          .filter((specifier) => {
-            const target = resolvedRepositoryTarget(file, specifier);
-            return (
-              specifier.startsWith('node:') ||
-              forbiddenPackages.some((packageName) =>
-                importsPackage(specifier, packageName),
-              ) ||
-              target?.startsWith('src/components/') ||
-              target?.startsWith('electron/')
-            );
-          })
+          .filter((specifier) =>
+            isApplicationDependencyViolation(file, specifier),
+          )
           .map((specifier) => `${repositoryPath(file)} imports ${specifier}`),
       );
 
@@ -375,7 +543,9 @@ describe('renderer platform access', () => {
     const violations = productionFiles
       .filter((file) => repositoryPath(file).startsWith('src/'))
       .filter((file) => repositoryPath(file) !== 'src/app/themeStudioClient.ts')
-      .filter((file) => /\bwindow\.themeStudio\b/.test(readFileSync(file, 'utf8')))
+      .filter((file) =>
+        hasDirectThemeStudioAccess(readFileSync(file, 'utf8')),
+      )
       .map(repositoryPath);
 
     expect(violations, violations.join('\n')).toEqual([]);
@@ -391,5 +561,34 @@ describe('internal compatibility facades', () => {
     );
 
     expect(violations, violations.join('\n')).toEqual([]);
+  });
+});
+
+describe('shared renderer resource catalogs', () => {
+  it('keeps PROFILE_RESOURCE_IDS in one neutral manifest owner', () => {
+    const owners = productionFiles.filter((file) => {
+      const sourceFile = ts.createSourceFile(
+        file,
+        readFileSync(file, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+      let declaresProfileResourceIds = false;
+      function visit(node: ts.Node) {
+        if (
+          ts.isVariableDeclaration(node) &&
+          ts.isIdentifier(node.name) &&
+          node.name.text === 'PROFILE_RESOURCE_IDS'
+        ) {
+          declaresProfileResourceIds = true;
+        }
+        ts.forEachChild(node, visit);
+      }
+      visit(sourceFile);
+      return declaresProfileResourceIds;
+    }).map(repositoryPath);
+
+    expect(owners).toEqual(['src/manifest/profileResourceIds.ts']);
   });
 });
