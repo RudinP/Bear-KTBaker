@@ -31,6 +31,13 @@ import { ANDROID_SAMPLE_COLORS } from '../src/manifest/kakaoColors';
 import { getResourceSlot, type ResourceRenderMode } from '../src/manifest/kakaoResources';
 import { resolveBubbleGuides } from '../src/manifest/bubbleGuideResolver';
 import { parseThemeProject, type ThemeProject } from '../src/domain/theme';
+import {
+  createOpenProject,
+  type OpenedProject,
+} from '../src/application/theme/openProject';
+import { createSaveProject } from '../src/application/theme/saveProject';
+import { createElectronDialogPort } from './adapters/electronDialog';
+import { createNodeFileSystemPort } from './adapters/nodeFileSystem';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
 import {
@@ -55,6 +62,11 @@ const senderPolicy: TrustedSenderPolicy = {
     path.join(app.getAppPath(), 'dist', 'index.html'),
   ).href,
 };
+const dialogs = createElectronDialogPort(dialog);
+const { files } = createNodeFileSystemPort();
+const openProject: () => Promise<OpenedProject | null> =
+  createOpenProject({ dialogs, files });
+const saveProject = createSaveProject({ dialogs, files });
 
 // macOS builds the application menu from Electron's runtime name, not the
 // BrowserWindow title or electron-builder productName.
@@ -422,42 +434,37 @@ function registerIpc() {
     message: '예상하지 못한 오류가 발생했습니다.',
   });
 
-  ipcMain.handle('project:open', withIpcErrorBoundary(
-    fallback('project:open'),
-    async (event) => {
-      assertTrustedSender(event, senderPolicy);
-      const result = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{
-          name: '테마 스튜디오 프로젝트',
-          extensions: ['ktstudio'],
-        }],
-      });
-      if (result.canceled || !result.filePaths[0]) return null;
-      return {
-        path: result.filePaths[0],
-        content: await readFile(result.filePaths[0], 'utf8'),
-      };
-    },
-  ));
-  ipcMain.handle('project:save', withIpcErrorBoundary(
-    fallback('project:save'),
-    async (event, value: unknown) => {
-      assertTrustedSender(event, senderPolicy);
-      const { content, suggestedName } = parseProjectSaveRequest(value);
-      parseThemeProject(content);
-      const result = await dialog.showSaveDialog({
-        defaultPath: `${suggestedName}.ktstudio`,
-        filters: [{
-          name: '테마 스튜디오 프로젝트',
-          extensions: ['ktstudio'],
-        }],
-      });
-      if (result.canceled || !result.filePath) return null;
-      await writeFile(result.filePath, content);
-      return result.filePath;
-    },
-  ));
+  ipcMain.handle(
+    'project:open',
+    withIpcErrorBoundary(
+      {
+        code: 'KTB-FS-READ',
+        operation: 'project:open',
+        stage: '프로젝트 열기',
+        message: '프로젝트를 열지 못했습니다.',
+      },
+      async (event) => {
+        assertTrustedSender(event, senderPolicy);
+        return openProject();
+      },
+    ),
+  );
+  ipcMain.handle(
+    'project:save',
+    withIpcErrorBoundary(
+      {
+        code: 'KTB-FS-WRITE',
+        operation: 'project:save',
+        stage: '프로젝트 저장',
+        message: '프로젝트를 저장하지 못했습니다.',
+      },
+      async (event, value: unknown) => {
+        assertTrustedSender(event, senderPolicy);
+        const request = parseProjectSaveRequest(value);
+        return saveProject(request.content, request.suggestedName);
+      },
+    ),
+  );
   ipcMain.handle('theme:import', withIpcErrorBoundary(
     fallback('theme:import'),
     async (event) => {

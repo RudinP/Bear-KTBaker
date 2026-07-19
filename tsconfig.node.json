@@ -12,5 +12,5 @@
     "noUnusedParameters": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "electron/**/*.ts", "src/application/errors/**/*.ts", "src/application/ports/**/*.ts", "src/domain/**/*.ts", "src/io/**/*.ts", "src/manifest/**/*.ts", "src/test/fixtures/**/*.ts", "src/electron.d.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "electron/**/*.ts", "src/application/errors/**/*.ts", "src/application/ports/**/*.ts", "src/application/theme/**/*.ts", "src/domain/**/*.ts", "src/io/**/*.ts", "src/manifest/**/*.ts", "src/test/fixtures/**/*.ts", "src/electron.d.ts"]
 }
