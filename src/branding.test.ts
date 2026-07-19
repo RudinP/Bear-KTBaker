@@ -10,13 +10,17 @@ describe('desktop application branding', () => {
   it('packages and titles the application as Bear KTBaker', () => {
     const builder = readFileSync(projectFile('electron-builder.yml'), 'utf8');
     const main = readFileSync(projectFile('electron', 'main.ts'), 'utf8');
+    const createWindow = readFileSync(
+      projectFile('electron', 'createWindow.ts'),
+      'utf8',
+    );
 
     expect(builder).toContain('productName: Bear KTBaker');
     expect(builder).toContain('appId: com.rudin.bear.ktbaker');
     expect(builder).toContain('buildResources: resources');
     expect(builder).toContain('icon: AppIcon.icon');
     expect(builder).toContain('identity: "-"');
-    expect(main).toContain("title: 'Bear KTBaker'");
+    expect(createWindow).toContain("title: 'Bear KTBaker'");
     expect(main).toContain("app.setName('Bear KTBaker')");
   });
 
