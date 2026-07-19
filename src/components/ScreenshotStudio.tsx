@@ -9,7 +9,7 @@ import {
   themeStudioClient,
   type ThemeStudioClient,
 } from '../app/themeStudioClient';
-import { PhonePreview } from './PhonePreview';
+import { PhonePreview } from './preview/PhonePreview';
 import { MiniBubble } from './BubbleStates';
 import type { Platform, ThemeProject } from '../domain/theme';
 import { resolveResourceUrl } from '../manifest/resourceResolver';

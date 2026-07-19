@@ -4,7 +4,7 @@ import { ExportSheet } from './components/ExportSheet';
 import { FontSettings } from './components/FontSettings';
 import { Inspector } from './components/Inspector';
 import { NinePatchEditor } from './components/NinePatchEditor';
-import { PhonePreview } from './components/PhonePreview';
+import { PhonePreview } from './components/preview/PhonePreview';
 import { ScreenRail } from './components/ScreenRail';
 import { ScreenshotStudio } from './components/ScreenshotStudio';
 import { ThemeSettings } from './components/ThemeSettings';
