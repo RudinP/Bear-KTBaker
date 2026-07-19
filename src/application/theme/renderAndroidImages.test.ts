@@ -397,4 +397,55 @@ describe('Android image rendering', () => {
       safeContext: { resourceId: 'main.profile.02' },
     });
   });
+
+  it.each([
+    'main.profile.02',
+    'chat.bubble.me.first.normal',
+  ] as const)(
+    'rejects malformed present source bytes for %s before writing',
+    async (resourceId) => {
+      const project = projectWith({
+        [resourceId]: asset(new Uint8Array([1, 2, 3, 4])),
+      });
+
+      await expect(renderAndroidImages({
+        buildDirectory: '/build',
+        project,
+        files,
+        paths,
+        images,
+      })).rejects.toMatchObject({
+        code: 'KTB-IMAGE-DECODE',
+        operation: 'theme:export-android',
+        stage: 'Android 이미지 디코딩',
+        safeContext: { resourceId },
+      });
+      expect(resizeToPng).not.toHaveBeenCalled();
+      expect(writeBytes).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a malformed present template before sizing or writing', async () => {
+    readOptionalBytes.mockResolvedValue(
+      new Uint8Array([1, 2, 3, 4]),
+    );
+    const project = projectWith({
+      'main.profile.02': asset(png(8, 8)),
+    });
+
+    await expect(renderAndroidImages({
+      buildDirectory: '/build',
+      project,
+      files,
+      paths,
+      images,
+    })).rejects.toMatchObject({
+      code: 'KTB-IMAGE-DECODE',
+      operation: 'theme:export-android',
+      stage: 'Android 이미지 템플릿 디코딩',
+      safeContext: { resourceId: 'main.profile.02' },
+    });
+    expect(resizeToPng).not.toHaveBeenCalled();
+    expect(writeBytes).not.toHaveBeenCalled();
+  });
 });

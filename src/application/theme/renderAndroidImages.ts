@@ -100,11 +100,29 @@ export async function renderAndroidImages({
       write.asset.rawNinePatch,
       write.asset.fileName,
     );
+    const rawSize = images.dimensions(rawSource);
+    if (!rawSize) {
+      throw new ThemeStudioError({
+        code: 'KTB-IMAGE-DECODE',
+        operation: 'theme:export-android',
+        stage: 'Android 이미지 디코딩',
+        message: 'Android 테마 이미지를 읽지 못했습니다.',
+        safeContext: { resourceId: write.resourceId },
+      });
+    }
     const source = sourceIsNinePatch
       ? stripNinePatchBorder(rawSource)
       : rawSource;
-    const rawSize = images.dimensions(rawSource);
     const targetSize = target ? images.dimensions(target) : null;
+    if (target && !targetSize) {
+      throw new ThemeStudioError({
+        code: 'KTB-IMAGE-DECODE',
+        operation: 'theme:export-android',
+        stage: 'Android 이미지 템플릿 디코딩',
+        message: 'Android 이미지 템플릿을 읽지 못했습니다.',
+        safeContext: { resourceId: write.resourceId },
+      });
+    }
     const size = flexibleBubble && rawSize
       ? flexibleBubbleTargetSize(
           'android',

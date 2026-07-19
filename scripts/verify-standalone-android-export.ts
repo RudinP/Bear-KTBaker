@@ -8,6 +8,7 @@ import {
   buildStandaloneAndroidApk,
   standaloneRuntimePaths,
   verifyStandaloneAndroidMetadata,
+  verifyStandaloneApkSignatureV2,
   verifyStandaloneApkStructure,
 } from '../electron/adapters/androidStandaloneBuild';
 import {
@@ -140,7 +141,12 @@ try {
   });
 
   const output = await readFile(outputPath);
-  const structure = await verifyStandaloneApkStructure(output);
+  const structureResult = await verifyStandaloneApkStructure(output);
+  const signature = verifyStandaloneApkSignatureV2(output);
+  const structure = {
+    ...structureResult,
+    hasV2SigningBlock: signature.hasV2SigningBlock,
+  };
   const metadata = await inspectCompiledAndroidApk(output);
   if (!metadata.resourceFiles?.['drawable/theme_background_image']?.some((file) => file.endsWith('.png'))) {
     throw new Error('Compiled background image references are missing.');

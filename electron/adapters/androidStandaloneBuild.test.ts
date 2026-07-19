@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -12,6 +19,7 @@ import {
   signStandaloneApk,
   standaloneRuntimePaths,
   verifyStandaloneAndroidMetadata,
+  verifyStandaloneApkSignatureV2,
   verifyStandaloneApkStructure,
 } from './androidStandaloneBuild';
 import { createAndroidImageExpectation } from '../../src/io/androidImageVerification';
@@ -120,6 +128,91 @@ describe('standalone Android APK build support', () => {
     expect(JSON.parse(await readFile(identityPath, 'utf8'))).toEqual(first);
   });
 
+  it('returns the exact same persisted identity to concurrent first callers', async () => {
+    const directory = await mkdtemp(path.join(
+      tmpdir(),
+      'kakao-signing-concurrent-',
+    ));
+    const identityPath = path.join(
+      directory,
+      'android-signing-identity.json',
+    );
+    let finishGeneration: ((value: string) => void) | undefined;
+    const generated = new Promise<string>((resolve) => {
+      finishGeneration = resolve;
+    });
+    const generateKey = vi.fn(() => generated);
+
+    const firstPromise = loadOrCreateSigningIdentity(identityPath, {
+      randomPassword: () => 'first-stable-password',
+      generateKey,
+    });
+    const secondPromise = loadOrCreateSigningIdentity(identityPath, {
+      randomPassword: () => 'second-losing-password',
+      generateKey,
+    });
+    await vi.waitFor(() => expect(generateKey).toHaveBeenCalledOnce());
+    finishGeneration?.(
+      'data:application/x-pkcs12;base64,CONCURRENT_KEY',
+    );
+    const [first, second] = await Promise.all([
+      firstPromise,
+      secondPromise,
+    ]);
+    const persisted = JSON.parse(
+      await readFile(identityPath, 'utf8'),
+    );
+
+    expect(first).toEqual(second);
+    expect(persisted).toEqual(first);
+    expect((await stat(identityPath)).mode & 0o777).toBe(0o600);
+    expect(await readdir(directory)).toEqual([
+      'android-signing-identity.json',
+    ]);
+  });
+
+  it('re-reads and hardens an external winner after exclusive-create EEXIST', async () => {
+    const directory = await mkdtemp(path.join(
+      tmpdir(),
+      'kakao-signing-external-winner-',
+    ));
+    const identityPath = path.join(
+      directory,
+      'android-signing-identity.json',
+    );
+    const winner = {
+      schema: 1,
+      alias: 'kakaotheme',
+      password: 'external-winner-password',
+      pkcs12DataUrl:
+        'data:application/x-pkcs12;base64,EXTERNAL_WINNER',
+    } as const;
+    const generateKey = vi.fn(async () => {
+      await writeFile(
+        identityPath,
+        `${JSON.stringify(winner)}\n`,
+        { mode: 0o644, flag: 'wx' },
+      );
+      return 'data:application/x-pkcs12;base64,LOSING_KEY';
+    });
+
+    const identity = await loadOrCreateSigningIdentity(
+      identityPath,
+      {
+        randomPassword: () => 'losing-password',
+        generateKey,
+      },
+    );
+
+    expect(identity).toEqual(winner);
+    expect(JSON.parse(await readFile(identityPath, 'utf8')))
+      .toEqual(winner);
+    expect((await stat(identityPath)).mode & 0o777).toBe(0o600);
+    expect(await readdir(directory)).toEqual([
+      'android-signing-identity.json',
+    ]);
+  });
+
   it('does not silently replace a damaged signing identity', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'kakao-signing-damaged-'));
     const identityPath = path.join(directory, 'android-signing-identity.json');
@@ -158,10 +251,67 @@ describe('standalone Android APK build support', () => {
       hasManifest: true,
       hasResources: true,
       hasRuntime: true,
+    });
+    expect(verifyStandaloneApkSignatureV2(signed))
+      .toEqual({
       hasV2SigningBlock: true,
+      algorithmId: 0x0103,
     });
     expect(log.mock.calls.some(([first]) => first === '<<<')).toBe(false);
     log.mockRestore();
+  });
+
+  it('rejects an unsigned ZIP even when runtime contents contain the signing magic', async () => {
+    const source = new JSZip();
+    source.file('AndroidManifest.xml', Buffer.from('manifest'));
+    source.file('resources.arsc', Buffer.from('resources'));
+    source.file(
+      'classes.dex',
+      Buffer.from('dex APK Sig Block 42 decoy'),
+    );
+    const unsigned = await source.generateAsync({
+      type: 'nodebuffer',
+      compression: 'STORE',
+    });
+
+    await expect(verifyStandaloneApkStructure(unsigned))
+      .resolves.toEqual({
+        hasManifest: true,
+        hasResources: true,
+        hasRuntime: true,
+      });
+    expect(() => verifyStandaloneApkSignatureV2(unsigned))
+      .toThrow('서명');
+  });
+
+  it('rejects malformed, truncated, relocated, and content-tampered V2 blocks', async () => {
+    const signed = await createSignedFixture();
+    const magic = Buffer.from('APK Sig Block 42', 'ascii');
+    const magicOffset = signed.lastIndexOf(magic);
+    expect(magicOffset).toBeGreaterThan(0);
+
+    const malformed = Buffer.from(signed);
+    malformed[magicOffset - 8] ^= 0x01;
+
+    const relocated = Buffer.from(signed);
+    const eocdOffset = findEocd(relocated);
+    relocated.writeUInt32LE(
+      relocated.readUInt32LE(eocdOffset + 16) + 1,
+      eocdOffset + 16,
+    );
+
+    const tampered = Buffer.from(signed);
+    tampered[0] ^= 0x01;
+
+    for (const invalid of [
+      malformed,
+      signed.subarray(0, signed.length - 1),
+      relocated,
+      tampered,
+    ]) {
+      expect(() => verifyStandaloneApkSignatureV2(invalid))
+        .toThrow('서명');
+    }
   });
 
   it('runs AAPT2, injects the runtime, signs, validates, and writes one final APK', async () => {
@@ -208,7 +358,9 @@ describe('standalone Android APK build support', () => {
 
     expect(result).toBe(outputPath);
     expect(calls.map((args) => args[0])).toEqual(['compile', 'compile', 'compile', 'link']);
-    await expect(verifyStandaloneApkStructure(await readFile(outputPath))).resolves.toMatchObject({ hasV2SigningBlock: true });
+    expect(verifyStandaloneApkSignatureV2(
+      await readFile(outputPath),
+    )).toMatchObject({ hasV2SigningBlock: true });
   });
 
   it('stops before writing when an expected compiled image is absent', async () => {
@@ -502,4 +654,32 @@ function linkFixture(compiled: Buffer) {
       await writeFile(args[args.indexOf('-o') + 1], compiled);
     }
   });
+}
+
+async function createSignedFixture() {
+  const source = new JSZip();
+  source.file('AndroidManifest.xml', Buffer.from('manifest'));
+  source.file('resources.arsc', Buffer.from('resources'));
+  source.file('classes.dex', Buffer.from('dex\n035\0runtime'));
+  const unsigned = await source.generateAsync({
+    type: 'nodebuffer',
+    compression: 'STORE',
+  });
+  const identityPath = path.join(
+    await mkdtemp(path.join(tmpdir(), 'kakao-v2-verify-')),
+    'identity.json',
+  );
+  const identity = await loadOrCreateSigningIdentity(identityPath);
+  const log = vi.spyOn(console, 'log')
+    .mockImplementation(() => undefined);
+  try {
+    return await signStandaloneApk(unsigned, identity);
+  } finally {
+    log.mockRestore();
+  }
+}
+
+function findEocd(apk: Buffer) {
+  const signature = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  return apk.lastIndexOf(signature);
 }
