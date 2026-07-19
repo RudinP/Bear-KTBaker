@@ -2,12 +2,16 @@ import type { MenuItemConstructorOptions } from 'electron';
 import { describe, expect, it, vi } from 'vitest';
 import { createApplicationMenuTemplate, type FileCommand } from './applicationMenu';
 
+function fileMenuItems(template: MenuItemConstructorOptions[]) {
+  const fileMenu = template.find((item) => item.label === 'File');
+  return fileMenu?.submenu as MenuItemConstructorOptions[];
+}
+
 describe('Electron application menu', () => {
   it('puts the three real file actions in the File menu', () => {
     const send = vi.fn<(command: FileCommand) => void>();
     const template = createApplicationMenuTemplate('darwin', send);
-    const fileMenu = template.find((item) => item.label === 'File');
-    const items = fileMenu?.submenu as MenuItemConstructorOptions[];
+    const items = fileMenuItems(template);
 
     expect(items.map((item) => item.label).filter(Boolean)).toEqual([
       '불러오기',
@@ -30,5 +34,21 @@ describe('Electron application menu', () => {
     expect(template.map((item) => item.role ?? item.label)).toEqual([
       'appMenu', 'File', 'editMenu', 'viewMenu', 'windowMenu',
     ]);
+    expect(fileMenuItems(template).at(-1)?.role).toBe('close');
+  });
+
+  it('omits the app menu on Windows', () => {
+    const template = createApplicationMenuTemplate('win32', vi.fn());
+
+    expect(template.map((item) => item.role ?? item.label)).toEqual([
+      'File', 'editMenu', 'viewMenu', 'windowMenu',
+    ]);
+  });
+
+  it('uses quit instead of close as the terminal Windows file action', () => {
+    const template = createApplicationMenuTemplate('win32', vi.fn());
+
+    expect(fileMenuItems(template).at(-1)?.role).toBe('quit');
+    expect(fileMenuItems(template).at(-1)?.role).not.toBe('close');
   });
 });
