@@ -48,12 +48,15 @@ describe('theme project codec', () => {
 
   it('migrates flat 0.1.1 resources into both platform buckets', async () => {
     const source = await readFile(flatResourcesFixture, 'utf8');
-    const project = parseThemeProject(source);
+    const first = parseThemeProject(source);
+    const second = parseThemeProject(serializeThemeProject(first));
+    const iosThemeIcon = second.platformResources.ios['common.theme-icon'];
+    const androidThemeIcon = second.platformResources.android['common.theme-icon'];
 
-    expect(project.platformResources.ios['common.theme-icon']?.fileName)
-      .toBe('theme-icon.png');
-    expect(project.platformResources.android['common.theme-icon']?.fileName)
-      .toBe('theme-icon.png');
+    expect(second).toEqual(first);
+    expect(iosThemeIcon?.fileName).toBe('theme-icon.png');
+    expect(androidThemeIcon?.fileName).toBe('theme-icon.png');
+    expect(iosThemeIcon).not.toBe(androidThemeIcon);
   });
 
   it.each([
