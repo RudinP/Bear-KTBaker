@@ -64,6 +64,7 @@ export async function encodeCleanArchiveEntries(
       zip.file(
         entry.relativePath,
         Array.from(entry.contents ?? []),
+        { createFolders: false },
       );
     }
   }

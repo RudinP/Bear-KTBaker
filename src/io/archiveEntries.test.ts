@@ -1,4 +1,6 @@
 import JSZip from 'jszip';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   decodeArchiveEntries,
@@ -48,6 +50,53 @@ describe('archive entries', () => {
     await expect(
       decodeArchiveEntries(await encodeCleanArchiveEntries(entries)),
     ).resolves.toEqual(entries);
+  });
+
+  it('does not synthesize parent directories for nested file entries', async () => {
+    const entries: readonly ArchiveEntry[] = [
+      {
+        relativePath: 'Images/first.png',
+        directory: false,
+        contents: new Uint8Array([1]),
+      },
+      {
+        relativePath: 'KakaoTalkTheme.css',
+        directory: false,
+        contents: new Uint8Array([2]),
+      },
+      {
+        relativePath: 'Images/second.png',
+        directory: false,
+        contents: new Uint8Array([3]),
+      },
+    ];
+
+    const roundTripped = await decodeArchiveEntries(
+      await encodeCleanArchiveEntries(entries),
+    );
+
+    expect(roundTripped.map((entry) => entry.relativePath))
+      .toEqual(entries.map((entry) => entry.relativePath));
+    expect(roundTripped).toHaveLength(entries.length);
+  });
+
+  it('keeps the real iOS template at 59 entries without Images/', async () => {
+    const template = new Uint8Array(await readFile(resolve(
+      'resources/templates/ios-base.ktheme',
+    )));
+    const original = await decodeArchiveEntries(template);
+
+    const roundTripped = await decodeArchiveEntries(
+      await encodeCleanArchiveEntries(original),
+    );
+
+    expect(original).toHaveLength(59);
+    expect(roundTripped).toHaveLength(59);
+    expect(roundTripped.map((entry) => entry.relativePath))
+      .toEqual(original.map((entry) => entry.relativePath));
+    expect(roundTripped.some(
+      (entry) => entry.relativePath === 'Images/',
+    )).toBe(false);
   });
 
   it('omits macOS metadata from clean archives at any path depth', async () => {
