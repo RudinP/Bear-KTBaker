@@ -1,25 +1,38 @@
 import { useState } from 'react';
 import { rendererOperationErrorText } from '../application/errors/rendererOperationErrorText';
+import {
+  THEME_STUDIO_UNAVAILABLE_MESSAGE,
+  themeStudioClient,
+  type ThemeStudioClient,
+} from '../app/themeStudioClient';
 import type { ThemeProject } from '../domain/theme';
 
-export function ExportSheet({ project, onClose }: { project: ThemeProject; onClose: () => void }) {
+export function ExportSheet({
+  project,
+  onClose,
+  client = themeStudioClient,
+}: {
+  project: ThemeProject;
+  onClose(): void;
+  client?: Pick<ThemeStudioClient, 'isAvailable' | 'exportIos' | 'exportAndroid'>;
+}) {
   const [status, setStatus] = useState<{ kind: 'progress' | 'success' | 'cancel' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const run = async (kind: 'ios' | 'android') => {
-    if (!window.themeStudio) {
-      setStatus({ kind: 'error', text: 'Electron 앱에서 사용할 수 있는 기능입니다.' });
+    if (!client.isAvailable()) {
+      setStatus({ kind: 'error', text: THEME_STUDIO_UNAVAILABLE_MESSAGE });
       return;
     }
     setBusy(true);
     setStatus({ kind: 'progress', text: kind === 'android' ? 'Android 테마를 만드는 중이에요…' : '저장 위치를 선택해 주세요.' });
     try {
       if (kind === 'ios') {
-        const path = await window.themeStudio.exportIos(project);
+        const path = await client.exportIos(project);
         setStatus(path
           ? { kind: 'success', text: 'iPhone용 ktheme 파일을 만들었습니다.' }
           : { kind: 'cancel', text: '저장을 취소했습니다.' });
       } else if (kind === 'android') {
-        const result = await window.themeStudio.exportAndroid(project);
+        const result = await client.exportAndroid(project);
         setStatus(result?.path
           ? { kind: 'success', text: 'Android용 APK 파일을 만들었습니다.' }
           : result?.error

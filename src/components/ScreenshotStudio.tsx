@@ -3,6 +3,11 @@ import { toPng } from 'html-to-image';
 import kakaoSmallSansBold from '../assets/fonts/KakaoSmallSans-Bold.woff2?inline';
 import kakaoSmallSansLight from '../assets/fonts/KakaoSmallSans-Light.woff2?inline';
 import kakaoSmallSansRegular from '../assets/fonts/KakaoSmallSans-Regular.woff2?inline';
+import {
+  THEME_STUDIO_UNAVAILABLE_MESSAGE,
+  themeStudioClient,
+  type ThemeStudioClient,
+} from '../app/themeStudioClient';
 import { PhonePreview } from './PhonePreview';
 import { MiniBubble } from './BubbleStates';
 import type { Platform, ThemeProject } from '../domain/theme';
@@ -115,7 +120,17 @@ function ProfileResources({ project, platform }: { project: ThemeProject; platfo
   </div>;
 }
 
-export function ScreenshotStudio({ project, platform, onClose }: { project: ThemeProject; platform: Platform; onClose: () => void }) {
+export function ScreenshotStudio({
+  project,
+  platform,
+  onClose,
+  client = themeStudioClient,
+}: {
+  project: ThemeProject;
+  platform: Platform;
+  onClose(): void;
+  client?: Pick<ThemeStudioClient, 'isAvailable' | 'saveScreenshots'>;
+}) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [title, setTitle] = useState(project.meta.name);
   const [author, setAuthor] = useState(project.meta.author || '제작자 이름');
@@ -123,9 +138,15 @@ export function ScreenshotStudio({ project, platform, onClose }: { project: Them
   const [sentMessage, setSentMessage] = useState('테마를 만들고 있어요');
   const [backgroundColor, setBackgroundColor] = useState('#ecebe7');
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const save = async () => {
-    if (!window.themeStudio || !canvasRef.current) return;
+    if (!client.isAvailable()) {
+      setSaveError(THEME_STUDIO_UNAVAILABLE_MESSAGE);
+      return;
+    }
+    if (!canvasRef.current) return;
+    setSaveError(null);
     setBusy(true);
     try {
       await prepareExportFonts(project);
@@ -140,7 +161,7 @@ export function ScreenshotStudio({ project, platform, onClose }: { project: Them
       try {
         await toPng(canvasRef.current, options);
         const dataUrl = await toPng(canvasRef.current, options);
-        await window.themeStudio.saveScreenshots([{ name: `${title || '카카오톡-테마'}-홍보.png`, dataUrl }]);
+        await client.saveScreenshots([{ name: `${title || '카카오톡-테마'}-홍보.png`, dataUrl }]);
       } finally { restoreCanvases(); }
     } finally { setBusy(false); }
   };
@@ -157,6 +178,7 @@ export function ScreenshotStudio({ project, platform, onClose }: { project: Them
           <label className="poster-background-control">배경색<input type="color" aria-label="홍보 이미지 배경색" value={backgroundColor} onChange={(event) => setBackgroundColor(event.target.value)} /></label>
           <button type="button" className="ghost-button screenshot-action" onClick={onClose}>닫기</button>
           <button type="button" className="primary-button screenshot-action" onClick={save} disabled={busy}>{busy ? '저장 중…' : 'PNG 저장'}</button>
+          {saveError && <div role="alert">{saveError}</div>}
         </div>
         <div className="poster-scroll">
           <div className="promotion-canvas" data-testid="promotion-canvas" data-platform={platform}

@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../domain/theme';
+import {
+  THEME_STUDIO_UNAVAILABLE_MESSAGE,
+  type ThemeStudioClient,
+} from '../app/themeStudioClient';
 import { setColorSlot } from '../manifest/colorResolver';
 import { ScreenshotStudio } from './ScreenshotStudio';
 
@@ -9,8 +13,14 @@ vi.mock('html-to-image', () => ({ toPng: toPngMock }));
 
 afterEach(() => {
   toPngMock.mockReset();
-  Reflect.deleteProperty(window, 'themeStudio');
 });
+
+function client(saveScreenshots = vi.fn()) {
+  return {
+    isAvailable: () => true,
+    saveScreenshots,
+  } satisfies Pick<ThemeStudioClient, 'isAvailable' | 'saveScreenshots'>;
+}
 
 describe('promotional image studio', () => {
   it.each(['ios', 'android'] as const)('composes one exportable 5:4 %s poster from the live theme resources', (platform) => {
@@ -79,6 +89,20 @@ describe('promotional image studio', () => {
     fireEvent.change(background, { target: { value: '#c8d9e8' } });
 
     expect(screen.getByTestId('promotion-canvas')).toHaveStyle({ backgroundColor: '#c8d9e8' });
+  });
+
+  it('shows the stable bridge support message when screenshot saving is unavailable', async () => {
+    render(<ScreenshotStudio project={createDefaultTheme()} platform="ios" onClose={() => undefined} client={{
+      isAvailable: () => false,
+      saveScreenshots: vi.fn(),
+    }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'PNG 저장' }));
+
+    const alert = await screen.findByRole('alert');
+    for (const line of THEME_STUDIO_UNAVAILABLE_MESSAGE.split('\n')) {
+      expect(alert).toHaveTextContent(line);
+    }
   });
 
   it.each(['ios', 'android'] as const)('shows every real %s bottom tab in both selected and unselected states', (platform) => {
@@ -164,20 +188,8 @@ describe('promotional image studio', () => {
 
   it('captures exactly one 5:4 PNG at 2000x1600 and passes it to the Electron save API', async () => {
     const saveScreenshots = vi.fn().mockResolvedValue('/tmp/theme-poster.png');
-    Object.defineProperty(window, 'themeStudio', {
-      configurable: true,
-      value: {
-        platform: 'darwin',
-        openProject: vi.fn(),
-        saveProject: vi.fn(),
-        importTheme: vi.fn(),
-        exportIos: vi.fn(),
-        exportAndroid: vi.fn(),
-        saveScreenshots,
-      },
-    });
     toPngMock.mockResolvedValueOnce('data:image/png;base64,warmup').mockResolvedValueOnce('data:image/png;base64,poster');
-    render(<ScreenshotStudio project={createDefaultTheme('우체국')} platform="ios" onClose={() => undefined} />);
+    render(<ScreenshotStudio project={createDefaultTheme('우체국')} platform="ios" onClose={() => undefined} client={client(saveScreenshots)} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'PNG 저장' }));
 
@@ -203,15 +215,8 @@ describe('promotional image studio', () => {
       dataUrl: 'data:font/ttf;base64,VVNFUi1GT05U',
     };
     const saveScreenshots = vi.fn().mockResolvedValue('/tmp/theme-poster.png');
-    Object.defineProperty(window, 'themeStudio', {
-      configurable: true,
-      value: {
-        platform: 'darwin', openProject: vi.fn(), saveProject: vi.fn(), importTheme: vi.fn(),
-        exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots,
-      },
-    });
     toPngMock.mockResolvedValue('data:image/png;base64,poster');
-    render(<ScreenshotStudio project={project} platform="ios" onClose={() => undefined} />);
+    render(<ScreenshotStudio project={project} platform="ios" onClose={() => undefined} client={client(saveScreenshots)} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'PNG 저장' }));
 
@@ -224,14 +229,7 @@ describe('promotional image studio', () => {
 
   it('freezes nine-slice canvases as images while the promotional PNG is captured', async () => {
     const saveScreenshots = vi.fn().mockResolvedValue('/tmp/theme-poster.png');
-    Object.defineProperty(window, 'themeStudio', {
-      configurable: true,
-      value: {
-        platform: 'darwin', openProject: vi.fn(), saveProject: vi.fn(), importTheme: vi.fn(),
-        exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots,
-      },
-    });
-    const { container } = render(<ScreenshotStudio project={createDefaultTheme()} platform="android" onClose={() => undefined} />);
+    const { container } = render(<ScreenshotStudio project={createDefaultTheme()} platform="android" onClose={() => undefined} client={client(saveScreenshots)} />);
     const poster = screen.getByTestId('promotion-canvas');
     const canvasToDataUrl = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,frozen-nine-slice');
     const canvas = document.createElement('canvas');
