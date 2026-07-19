@@ -105,6 +105,38 @@ describe('promotional image studio', () => {
     }
   });
 
+  it('preserves a coded bridge error when the client disappears after availability is checked', async () => {
+    let available = true;
+    const saveScreenshots = vi.fn(() => {
+      available = false;
+      throw new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE);
+    });
+    toPngMock.mockResolvedValue('data:image/png;base64,poster');
+    render(<ScreenshotStudio project={createDefaultTheme()} platform="ios" onClose={() => undefined} client={{
+      isAvailable: () => available,
+      saveScreenshots,
+    }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'PNG 저장' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(saveScreenshots).toHaveBeenCalledTimes(1);
+    expect(alert.textContent?.startsWith('[KTB-IPC-BRIDGE-UNAVAILABLE]')).toBe(true);
+    expect(alert).not.toHaveTextContent('홍보 이미지를 저장하지 못했습니다.');
+  });
+
+  it('reports an unknown screenshot save failure with a Korean fallback', async () => {
+    const saveScreenshots = vi.fn().mockRejectedValue(new Error('저장 공간이 부족합니다.'));
+    toPngMock.mockResolvedValue('data:image/png;base64,poster');
+    render(<ScreenshotStudio project={createDefaultTheme()} platform="ios" onClose={() => undefined} client={client(saveScreenshots)} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'PNG 저장' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '홍보 이미지를 저장하지 못했습니다. 저장 공간이 부족합니다.',
+    );
+  });
+
   it.each(['ios', 'android'] as const)('shows every real %s bottom tab in both selected and unselected states', (platform) => {
     const { container } = render(<ScreenshotStudio project={createDefaultTheme()} platform={platform} onClose={() => undefined} />);
     const showcase = container.querySelector('.poster-tabs');

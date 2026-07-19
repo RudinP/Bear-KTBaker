@@ -39,7 +39,8 @@ export interface ThemeStudioClient {
 }
 
 export function createThemeStudioClient(
-  resolveApi: () => ThemeStudioApi | undefined = () => window.themeStudio,
+  resolveApi: () => ThemeStudioApi | undefined = () =>
+    typeof window === 'undefined' ? undefined : window.themeStudio,
 ): ThemeStudioClient {
   const required = () => {
     const api = resolveApi();

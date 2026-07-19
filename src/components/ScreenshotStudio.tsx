@@ -3,6 +3,7 @@ import { toPng } from 'html-to-image';
 import kakaoSmallSansBold from '../assets/fonts/KakaoSmallSans-Bold.woff2?inline';
 import kakaoSmallSansLight from '../assets/fonts/KakaoSmallSans-Light.woff2?inline';
 import kakaoSmallSansRegular from '../assets/fonts/KakaoSmallSans-Regular.woff2?inline';
+import { rendererOperationErrorText } from '../application/errors/rendererOperationErrorText';
 import {
   THEME_STUDIO_UNAVAILABLE_MESSAGE,
   themeStudioClient,
@@ -163,6 +164,12 @@ export function ScreenshotStudio({
         const dataUrl = await toPng(canvasRef.current, options);
         await client.saveScreenshots([{ name: `${title || '카카오톡-테마'}-홍보.png`, dataUrl }]);
       } finally { restoreCanvases(); }
+    } catch (error) {
+      setSaveError(rendererOperationErrorText(
+        error,
+        '홍보 이미지를 저장하지 못했습니다.',
+        '파일과 저장 위치를 확인해 주세요.',
+      ));
     } finally { setBusy(false); }
   };
 

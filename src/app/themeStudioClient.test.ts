@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ThemeStudioApi } from '../electron';
 import {
+  THEME_STUDIO_UNAVAILABLE_MESSAGE,
   createThemeStudioClient,
   type HistoryCommand,
   type ThemeFileCommand,
@@ -36,5 +37,25 @@ describe('theme studio renderer client', () => {
       .not.toThrow();
     expect(() => client.subscribeFileCommands((_command: ThemeFileCommand) => undefined)())
       .not.toThrow();
+  });
+
+  it('uses the bridge-unavailable contract without a global window', () => {
+    const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    Reflect.deleteProperty(globalThis, 'window');
+
+    try {
+      const client = createThemeStudioClient();
+
+      expect(client.isAvailable()).toBe(false);
+      expect(() => client.subscribeHistoryCommands(() => undefined)()).not.toThrow();
+      expect(() => client.subscribeFileCommands(() => undefined)()).not.toThrow();
+      expect(() => client.importTheme()).toThrowError(new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE));
+      expect(() => client.saveProject('{}', 'theme')).toThrowError(new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE));
+      expect(() => client.exportIos({} as ThemeImportResult['project'])).toThrowError(new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE));
+      expect(() => client.exportAndroid({} as ThemeImportResult['project'])).toThrowError(new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE));
+      expect(() => client.saveScreenshots([])).toThrowError(new Error(THEME_STUDIO_UNAVAILABLE_MESSAGE));
+    } finally {
+      if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+    }
   });
 });
