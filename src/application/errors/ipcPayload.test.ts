@@ -206,6 +206,51 @@ describe('ThemeStudioError IPC payload', () => {
     });
   });
 
+  it('publishes catalog text instead of safe custom internal text', () => {
+    const payload = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '사용자 지정 저장 단계',
+      message: '사용자 지정 저장 오류입니다.',
+    }));
+
+    expect(payload).toMatchObject({
+      code: 'KTB-FS-WRITE',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    });
+    expect(isThemeStudioErrorPayload({
+      ...payload,
+      stage: '다른 안전한 단계',
+    })).toBe(false);
+    expect(isThemeStudioErrorPayload({
+      ...payload,
+      message: '다른 안전한 오류입니다.',
+    })).toBe(false);
+  });
+
+  it('uses the unknown catalog entry after runtime code mutation', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+    });
+    Object.assign(error, {
+      code: 'toString',
+      operation: 'project:save',
+      stage: '노출 가능한 안전한 단계',
+      message: '노출 가능한 안전한 메시지입니다.',
+    });
+
+    expect(serializeThemeStudioError(error)).toMatchObject({
+      code: 'KTB-UNKNOWN-UNEXPECTED',
+      operation: 'project:save',
+      stage: '알 수 없는 작업',
+      message: '예상하지 못한 오류가 발생했습니다.',
+    });
+  });
+
   it('omits cyclic and over-depth structured causes during serialization', () => {
     const cyclic = new ThemeStudioError({
       code: 'KTB-UNKNOWN-UNEXPECTED',
@@ -257,6 +302,28 @@ describe('ThemeStudioError IPC payload', () => {
       ...leaf,
       cause: eightDeep,
     })).toBe(false);
+  });
+
+  it('rejects unregistered resource and system vocabularies', () => {
+    const payload = serializeThemeStudioError(new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+    }));
+
+    for (const safeContext of [
+      { resourceId: 'AKIAIOSFODNN7EXAMPLE' },
+      { resourceKey: 'drawable/PRIVATEKEY' },
+      { systemCode: 'CREDENTIALS' },
+      { signal: 'AKIAIOSFODNN7EXAMPLE' },
+      { stage: '등록되지 않은 단계' },
+    ]) {
+      expect(isThemeStudioErrorPayload({
+        ...payload,
+        safeContext,
+      })).toBe(false);
+    }
   });
 
   it('returns a safe fallback for an invalid payload', () => {

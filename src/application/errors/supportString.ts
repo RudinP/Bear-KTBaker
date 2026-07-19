@@ -1,4 +1,11 @@
-import type { ThemeStudioErrorDetails } from './ThemeStudioError';
+import {
+  ERROR_CATALOG,
+  normalizeErrorCode,
+} from './errorCatalog';
+import {
+  sanitizeSafeContext,
+  type ThemeStudioErrorDetails,
+} from './ThemeStudioError';
 
 export function formatThemeStudioSupportString(
   error: Pick<
@@ -6,46 +13,49 @@ export function formatThemeStudioSupportString(
     'code' | 'stage' | 'message' | 'safeContext'
   >,
 ) {
-  const lines = [`[${error.code}]`, error.message, `단계: ${error.stage}`];
-  if (error.safeContext?.exitCode !== undefined) {
-    const executable = error.code.includes('AAPT2')
+  const code = normalizeErrorCode(error.code);
+  const catalog = ERROR_CATALOG[code];
+  const safeContext = sanitizeSafeContext(error.safeContext);
+  const lines = [`[${code}]`, catalog.message, `단계: ${catalog.stage}`];
+  if (safeContext?.exitCode !== undefined) {
+    const executable = code.includes('AAPT2')
       ? 'aapt2 '
       : '';
     lines.push(
-      `원인: ${executable}종료 코드 ${error.safeContext.exitCode}`,
+      `원인: ${executable}종료 코드 ${safeContext.exitCode}`,
     );
   }
-  if (error.safeContext?.systemCode !== undefined) {
-    lines.push(`원인 코드: ${error.safeContext.systemCode}`);
+  if (safeContext?.systemCode !== undefined) {
+    lines.push(`원인 코드: ${safeContext.systemCode}`);
   }
-  if (error.safeContext?.signal !== undefined) {
-    lines.push(`종료 시그널: ${error.safeContext.signal}`);
+  if (safeContext?.signal !== undefined) {
+    lines.push(`종료 시그널: ${safeContext.signal}`);
   }
-  if (error.safeContext?.resourceId !== undefined) {
-    const key = error.safeContext.resourceKey === undefined
+  if (safeContext?.resourceId !== undefined) {
+    const key = safeContext.resourceKey === undefined
       ? ''
-      : ` (${error.safeContext.resourceKey})`;
-    lines.push(`리소스: ${error.safeContext.resourceId}${key}`);
-  } else if (error.safeContext?.resourceKey !== undefined) {
-    lines.push(`리소스 키: ${error.safeContext.resourceKey}`);
+      : ` (${safeContext.resourceKey})`;
+    lines.push(`리소스: ${safeContext.resourceId}${key}`);
+  } else if (safeContext?.resourceKey !== undefined) {
+    lines.push(`리소스 키: ${safeContext.resourceKey}`);
   }
-  if (error.safeContext?.archiveKind !== undefined) {
-    lines.push(`가져오기 형식: ${error.safeContext.archiveKind}`);
+  if (safeContext?.archiveKind !== undefined) {
+    lines.push(`가져오기 형식: ${safeContext.archiveKind}`);
   }
-  if (error.safeContext?.platform !== undefined) {
-    lines.push(`플랫폼: ${error.safeContext.platform}`);
+  if (safeContext?.platform !== undefined) {
+    lines.push(`플랫폼: ${safeContext.platform}`);
   }
-  if (error.safeContext?.schemaVersion !== undefined) {
-    lines.push(`프로젝트 스키마: ${error.safeContext.schemaVersion}`);
+  if (safeContext?.schemaVersion !== undefined) {
+    lines.push(`프로젝트 스키마: ${safeContext.schemaVersion}`);
   }
   if (
-    error.safeContext?.expectedCount !== undefined
-    || error.safeContext?.actualCount !== undefined
+    safeContext?.expectedCount !== undefined
+    || safeContext?.actualCount !== undefined
   ) {
     lines.push(
       `기대/실제 개수: ${
-        error.safeContext.expectedCount ?? '-'
-      }/${error.safeContext.actualCount ?? '-'}`,
+        safeContext.expectedCount ?? '-'
+      }/${safeContext.actualCount ?? '-'}`,
     );
   }
   return lines.join('\n');

@@ -1,11 +1,12 @@
 import {
   ERROR_CATALOG,
   type ErrorCode,
+  isErrorCode,
+  normalizeErrorCode,
   type ThemeOperation,
 } from './errorCatalog';
 import {
   isSafeContext,
-  isSafeDiagnosticText,
   sanitizeSafeContext,
   ThemeStudioError,
 } from './ThemeStudioError';
@@ -55,9 +56,7 @@ function serializeThemeStudioErrorInternal(
   depth: number,
 ): ThemeStudioErrorPayload {
   seen.add(error);
-  const code = isErrorCode(error.code)
-    ? error.code
-    : 'KTB-UNKNOWN-UNEXPECTED';
+  const code = normalizeErrorCode(error.code);
   const catalog = ERROR_CATALOG[code];
   const operation = THEME_OPERATIONS.has(error.operation)
     ? error.operation
@@ -72,12 +71,8 @@ function serializeThemeStudioErrorInternal(
     name: 'ThemeStudioError',
     code,
     operation,
-    stage: isSafeDiagnosticText(error.stage)
-      ? error.stage
-      : catalog.stage,
-    message: isSafeDiagnosticText(error.message)
-      ? error.message
-      : catalog.message,
+    stage: catalog.stage,
+    message: catalog.message,
     ...(safeContext ? { safeContext } : {}),
     ...(nestedCause ? { cause: nestedCause } : {}),
   };
@@ -103,14 +98,16 @@ function isThemeStudioErrorPayloadInternal(
     return false;
   }
   seen.add(value);
-  return value.name === 'ThemeStudioError'
-    && isErrorCode(value.code)
-    && typeof value.operation === 'string'
+  if (value.name !== 'ThemeStudioError' || !isErrorCode(value.code)) {
+    return false;
+  }
+  const catalog = ERROR_CATALOG[value.code];
+  return typeof value.operation === 'string'
     && THEME_OPERATIONS.has(
       value.operation as ThemeOperation,
     )
-    && isSafeDiagnosticText(value.stage)
-    && isSafeDiagnosticText(value.message)
+    && value.stage === catalog.stage
+    && value.message === catalog.message
     && (
       !Object.hasOwn(value, 'safeContext')
       || value.safeContext === undefined
@@ -164,11 +161,6 @@ function reconstructValidatedThemeStudioError(
       ? reconstructValidatedThemeStudioError(payload.cause)
       : undefined,
   });
-}
-
-function isErrorCode(value: unknown): value is ErrorCode {
-  return typeof value === 'string'
-    && Object.hasOwn(ERROR_CATALOG, value);
 }
 
 function hasExactPayloadKeys(

@@ -3,6 +3,7 @@ import {
   type ErrorCode,
   type ThemeOperation,
 } from './errorCatalog';
+import { KAKAO_RESOURCE_SLOTS } from '../../manifest/kakaoResources';
 
 export interface ThemeStudioErrorDetails {
   code: ErrorCode;
@@ -17,7 +18,6 @@ const SAFE_CONTEXT_KEYS = Object.freeze([
   'archiveKind',
   'resourceId',
   'resourceKey',
-  'stage',
   'exitCode',
   'signal',
   'systemCode',
@@ -27,14 +27,94 @@ const SAFE_CONTEXT_KEYS = Object.freeze([
   'actualCount',
 ] as const);
 
-const SAFE_ARCHIVE_KINDS = new Set(['ios', 'source', 'apk']);
-const SAFE_PLATFORMS = new Set(['ios', 'android', 'darwin', 'win32']);
+const SAFE_ARCHIVE_KINDS = Object.freeze(['ios', 'source', 'apk']);
+const SAFE_PLATFORMS = Object.freeze([
+  'ios',
+  'android',
+  'darwin',
+  'win32',
+]);
+const SAFE_SYSTEM_CODES = Object.freeze([
+  'EACCES',
+  'EAGAIN',
+  'EBADF',
+  'EBUSY',
+  'EEXIST',
+  'EFBIG',
+  'EINTR',
+  'EINVAL',
+  'EIO',
+  'EISDIR',
+  'ELOOP',
+  'EMFILE',
+  'ENAMETOOLONG',
+  'ENFILE',
+  'ENOENT',
+  'ENOMEM',
+  'ENOSPC',
+  'ENOTDIR',
+  'ENOTEMPTY',
+  'ENOTSUP',
+  'EPERM',
+  'EPIPE',
+  'EROFS',
+  'ETIMEDOUT',
+  'EXDEV',
+]);
+const SAFE_SIGNALS = Object.freeze([
+  'SIGABRT',
+  'SIGALRM',
+  'SIGBREAK',
+  'SIGBUS',
+  'SIGCHLD',
+  'SIGCONT',
+  'SIGFPE',
+  'SIGHUP',
+  'SIGILL',
+  'SIGINT',
+  'SIGIO',
+  'SIGIOT',
+  'SIGKILL',
+  'SIGPIPE',
+  'SIGPOLL',
+  'SIGPROF',
+  'SIGPWR',
+  'SIGQUIT',
+  'SIGSEGV',
+  'SIGSTKFLT',
+  'SIGSTOP',
+  'SIGSYS',
+  'SIGTERM',
+  'SIGTRAP',
+  'SIGTSTP',
+  'SIGTTIN',
+  'SIGTTOU',
+  'SIGURG',
+  'SIGUSR1',
+  'SIGUSR2',
+  'SIGVTALRM',
+  'SIGWINCH',
+  'SIGXCPU',
+  'SIGXFSZ',
+]);
+const SAFE_RESOURCE_IDS = Object.freeze(
+  KAKAO_RESOURCE_SLOTS.map((slot) => slot.id),
+);
+const SAFE_RESOURCE_KEYS = Object.freeze([
+  ...new Set(KAKAO_RESOURCE_SLOTS.flatMap((slot) => {
+    const fileKeys = slot.android?.files.flatMap((file) => {
+      const match = file.match(
+        /\/(drawable|mipmap)(?:-[^/]+)?\/([^/]+?)(?:\.9)?\.png$/,
+      );
+      return match ? [`${match[1]}/${match[2]}`] : [];
+    }) ?? [];
+    const colorKeys = slot.android?.colorResource
+      ? [`color/${slot.android.colorResource}`]
+      : [];
+    return [...fileKeys, ...colorKeys];
+  })),
+]);
 const MAX_DIAGNOSTIC_TEXT_LENGTH = 256;
-const MAX_RESOURCE_IDENTIFIER_LENGTH = 160;
-const MAX_SYSTEM_TOKEN_LENGTH = 64;
-const RESOURCE_IDENTIFIER_PATTERN =
-  /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
-const SYSTEM_TOKEN_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ABSOLUTE_PATH_PATTERN =
   /(?:^|[\s"'=(])(?:\/[A-Za-z0-9._-]+|[A-Za-z]:[\\/]|\\\\)/;
 const DATA_URL_PATTERN = /\bdata:[a-z0-9.+/-]+(?:;[^,\s]*)?,/i;
@@ -147,25 +227,27 @@ function isSafeContextValue(
 ) {
   switch (key) {
     case 'archiveKind':
-      return typeof value === 'string' && SAFE_ARCHIVE_KINDS.has(value);
+      return typeof value === 'string'
+        && (SAFE_ARCHIVE_KINDS as readonly string[]).includes(value);
     case 'resourceId':
+      return typeof value === 'string'
+        && (SAFE_RESOURCE_IDS as readonly string[]).includes(value);
     case 'resourceKey':
-      return isSafeResourceIdentifier(value);
-    case 'stage':
-      return isSafeDiagnosticText(value);
+      return typeof value === 'string'
+        && (SAFE_RESOURCE_KEYS as readonly string[]).includes(value);
     case 'exitCode':
       return typeof value === 'number'
         && Number.isFinite(value)
         && Number.isInteger(value);
     case 'signal':
+      return typeof value === 'string'
+        && (SAFE_SIGNALS as readonly string[]).includes(value);
     case 'systemCode':
       return typeof value === 'string'
-        && value.length > 0
-        && value.length <= MAX_SYSTEM_TOKEN_LENGTH
-        && SYSTEM_TOKEN_PATTERN.test(value)
-        && !SENSITIVE_TEXT_PATTERN.test(value);
+        && (SAFE_SYSTEM_CODES as readonly string[]).includes(value);
     case 'platform':
-      return typeof value === 'string' && SAFE_PLATFORMS.has(value);
+      return typeof value === 'string'
+        && (SAFE_PLATFORMS as readonly string[]).includes(value);
     case 'schemaVersion':
     case 'expectedCount':
     case 'actualCount':
@@ -174,15 +256,6 @@ function isSafeContextValue(
         && Number.isInteger(value)
         && value >= 0;
   }
-}
-
-function isSafeResourceIdentifier(value: unknown) {
-  return typeof value === 'string'
-    && value.length > 0
-    && value.length <= MAX_RESOURCE_IDENTIFIER_LENGTH
-    && RESOURCE_IDENTIFIER_PATTERN.test(value)
-    && value.split('/').every((segment) => segment !== '.' && segment !== '..')
-    && !SENSITIVE_TEXT_PATTERN.test(value);
 }
 
 function isPlainRecord(

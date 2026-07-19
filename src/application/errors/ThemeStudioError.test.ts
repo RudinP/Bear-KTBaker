@@ -105,7 +105,6 @@ describe('ThemeStudioError', () => {
         archiveKind: 'apk',
         resourceId: 'main.tab.background',
         resourceKey: 'drawable/theme_maintab_cell_image',
-        stage: '이미지 복원 단계',
         exitCode: -1,
         signal: 'SIGTERM',
         systemCode: 'ENOSPC',
@@ -120,7 +119,6 @@ describe('ThemeStudioError', () => {
       archiveKind: 'apk',
       resourceId: 'main.tab.background',
       resourceKey: 'drawable/theme_maintab_cell_image',
-      stage: '이미지 복원 단계',
       exitCode: -1,
       signal: 'SIGTERM',
       systemCode: 'ENOSPC',
@@ -177,6 +175,122 @@ describe('ThemeStudioError', () => {
     expect(error.safeContext).toBeUndefined();
   });
 
+  it('omits arbitrary context stages because no consumer has a registry for them', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '프로젝트 파일 쓰기',
+      message: '프로젝트를 저장하지 못했습니다.',
+      safeContext: { stage: '이미지 복원 단계' },
+    });
+
+    expect(error.safeContext).toBeUndefined();
+  });
+
+  it('keeps only registry-backed resource identifiers and Android keys', () => {
+    const valid = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: {
+        resourceId: 'main.tab.background',
+        resourceKey: 'drawable/theme_maintab_cell_image',
+      },
+    });
+    const colorsAndIcons = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: {
+        resourceId: 'common.theme-icon',
+        resourceKey: 'mipmap/ic_launcher',
+      },
+    });
+    const color = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: { resourceKey: 'color/theme_background_color' },
+    });
+
+    expect(valid.safeContext).toEqual({
+      resourceId: 'main.tab.background',
+      resourceKey: 'drawable/theme_maintab_cell_image',
+    });
+    expect(colorsAndIcons.safeContext).toEqual({
+      resourceId: 'common.theme-icon',
+      resourceKey: 'mipmap/ic_launcher',
+    });
+    expect(color.safeContext).toEqual({
+      resourceKey: 'color/theme_background_color',
+    });
+  });
+
+  it('drops plausible but unregistered resource credentials and AWS tokens', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: {
+        resourceId: 'AKIAIOSFODNN7EXAMPLE',
+        resourceKey: 'drawable/PRIVATEKEY',
+      },
+    });
+    const credentials = new ThemeStudioError({
+      code: 'KTB-ANDROID-IMAGE-RECOVERY',
+      operation: 'theme:import',
+      stage: 'Android 이미지 복원',
+      message: 'Android 이미지 리소스를 복원하지 못했습니다.',
+      safeContext: {
+        resourceId: 'main.credentials',
+        resourceKey: 'drawable/theme_background_image_credentials',
+      },
+    });
+
+    expect(error.safeContext).toBeUndefined();
+    expect(credentials.safeContext).toBeUndefined();
+  });
+
+  it('keeps only known system codes and process signals', () => {
+    const known = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+      safeContext: {
+        systemCode: 'ENOSPC',
+        signal: 'SIGTERM',
+      },
+    });
+
+    expect(known.safeContext).toEqual({
+      systemCode: 'ENOSPC',
+      signal: 'SIGTERM',
+    });
+
+    for (const value of [
+      'CREDENTIALS',
+      'PRIVATEKEY',
+      'AKIAIOSFODNN7EXAMPLE',
+    ]) {
+      const error = new ThemeStudioError({
+        code: 'KTB-FS-WRITE',
+        operation: 'project:save',
+        stage: '파일 쓰기',
+        message: '파일을 저장하지 못했습니다.',
+        safeContext: {
+          systemCode: value,
+          signal: value,
+        },
+      });
+      expect(error.safeContext).toBeUndefined();
+    }
+  });
+
   it('falls back to catalog text when stage or message is sensitive', () => {
     const error = new ThemeStudioError({
       code: 'KTB-FS-WRITE',
@@ -187,5 +301,49 @@ describe('ThemeStudioError', () => {
 
     expect(error.stage).toBe('파일 쓰기');
     expect(error.message).toBe('파일을 저장하지 못했습니다.');
+  });
+
+  it('normalizes a direct support object through the catalog and context registry', () => {
+    const support = formatThemeStudioSupportString({
+      code: 'KTB-FS-WRITE',
+      stage: '노출 가능한 안전한 단계',
+      message: '노출 가능한 안전한 메시지입니다.',
+      safeContext: {
+        resourceId: 'AKIAIOSFODNN7EXAMPLE',
+        resourceKey: 'drawable/PRIVATEKEY',
+        systemCode: 'CREDENTIALS',
+      },
+    });
+
+    expect(support).toBe([
+      '[KTB-FS-WRITE]',
+      '파일을 저장하지 못했습니다.',
+      '단계: 파일 쓰기',
+    ].join('\n'));
+    expect(support).not.toMatch(/AKIA|PRIVATEKEY|CREDENTIALS/);
+  });
+
+  it('normalizes a runtime-mutated error before formatting support text', () => {
+    const error = new ThemeStudioError({
+      code: 'KTB-FS-WRITE',
+      operation: 'project:save',
+      stage: '파일 쓰기',
+      message: '파일을 저장하지 못했습니다.',
+      safeContext: { systemCode: 'ENOSPC' },
+    });
+    Object.assign(error, {
+      code: 'constructor',
+      stage: '/Users/person/private.ktstudio',
+      message: 'data:image/png;base64,secret',
+    });
+    Object.assign(error.safeContext!, {
+      systemCode: 'AKIAIOSFODNN7EXAMPLE',
+    });
+
+    expect(formatThemeStudioSupportString(error)).toBe([
+      '[KTB-UNKNOWN-UNEXPECTED]',
+      '예상하지 못한 오류가 발생했습니다.',
+      '단계: 알 수 없는 작업',
+    ].join('\n'));
   });
 });

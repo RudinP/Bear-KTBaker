@@ -149,3 +149,14 @@ export const ERROR_CATALOG = {
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CATALOG;
+
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string'
+    && Object.hasOwn(ERROR_CATALOG, value);
+}
+
+export function normalizeErrorCode(value: unknown): ErrorCode {
+  return isErrorCode(value)
+    ? value
+    : 'KTB-UNKNOWN-UNEXPECTED';
+}
