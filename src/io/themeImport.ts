@@ -24,6 +24,7 @@ import { parseCompiledNinePatchPng, parseNinePatchPng, stripNinePatchBorder } fr
 export { inspectCompiledAndroidApk } from './androidCompiledMetadata';
 export type { AndroidCompiledMetadata } from './androidCompiledMetadata';
 export { detectThemeImportKind } from './themeImport/detectImportKind';
+export type { ThemeImportKind } from './themeImport/detectImportKind';
 
 function dataUrl(buffer: Buffer) {
   return `data:image/png;base64,${buffer.toString('base64')}`;
