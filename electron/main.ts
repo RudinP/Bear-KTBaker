@@ -1,8 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage } from 'electron';
 import { execFile } from 'node:child_process';
 import { access, cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import JSZip from 'jszip';
 import { androidResourceIdentity } from '../src/io/androidArchiveResources';
@@ -32,9 +33,28 @@ import { resolveBubbleGuides } from '../src/manifest/bubbleGuideResolver';
 import { parseThemeProject, type ThemeProject } from '../src/domain/theme';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
+import {
+  type ErrorBoundaryFallback,
+  withIpcErrorBoundary,
+} from './ipc/errorBoundary';
+import {
+  parseProjectSaveRequest,
+  parseScreenshotSaveRequests,
+  parseThemeProjectRequest,
+} from './ipc/requestValidation';
+import {
+  assertTrustedSender,
+  type TrustedSenderPolicy,
+} from './ipc/trustedSender';
 
 const execFileAsync = promisify(execFile);
 const devUrl = process.env.VITE_DEV_SERVER_URL;
+const senderPolicy: TrustedSenderPolicy = {
+  developmentServerUrl: devUrl,
+  packagedRendererUrl: pathToFileURL(
+    path.join(app.getAppPath(), 'dist', 'index.html'),
+  ).href,
+};
 
 // macOS builds the application menu from Electron's runtime name, not the
 // BrowserWindow title or electron-builder productName.
@@ -44,14 +64,6 @@ function templatePath(file: string) {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'templates', file)
     : path.join(app.getAppPath(), 'resources', 'templates', file);
-}
-
-function assertTrusted(event: IpcMainInvokeEvent) {
-  const url = event.senderFrame?.url;
-  if (!url) throw new Error('허용되지 않은 화면 요청입니다.');
-  if (url.startsWith('file://')) return;
-  if (devUrl && url.startsWith(devUrl)) return;
-  throw new Error('허용되지 않은 화면 요청입니다.');
 }
 
 async function createWindow() {
@@ -401,12 +413,89 @@ async function importTheme() {
 }
 
 function registerIpc() {
-  ipcMain.handle('project:open', async (event) => { assertTrusted(event); const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: '테마 스튜디오 프로젝트', extensions: ['ktstudio'] }] }); if (result.canceled || !result.filePaths[0]) return null; return { path: result.filePaths[0], content: await readFile(result.filePaths[0], 'utf8') }; });
-  ipcMain.handle('project:save', async (event, { content, suggestedName }) => { assertTrusted(event); parseThemeProject(content); const result = await dialog.showSaveDialog({ defaultPath: `${suggestedName}.ktstudio`, filters: [{ name: '테마 스튜디오 프로젝트', extensions: ['ktstudio'] }] }); if (result.canceled || !result.filePath) return null; await writeFile(result.filePath, content); return result.filePath; });
-  ipcMain.handle('theme:import', async (event) => { assertTrusted(event); return importTheme(); });
-  ipcMain.handle('theme:export-ios', async (event, project: ThemeProject) => { assertTrusted(event); return exportIos(project); });
-  ipcMain.handle('theme:export-android', async (event, project: ThemeProject) => { assertTrusted(event); return exportAndroid(project); });
-  ipcMain.handle('screenshots:save', async (event, files: Array<{ name: string; dataUrl: string }>) => { assertTrusted(event); const result = await dialog.showOpenDialog({ title: '홍보 이미지 저장 폴더', properties: ['openDirectory', 'createDirectory'] }); if (result.canceled || !result.filePaths[0]) return null; await Promise.all(files.map((file) => writeFile(path.join(result.filePaths[0], file.name), dataUrlBuffer(file.dataUrl)))); return result.filePaths[0]; });
+  const fallback = (
+    operation: ErrorBoundaryFallback['operation'],
+  ): ErrorBoundaryFallback => ({
+    code: 'KTB-UNKNOWN-UNEXPECTED',
+    operation,
+    stage: '알 수 없는 작업',
+    message: '예상하지 못한 오류가 발생했습니다.',
+  });
+
+  ipcMain.handle('project:open', withIpcErrorBoundary(
+    fallback('project:open'),
+    async (event) => {
+      assertTrustedSender(event, senderPolicy);
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{
+          name: '테마 스튜디오 프로젝트',
+          extensions: ['ktstudio'],
+        }],
+      });
+      if (result.canceled || !result.filePaths[0]) return null;
+      return {
+        path: result.filePaths[0],
+        content: await readFile(result.filePaths[0], 'utf8'),
+      };
+    },
+  ));
+  ipcMain.handle('project:save', withIpcErrorBoundary(
+    fallback('project:save'),
+    async (event, value: unknown) => {
+      assertTrustedSender(event, senderPolicy);
+      const { content, suggestedName } = parseProjectSaveRequest(value);
+      parseThemeProject(content);
+      const result = await dialog.showSaveDialog({
+        defaultPath: `${suggestedName}.ktstudio`,
+        filters: [{
+          name: '테마 스튜디오 프로젝트',
+          extensions: ['ktstudio'],
+        }],
+      });
+      if (result.canceled || !result.filePath) return null;
+      await writeFile(result.filePath, content);
+      return result.filePath;
+    },
+  ));
+  ipcMain.handle('theme:import', withIpcErrorBoundary(
+    fallback('theme:import'),
+    async (event) => {
+      assertTrustedSender(event, senderPolicy);
+      return importTheme();
+    },
+  ));
+  ipcMain.handle('theme:export-ios', withIpcErrorBoundary(
+    fallback('theme:export-ios'),
+    async (event, value: unknown) => {
+      assertTrustedSender(event, senderPolicy);
+      return exportIos(parseThemeProjectRequest(value));
+    },
+  ));
+  ipcMain.handle('theme:export-android', withIpcErrorBoundary(
+    fallback('theme:export-android'),
+    async (event, value: unknown) => {
+      assertTrustedSender(event, senderPolicy);
+      return exportAndroid(parseThemeProjectRequest(value));
+    },
+  ));
+  ipcMain.handle('screenshots:save', withIpcErrorBoundary(
+    fallback('screenshots:save'),
+    async (event, value: unknown) => {
+      assertTrustedSender(event, senderPolicy);
+      const files = parseScreenshotSaveRequests(value);
+      const result = await dialog.showOpenDialog({
+        title: '홍보 이미지 저장 폴더',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (result.canceled || !result.filePaths[0]) return null;
+      await Promise.all(files.map((file) => writeFile(
+        path.join(result.filePaths[0], file.name),
+        dataUrlBuffer(file.dataUrl),
+      )));
+      return result.filePaths[0];
+    },
+  ));
 }
 
 app.whenReady().then(async () => { registerIpc(); installApplicationMenu(); await createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); }); });
