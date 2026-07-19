@@ -12,8 +12,6 @@ import {
   type AndroidImageExpectation,
 } from '../src/io/androidImageVerification';
 import { buildStandaloneAndroidApk, prepareStandaloneAndroidManifest } from '../src/io/androidStandaloneBuild';
-import { buildIosCss } from '../src/io/iosTheme';
-import { generateCleanIosThemeArchive } from '../src/io/archiveHygiene';
 import { buildNinePatchPng, replaceNinePatchInterior, stripNinePatchBorder } from '../src/io/ninePatchPng';
 import { getMappedResourceWrites } from '../src/io/resourceWrites';
 import { flexibleBubbleTargetSize, sourceHasNinePatchBorder, uploadSourceScale } from '../src/io/resourceGeometry';
@@ -28,9 +26,11 @@ import {
   createImportTheme,
   type ImportThemeResult,
 } from '../src/application/theme/importTheme';
+import { createExportIosTheme } from '../src/application/theme/exportIosTheme';
 import { createSaveProject } from '../src/application/theme/saveProject';
 import { createAndroidApkInspector } from './adapters/androidToolRunner';
 import { createElectronDialogPort } from './adapters/electronDialog';
+import { createElectronImageProcessor } from './adapters/electronImageProcessor';
 import { createNodeFileSystemPort } from './adapters/nodeFileSystem';
 import { historyCommandForInput } from './historyShortcut';
 import { createApplicationMenuTemplate } from './applicationMenu';
@@ -57,6 +57,7 @@ const senderPolicy: TrustedSenderPolicy = {
 };
 const dialogs = createElectronDialogPort(dialog);
 const { files, paths } = createNodeFileSystemPort();
+const images = createElectronImageProcessor();
 const openProject: () => Promise<OpenedProject | null> =
   createOpenProject({ dialogs, files });
 const saveProject = createSaveProject({ dialogs, files });
@@ -76,6 +77,13 @@ function templatePath(file: string) {
     ? path.join(process.resourcesPath, 'templates', file)
     : path.join(app.getAppPath(), 'resources', 'templates', file);
 }
+
+const exportIosTheme = createExportIosTheme({
+  dialogs,
+  files,
+  images,
+  iosTemplatePath: templatePath('ios-base.ktheme'),
+});
 
 async function createWindow() {
   const isMac = process.platform === 'darwin';
@@ -191,26 +199,6 @@ function prepareFlexibleBubblePng(dataUrl: string, platform: 'ios' | 'android', 
   return resizeForTarget(source, size.width, size.height, 'stretch').toPNG();
 }
 
-async function replaceMappedIosImages(zip: JSZip, project: ThemeProject) {
-  for (const write of getMappedResourceWrites(project, 'ios')) {
-    const existing = zip.file(write.path);
-    const slot = getResourceSlot(write.resourceId);
-    const mode = slot.render.mode;
-    if (mode === 'stretch') {
-      zip.file(write.path, prepareFlexibleBubblePng(write.asset.dataUrl, 'ios', write.path, write.asset));
-      continue;
-    }
-    if (existing) {
-      zip.file(write.path, preparePng(write.asset.dataUrl, await existing.async('nodebuffer'), mode, false));
-      continue;
-    }
-    const size = slot.ios?.outputSize;
-    if (!size) continue;
-    const scale = /@3x\.png$/i.test(write.path) ? 3 : /@2x\.png$/i.test(write.path) ? 2 : 1;
-    zip.file(write.path, preparePngAtSize(write.asset.dataUrl, size[0] * scale, size[1] * scale, mode));
-  }
-}
-
 async function replaceMappedAndroidImages(buildDir: string, project: ThemeProject) {
   const expectations: AndroidImageExpectation[] = [];
   for (const write of getMappedResourceWrites(project, 'android')) {
@@ -251,22 +239,6 @@ async function replaceMappedAndroidImages(buildDir: string, project: ThemeProjec
     if (expectation) expectations.push(expectation);
   }
   return expectations;
-}
-
-async function exportIos(project: ThemeProject) {
-  const result = await dialog.showSaveDialog({
-    title: 'iPhone 테마 저장',
-    defaultPath: `${project.meta.name}.ktheme`,
-    filters: [{ name: '카카오톡 iPhone 테마', extensions: ['ktheme'] }],
-  });
-  if (result.canceled || !result.filePath) return null;
-  const zip = await JSZip.loadAsync(await readFile(templatePath('ios-base.ktheme')));
-  const cssFile = zip.file('KakaoTalkTheme.css');
-  if (!cssFile) throw new Error('iOS 테마 템플릿이 손상되었습니다.');
-  zip.file('KakaoTalkTheme.css', buildIosCss(project, await cssFile.async('string')));
-  await replaceMappedIosImages(zip, project);
-  await writeFile(result.filePath, await generateCleanIosThemeArchive(zip));
-  return result.filePath;
 }
 
 function packageId(project: ThemeProject) {
@@ -380,7 +352,7 @@ function registerIpc() {
     fallback('theme:export-ios'),
     async (event, value: unknown) => {
       assertTrustedSender(event, senderPolicy);
-      return exportIos(parseThemeProjectRequest(value));
+      return exportIosTheme(parseThemeProjectRequest(value));
     },
   ));
   ipcMain.handle('theme:export-android', withIpcErrorBoundary(
