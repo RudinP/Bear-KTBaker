@@ -451,6 +451,34 @@ describe('theme editor', () => {
     expect(screen.getByRole('alert').textContent?.startsWith('[KTB-PROJECT-INVALID-FORMAT]')).toBe(true);
   });
 
+  it.each([
+    '[KTB-',
+    '[KTB-]',
+    '[KTB-SECRET] leaked path',
+    '[KTB-PROJECT-INVALID-FORMAT] leaked path',
+    '[KTB-NOT-REGISTERED]',
+    '[KTB-PROJECT-invalid-FORMAT]',
+    '[ktb-project-invalid-format]',
+    ' [KTB-PROJECT-INVALID-FORMAT]',
+  ])('keeps generic import guidance for an invalid diagnostic prefix: %s', async (message) => {
+    window.themeStudio = {
+      platform: 'win32',
+      importTheme: vi.fn().mockRejectedValue(new Error(message)),
+      openProject: vi.fn(),
+      saveProject: vi.fn(),
+      exportIos: vi.fn(),
+      exportAndroid: vi.fn(),
+      saveScreenshots: vi.fn(),
+    };
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: '불러오기' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe(`불러오지 못했습니다. ${message}`);
+    expect(alert.textContent?.startsWith('불러오지 못했습니다.')).toBe(true);
+  });
+
   it('keeps the current project and shows no success message when import is canceled', async () => {
     const importTheme = vi.fn().mockResolvedValue(null);
     window.themeStudio = {

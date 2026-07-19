@@ -13,17 +13,11 @@ import { updateBubbleGuides, type BubbleVariant } from './domain/bubbleGuideUpda
 import { resolveBubbleGuides } from './manifest/bubbleGuideResolver';
 import { resolveResourceAsset, resolveResourceUrl } from './manifest/resourceResolver';
 import { resolveAssetScale } from './preview/imagePlacement';
+import { rendererOperationErrorText } from './application/errors/rendererOperationErrorText';
 
 type ProjectHistory = { past: ThemeProject[]; present: ThemeProject; future: ThemeProject[] };
 const PREVIEW_ZOOM_STEP = 5;
 const FILE_NOTICE_DURATION = { status: 3_000, error: 5_000 } as const;
-
-function operationErrorText(error: unknown, fallback: string, unknownDetail: string) {
-  const message = typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
-    ? error.message
-    : undefined;
-  return message?.startsWith('[KTB-') ? message : `${fallback} ${message ?? unknownDetail}`;
-}
 
 function isEditableSpaceTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest(
@@ -239,7 +233,7 @@ export default function App() {
       setHistory({ past: [], present: result.project, future: [] });
       setFileNotice({ kind: 'status', text: '테마와 프로젝트 내용을 불러왔습니다.' });
     } catch (error) {
-      setFileNotice({ kind: 'error', text: operationErrorText(error, '불러오지 못했습니다.', '파일을 확인해 주세요.') });
+      setFileNotice({ kind: 'error', text: rendererOperationErrorText(error, '불러오지 못했습니다.', '파일을 확인해 주세요.') });
     }
   };
 
@@ -250,7 +244,7 @@ export default function App() {
       const path = await window.themeStudio.saveProject(serializeThemeProject(project), project.meta.name);
       if (path) setFileNotice({ kind: 'status', text: '프로젝트를 저장했습니다.' });
     } catch (error) {
-      setFileNotice({ kind: 'error', text: operationErrorText(error, '저장하지 못했습니다.', '저장 위치를 확인해 주세요.') });
+      setFileNotice({ kind: 'error', text: rendererOperationErrorText(error, '저장하지 못했습니다.', '저장 위치를 확인해 주세요.') });
     }
   };
 

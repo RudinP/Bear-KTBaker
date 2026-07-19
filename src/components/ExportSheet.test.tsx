@@ -38,6 +38,25 @@ describe('theme export sheet', () => {
     expect(screen.getByRole('button', { name: /iPhone 테마/ })).toBeEnabled();
   });
 
+  it('preserves an end-of-string support code from a structurally bridged export error', async () => {
+    window.themeStudio = {
+      platform: 'darwin',
+      openProject: vi.fn(),
+      saveProject: vi.fn(),
+      importTheme: vi.fn(),
+      exportIos: vi.fn().mockRejectedValue({ message: '[KTB-IOS-EXPORT-TEMPLATE]' }),
+      exportAndroid: vi.fn(),
+      saveScreenshots: vi.fn(),
+    };
+
+    render(<ExportSheet project={createDefaultTheme()} onClose={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: /iPhone 테마/ }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('[KTB-IOS-EXPORT-TEMPLATE]');
+    expect(alert.textContent?.startsWith('[KTB-IOS-EXPORT-TEMPLATE]')).toBe(true);
+  });
+
   it('treats a canceled dialog as cancellation, never as a completed export', async () => {
     window.themeStudio = {
       platform: 'win32',
