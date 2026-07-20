@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import type { AndroidImageExpectation } from '../domain/android/types';
 import type { NinePatchGuides } from '../domain/ninePatch';
 import {
   androidResourceIdentity,
@@ -9,17 +10,7 @@ import {
 import { parseCompiledNinePatchPng, parseNinePatchPng } from './ninePatchPng';
 import type { AndroidCompiledMetadata } from './androidCompiledMetadata';
 
-export interface AndroidImageExpectation {
-  resourceId: string;
-  sourcePath: string;
-  resourceKey: string;
-  semanticQualifier: string;
-  ninePatch: boolean;
-  width: number;
-  height: number;
-  pixelFingerprint: string;
-  guides?: NinePatchGuides;
-}
+export type { AndroidImageExpectation } from '../domain/android/types';
 
 export function assertAndroidImageOutputPossible(options: {
   resourceId: string;

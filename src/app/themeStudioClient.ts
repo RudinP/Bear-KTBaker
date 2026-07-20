@@ -1,16 +1,18 @@
 import type { ThemeProject } from '../domain/theme/model';
-import type { ThemeStudioApi } from '../electron';
+import type {
+  AndroidExportResult,
+  HistoryCommand,
+  ScreenshotSaveRequest,
+  ThemeFileCommand,
+  ThemeImportResult,
+  ThemeStudioApi,
+} from '../shared/themeStudioContract';
 
-export type HistoryCommand = 'undo' | 'redo';
-export type ThemeFileCommand =
-  | 'import-theme'
-  | 'save-project'
-  | 'finish-theme';
-
-export type ThemeImportResult = {
-  kind: 'project' | 'ios' | 'android';
-  project: ThemeProject;
-};
+export type {
+  HistoryCommand,
+  ThemeFileCommand,
+  ThemeImportResult,
+} from '../shared/themeStudioContract';
 
 export const THEME_STUDIO_UNAVAILABLE_MESSAGE = [
   '[KTB-IPC-BRIDGE-UNAVAILABLE]',
@@ -26,9 +28,9 @@ export interface ThemeStudioClient {
   exportIos(project: ThemeProject): Promise<string | null>;
   exportAndroid(
     project: ThemeProject,
-  ): Promise<{ path?: string; error?: string } | null>;
+  ): Promise<AndroidExportResult | null>;
   saveScreenshots(
-    files: Array<{ name: string; dataUrl: string }>,
+    files: ScreenshotSaveRequest[],
   ): Promise<string | null>;
   subscribeHistoryCommands(
     listener: (command: HistoryCommand) => void,

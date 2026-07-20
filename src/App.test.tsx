@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -33,7 +35,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn(),
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -147,7 +148,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme: vi.fn(),
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -175,7 +175,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme,
-      openProject: vi.fn(),
       saveProject,
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -232,7 +231,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme,
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -251,7 +249,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme: vi.fn(),
-      openProject: vi.fn(),
       saveProject,
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -274,7 +271,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn().mockRejectedValue(new Error('손상된 테마 파일입니다.')),
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -299,7 +295,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn().mockRejectedValue(diagnostic),
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -327,7 +322,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn().mockRejectedValue(new Error(message)),
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -347,7 +341,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme,
-      openProject: vi.fn(),
       saveProject: vi.fn(),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -369,7 +362,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'win32',
       importTheme: vi.fn(),
-      openProject: vi.fn(),
       saveProject,
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -388,7 +380,6 @@ describe('theme editor', () => {
     window.themeStudio = {
       platform: 'darwin',
       importTheme: vi.fn(),
-      openProject: vi.fn(),
       saveProject: vi.fn().mockRejectedValue(new Error('저장 폴더를 열 수 없습니다.')),
       exportIos: vi.fn(),
       exportAndroid: vi.fn(),
@@ -409,7 +400,7 @@ describe('theme editor', () => {
       .mockResolvedValueOnce({ kind: 'project', project: imported })
       .mockRejectedValueOnce(new Error('손상된 테마 파일입니다.'));
     window.themeStudio = {
-      platform: 'darwin', importTheme, openProject: vi.fn(), saveProject: vi.fn(),
+      platform: 'darwin', importTheme, saveProject: vi.fn(),
       exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots: vi.fn(),
     };
     render(<App />);
@@ -435,7 +426,7 @@ describe('theme editor', () => {
     vi.useFakeTimers();
     const saveProject = vi.fn().mockResolvedValue('/tmp/project.ktstudio');
     window.themeStudio = {
-      platform: 'darwin', importTheme: vi.fn(), openProject: vi.fn(), saveProject,
+      platform: 'darwin', importTheme: vi.fn(), saveProject,
       exportIos: vi.fn(), exportAndroid: vi.fn(), saveScreenshots: vi.fn(),
     };
     const view = render(<App />);

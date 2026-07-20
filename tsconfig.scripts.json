@@ -6,13 +6,15 @@
   "include": [
     "scripts/**/*.ts",
     "electron/adapters/androidStandaloneBuild.ts",
+    "electron/adapters/androidBuild/**/*.ts",
+    "electron/adapters/androidToolRunner.ts",
+    "electron/adapters/nodeFileSystem.ts",
+    "electron/ipc/requestValidation.ts",
     "src/assets.d.ts",
+    "src/application/**/*.ts",
     "src/domain/**/*.ts",
     "src/io/**/*.ts",
     "src/manifest/**/*.ts"
   ],
-  "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx"
-  ]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

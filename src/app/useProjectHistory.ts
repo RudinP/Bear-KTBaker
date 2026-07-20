@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ThemeProject } from '../domain/theme/model';
 import type { ThemeStudioClient } from './themeStudioClient';
+import {
+  applyProjectChange,
+  type ProjectChangeHandler,
+} from './projectChange';
 
 type ProjectHistory = {
   past: ThemeProject[];
   present: ThemeProject;
   future: ThemeProject[];
+  mergeKey?: string;
 };
 
 export interface UseProjectHistoryOptions {
@@ -16,7 +21,7 @@ export interface UseProjectHistoryOptions {
 
 export interface ProjectHistoryController {
   project: ThemeProject;
-  setProject(next: ThemeProject): void;
+  setProject: ProjectChangeHandler;
   replaceProject(next: ThemeProject): void;
   undo(): void;
   redo(): void;
@@ -35,21 +40,31 @@ export function useProjectHistory({
     future: [],
   }));
 
-  const setProject = useCallback((next: ThemeProject) => {
-    setHistory((current) => ({
-      past: [...current.past, current.present].slice(-limit),
-      present: next,
-      future: [],
-    }));
+  const setProject: ProjectChangeHandler = useCallback((change, options) => {
+    setHistory((current) => {
+      const next = applyProjectChange(current.present, change);
+      if (next === current.present) return current;
+      const mergesWithCurrent = options?.mergeKey !== undefined
+        && options.mergeKey === current.mergeKey;
+      return {
+        past: mergesWithCurrent
+          ? current.past
+          : [...current.past, current.present].slice(-limit),
+        present: next,
+        future: [],
+        mergeKey: options?.mergeKey,
+      };
+    });
   }, [limit]);
   const replaceProject = useCallback((next: ThemeProject) => {
-    setHistory({ past: [], present: next, future: [] });
+    setHistory({ past: [], present: next, future: [], mergeKey: undefined });
   }, []);
   const undo = useCallback(() => {
     setHistory((current) => current.past.length ? {
       past: current.past.slice(0, -1),
       present: current.past[current.past.length - 1],
       future: [current.present, ...current.future],
+      mergeKey: undefined,
     } : current);
   }, []);
   const redo = useCallback(() => {
@@ -57,6 +72,7 @@ export function useProjectHistory({
       past: [...current.past, current.present],
       present: current.future[0],
       future: current.future.slice(1),
+      mergeKey: undefined,
     } : current);
   }, []);
 

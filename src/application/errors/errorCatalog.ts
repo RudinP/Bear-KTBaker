@@ -1,5 +1,4 @@
 export type ThemeOperation =
-  | 'project:open'
   | 'project:save'
   | 'theme:import'
   | 'theme:export-ios'
@@ -20,7 +19,7 @@ export interface ErrorCatalogEntry extends ErrorCatalogDiagnostic {
 
 export const ERROR_CATALOG = {
   'KTB-PROJECT-INVALID-FORMAT': {
-    operation: 'project:open',
+    operation: 'project:save',
     stage: '프로젝트 파일 검증',
     message: '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.',
     source: 'src/application/theme/projectErrorMapping.ts#mapProjectCodecFailure',
@@ -40,7 +39,7 @@ export const ERROR_CATALOG = {
     ],
   },
   'KTB-PROJECT-MIGRATION': {
-    operation: 'project:open',
+    operation: 'project:save',
     stage: '이전 프로젝트 변환',
     message: '이전 버전 프로젝트를 변환하지 못했습니다.',
     source: 'src/application/theme/projectErrorMapping.ts#mapProjectCodecFailure',
@@ -113,37 +112,37 @@ export const ERROR_CATALOG = {
     operation: 'theme:export-android',
     stage: 'Android 런타임 확인',
     message: 'Android APK 내보내기 런타임이 누락되었습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#buildStandaloneAndroidApk',
+    source: 'electron/adapters/androidBuild/buildStandaloneAndroidApk.ts#buildStandaloneAndroidApk',
   },
   'KTB-ANDROID-AAPT2-COMPILE': {
     operation: 'theme:export-android',
     stage: 'APK 리소스 컴파일',
     message: 'Android 리소스 컴파일에 실패했습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#buildStandaloneAndroidApk',
+    source: 'electron/adapters/androidBuild/buildStandaloneAndroidApk.ts#buildStandaloneAndroidApk',
   },
   'KTB-ANDROID-AAPT2-LINK': {
     operation: 'theme:export-android',
     stage: 'APK 리소스 링크',
     message: 'Android 리소스를 APK에 연결하지 못했습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#buildStandaloneAndroidApk',
+    source: 'electron/adapters/androidBuild/buildStandaloneAndroidApk.ts#buildStandaloneAndroidApk',
   },
   'KTB-ANDROID-SIGNING-IDENTITY': {
     operation: 'theme:export-android',
     stage: 'Android 서명 정보 준비',
     message: 'Android 서명 정보를 준비하지 못했습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#loadOrCreateSigningIdentity',
+    source: 'electron/adapters/androidBuild/signingIdentity.ts#loadOrCreateSigningIdentity',
   },
   'KTB-ANDROID-SIGN': {
     operation: 'theme:export-android',
     stage: 'Android APK 서명',
     message: 'Android APK 서명에 실패했습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#signStandaloneApk',
+    source: 'electron/adapters/androidBuild/apkSigner.ts#signStandaloneApk',
   },
   'KTB-ANDROID-VERIFY': {
     operation: 'theme:export-android',
     stage: 'Android APK 검증',
     message: 'Android APK 검증에 실패했습니다.',
-    source: 'electron/adapters/androidStandaloneBuild.ts#verifyStandaloneApkStructure',
+    source: 'electron/adapters/androidBuild/apkSigner.ts#verifyStandaloneApkStructure',
   },
   'KTB-IMAGE-DECODE': {
     operation: 'theme:import',
@@ -215,18 +214,6 @@ export const ERROR_CATALOG = {
     message: '파일을 읽지 못했습니다.',
     source: 'src/application/errors/ipcPayload.ts#serializeThemeStudioError',
     variants: [
-      {
-        operation: 'project:open',
-        stage: '프로젝트 파일 읽기',
-        message: '프로젝트 파일을 읽지 못했습니다.',
-        source: 'src/application/theme/openProject.ts#createOpenProject',
-      },
-      {
-        operation: 'project:open',
-        stage: '프로젝트 열기',
-        message: '프로젝트를 열지 못했습니다.',
-        source: 'electron/ipc/registerThemeIpc.ts#registerThemeIpc',
-      },
       {
         operation: 'theme:import',
         stage: '선택한 테마 파일 읽기',

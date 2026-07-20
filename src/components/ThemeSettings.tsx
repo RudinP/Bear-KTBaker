@@ -1,35 +1,36 @@
+import { readImageAsset } from '../app/browserAssets';
+import type { ProjectChangeHandler } from '../app/projectChange';
 import type { ImageAsset, Platform, ThemeProject } from '../domain/theme/model';
 import { resolveResourceUrl } from '../manifest/resourceResolver';
-
-function readImage(file: File, callback: (asset: ImageAsset) => void) {
-  const reader = new FileReader();
-  reader.onload = () => callback({ fileName: file.name, dataUrl: String(reader.result), userSelected: true });
-  reader.readAsDataURL(file);
-}
 
 export function ThemeSettings({ project, platform, onProject }: {
   project: ThemeProject;
   platform: Platform;
-  onProject: (project: ThemeProject) => void;
+  onProject: ProjectChangeHandler;
 }) {
   const setPlatformResource = (resourceId: string, asset: ImageAsset) => {
-    const current = {
-      ios: project.platformResources?.ios ?? {},
-      android: project.platformResources?.android ?? {},
-    };
-    onProject({
-      ...project,
-      platformResources: {
-        ios: { ...current.ios },
-        android: { ...current.android },
-        [platform]: { ...current[platform], [resourceId]: asset },
-      },
+    onProject((current) => {
+      const resources = {
+        ios: current.platformResources?.ios ?? {},
+        android: current.platformResources?.android ?? {},
+      };
+      return {
+        ...current,
+        platformResources: {
+          ios: { ...resources.ios },
+          android: { ...resources.android },
+          [platform]: { ...resources[platform], [resourceId]: asset },
+        },
+      };
     });
   };
-  const updateMeta = (key: keyof ThemeProject['meta'], value: string) => onProject({
-    ...project,
-    meta: { ...project.meta, [key]: value },
-  });
+  const updateMeta = (key: keyof ThemeProject['meta'], value: string) => onProject(
+    (current) => ({
+      ...current,
+      meta: { ...current.meta, [key]: value },
+    }),
+    { mergeKey: `meta:${key}` },
+  );
   const iconPicker = (resourceId: string, label: string) => {
     const resources = project.platformResources?.[platform] ?? {};
     const icon = resources[resourceId]?.dataUrl
@@ -37,7 +38,9 @@ export function ThemeSettings({ project, platform, onProject }: {
     return <label className="app-icon-picker" key={resourceId}>
       <input type="file" aria-label={`${label} 이미지`} accept="image/png,image/jpeg,image/webp" onChange={(event) => {
         const file = event.target.files?.[0];
-        if (file) readImage(file, (asset) => setPlatformResource(resourceId, asset));
+        if (!file) return;
+        void readImageAsset(file, platform, resourceId)
+          .then((asset) => setPlatformResource(resourceId, asset));
       }} />
       <span className="app-icon-preview" style={icon ? { backgroundImage: `url(${icon})` } : undefined} />
       <b>{label}</b>

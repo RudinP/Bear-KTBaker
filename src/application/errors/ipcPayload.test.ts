@@ -13,8 +13,6 @@ const reusedDiagnosticVariants = [
   ['KTB-PROJECT-INVALID-FORMAT', 'theme:import', '프로젝트 파일 검증', '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.'],
   ['KTB-PROJECT-MIGRATION', 'project:save', '이전 프로젝트 변환', '이전 버전 프로젝트를 변환하지 못했습니다.'],
   ['KTB-PROJECT-MIGRATION', 'theme:import', '이전 프로젝트 변환', '이전 버전 프로젝트를 변환하지 못했습니다.'],
-  ['KTB-FS-READ', 'project:open', '프로젝트 파일 읽기', '프로젝트 파일을 읽지 못했습니다.'],
-  ['KTB-FS-READ', 'project:open', '프로젝트 열기', '프로젝트를 열지 못했습니다.'],
   ['KTB-FS-READ', 'theme:import', '선택한 테마 파일 읽기', '선택한 테마 파일을 읽지 못했습니다.'],
   ['KTB-FS-READ', 'theme:export-android', 'Android 템플릿 읽기', 'Android 테마 템플릿을 읽지 못했습니다.'],
   ['KTB-FS-READ', 'theme:export-android', 'Android 템플릿 압축 읽기', 'Android 테마 템플릿 압축을 읽지 못했습니다.'],

@@ -40,12 +40,6 @@ describe('preload ThemeStudio API', () => {
     }];
     const cases = [
       {
-        call: () => api.openProject(),
-        channel: 'project:open',
-        args: [],
-        value: { path: '/theme.ktstudio', content: '{}' },
-      },
-      {
         call: () => api.saveProject('{}', 'theme'),
         channel: 'project:save',
         args: [{ content: '{}', suggestedName: 'theme' }],
@@ -98,7 +92,7 @@ describe('preload ThemeStudio API', () => {
         value: { error: 'Android build failed' },
       });
 
-    await expect(api.openProject()).resolves.toBeNull();
+    await expect(api.importTheme()).resolves.toBeNull();
     await expect(api.exportAndroid(createDefaultTheme())).resolves.toEqual({
       error: 'Android build failed',
     });
@@ -152,7 +146,7 @@ describe('preload ThemeStudio API', () => {
 
     let failure: unknown;
     try {
-      await api.openProject();
+      await api.importTheme();
     } catch (error) {
       failure = error;
     }

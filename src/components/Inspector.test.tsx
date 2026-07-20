@@ -1,7 +1,21 @@
+// @vitest-environment jsdom
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../domain/theme/defaults';
 import { Inspector } from './Inspector';
+
+const browserAssets = vi.hoisted(() => ({
+  readImageAsset: vi.fn(),
+}));
+
+vi.mock('../app/browserAssets', () => browserAssets);
+
+function changedProject(onProject: ReturnType<typeof vi.fn>, project: ReturnType<typeof createDefaultTheme>) {
+  const change = onProject.mock.calls.at(-1)?.[0];
+  expect(change).toBeTypeOf('function');
+  return change(project);
+}
 
 function renderInspector(selected: Parameters<typeof Inspector>[0]['selected'], onNinePatch = vi.fn(), platform: 'ios' | 'android' = 'android') {
   const project = createDefaultTheme();
@@ -11,6 +25,17 @@ function renderInspector(selected: Parameters<typeof Inspector>[0]['selected'], 
 }
 
 describe('manifest-driven inspector', () => {
+  beforeEach(() => {
+    browserAssets.readImageAsset.mockReset();
+    browserAssets.readImageAsset.mockImplementation(async (file: File) => ({
+      fileName: file.name,
+      dataUrl: 'data:image/png;base64,cHJldmlldw==',
+      width: 20,
+      height: 10,
+      sourceScale: 3,
+      userSelected: true,
+    }));
+  });
   it('shows every domestic tab image state as a separate mapped upload slot', () => {
     renderInspector('tabbar');
     expect(screen.getByLabelText('하단 탭 배경 이미지')).toBeInTheDocument();
@@ -67,7 +92,7 @@ describe('manifest-driven inspector', () => {
     fireEvent.change(screen.getByLabelText('1번 기본 프로필 이미지'), { target: { files: [file] } });
 
     await waitFor(() => expect(onProject).toHaveBeenCalled());
-    const updated = onProject.mock.calls.at(-1)?.[0];
+    const updated = changedProject(onProject, createDefaultTheme());
     expect(updated.platformResources.android['main.profile.01'].fileName).toBe('my-profile.png');
     expect(updated.platformResources.android['main.profile.01'].sourceScale).toBe(3);
     expect(updated.platformResources.android['main.profile.01'].userSelected).toBe(true);
@@ -109,7 +134,8 @@ describe('manifest-driven inspector', () => {
     fireEvent.change(screen.getByLabelText('보낸 첫 말풍선 이미지'), { target: { files: [file] } });
 
     await waitFor(() => expect(onProject).toHaveBeenCalled());
-    const asset = onProject.mock.calls.at(-1)?.[0].platformResources.android['chat.bubble.me.first.normal'];
+    const asset = changedProject(onProject, createDefaultTheme())
+      .platformResources.android['chat.bubble.me.first.normal'];
     expect(asset.rawNinePatch).toBe(true);
     expect(asset.sourceScale).toBe(3);
     expect(asset.userSelected).toBe(true);
@@ -164,7 +190,7 @@ describe('manifest-driven inspector', () => {
     const { project, onProject } = renderInspector('color:chat.input.menu.icon', vi.fn(), platform);
     fireEvent.change(screen.getByLabelText('입력바 메뉴 아이콘 색상'), { target: { value: '#123456' } });
 
-    const updated = onProject.mock.calls.at(-1)?.[0];
+    const updated = changedProject(onProject, project);
     expect(updated.colorValues[platform]).not.toEqual(project.colorValues[platform]);
     const correspondingPlatform = platform === 'ios' ? 'android' : 'ios';
     expect(updated.colorValues[correspondingPlatform]).not.toEqual(project.colorValues[correspondingPlatform]);
@@ -181,7 +207,8 @@ describe('manifest-driven inspector', () => {
     expect(container.querySelector('.color-alpha-field')).toHaveTextContent('알파%');
 
     fireEvent.change(alpha, { target: { value: '50' } });
-    expect(onProject.mock.calls.at(-1)?.[0].colorValues.android.theme_chatroom_input_bar_menu_button_color)
+    expect(changedProject(onProject, createDefaultTheme())
+      .colorValues.android.theme_chatroom_input_bar_menu_button_color)
       .toBe('#80000000');
   });
 
@@ -194,8 +221,37 @@ describe('manifest-driven inspector', () => {
       .toHaveAttribute('data-preview-color', '#0000000A');
 
     fireEvent.change(alpha, { target: { value: '35' } });
-    expect(onProject.mock.calls.at(-1)?.[0].colorValues.ios['InputBarStyle-Chat|-ios-button-normal-background-alpha'])
+    expect(changedProject(onProject, createDefaultTheme())
+      .colorValues.ios['InputBarStyle-Chat|-ios-button-normal-background-alpha'])
       .toBe('0.35');
+  });
+
+  it('uses one asynchronous image read and applies the completed asset to the latest project', async () => {
+    const { onProject } = renderInspector('profile');
+    const file = new File(['profile'], 'latest.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('1번 기본 프로필 이미지'), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(onProject).toHaveBeenCalledOnce());
+    expect(browserAssets.readImageAsset).toHaveBeenCalledOnce();
+    const newer = createDefaultTheme();
+    newer.meta.author = 'newer edit';
+    const updated = changedProject(onProject, newer);
+    expect(updated.meta.author).toBe('newer edit');
+    expect(updated.platformResources.android['main.profile.01'].fileName)
+      .toBe('latest.png');
+  });
+
+  it('merges consecutive color changes for the same slot', () => {
+    const { onProject } = renderInspector('color:chat.input.menu.icon');
+    fireEvent.change(screen.getByLabelText('입력바 메뉴 아이콘 색상'), {
+      target: { value: '#123456' },
+    });
+
+    expect(onProject.mock.calls.at(-1)?.[1]).toEqual({
+      mergeKey: 'color:android:chat.input.menu.icon',
+    });
   });
 
   it.each([

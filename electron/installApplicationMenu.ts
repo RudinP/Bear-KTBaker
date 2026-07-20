@@ -1,4 +1,5 @@
 import { createApplicationMenuTemplate } from './applicationMenu';
+import { THEME_STUDIO_EVENT_CHANNELS } from '../src/shared/themeStudioContract';
 
 export interface InstallApplicationMenuDependencies {
   platform: NodeJS.Platform;
@@ -17,7 +18,7 @@ export function installApplicationMenu(
     dependencies.platform,
     (command) => {
       dependencies.focusedWindow()
-        ?.webContents.send('file:command', command);
+        ?.webContents.send(THEME_STUDIO_EVENT_CHANNELS.fileCommand, command);
     },
   );
   dependencies.setApplicationMenu(

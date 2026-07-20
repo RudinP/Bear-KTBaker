@@ -1,4 +1,7 @@
+// @vitest-environment jsdom
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { PNG } from 'pngjs';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../domain/theme/defaults';
@@ -11,6 +14,19 @@ import type {
 import { KAKAO_COLOR_SLOTS } from '../manifest/kakaoColors';
 import { Inspector } from './Inspector';
 import { PhonePreview } from './preview/PhonePreview';
+
+function imageFile(
+  name: string,
+  color: readonly [number, number, number, number],
+) {
+  const png = new PNG({ width: 1, height: 1 });
+  png.data.set(color);
+  const bytes = PNG.sync.write(png);
+  return {
+    file: new File([Uint8Array.from(bytes)], name, { type: 'image/png' }),
+    base64: bytes.toString('base64'),
+  };
+}
 
 const sharedInputSlotIds = [
   'chat.input.text',
@@ -58,18 +74,20 @@ describe('shared theme elements', () => {
     fireEvent.click(profile02()!);
     expect(screen.getByText('기본 프로필', { selector: '.inspector-title h2' })).toBeInTheDocument();
 
+    const second = imageFile('second-profile.png', [255, 0, 0, 255]);
     fireEvent.change(screen.getByLabelText('2번 기본 프로필 이미지'), {
-      target: { files: [new File(['second-profile'], 'second-profile.png', { type: 'image/png' })] },
+      target: { files: [second.file] },
     });
     await waitFor(() => expect(profile02()?.querySelector('img'))
-      .toHaveAttribute('src', expect.stringContaining('c2Vjb25kLXByb2ZpbGU=')));
+      .toHaveAttribute('src', expect.stringContaining(second.base64)));
 
+    const third = imageFile('third-profile.png', [0, 255, 0, 255]);
     fireEvent.change(screen.getByLabelText('3번 기본 프로필 이미지'), {
-      target: { files: [new File(['third-profile'], 'third-profile.png', { type: 'image/png' })] },
+      target: { files: [third.file] },
     });
     await waitFor(() => {
-      expect(profile02()?.querySelector('img')).toHaveAttribute('src', expect.stringContaining('c2Vjb25kLXByb2ZpbGU='));
-      expect(profile03()?.querySelector('img')).toHaveAttribute('src', expect.stringContaining('dGhpcmQtcHJvZmlsZQ=='));
+      expect(profile02()?.querySelector('img')).toHaveAttribute('src', expect.stringContaining(second.base64));
+      expect(profile03()?.querySelector('img')).toHaveAttribute('src', expect.stringContaining(third.base64));
     });
   });
 
@@ -82,28 +100,33 @@ describe('shared theme elements', () => {
     fireEvent.click(friendsAvatar!);
     expect(screen.getByText('기본 프로필', { selector: '.inspector-title h2' })).toBeInTheDocument();
 
+    const friends = imageFile('friends-profile.png', [0, 0, 255, 255]);
     fireEvent.change(screen.getByLabelText('1번 기본 프로필 이미지'), {
-      target: { files: [new File(['friends-profile'], 'friends-profile.png', { type: 'image/png' })] },
+      target: { files: [friends.file] },
     });
     await waitFor(() => expect(container.querySelector('.kt-friends-list .kt-list-avatar img'))
-      .toHaveAttribute('src', expect.stringContaining('ZnJpZW5kcy1wcm9maWxl')));
+      .toHaveAttribute('src', expect.stringContaining(friends.base64)));
 
     fireEvent.click(screen.getByRole('button', { name: '채팅방 화면 보기' }));
     const chatAvatar = container.querySelector<HTMLElement>('.kt-chat-avatar');
     expect(chatAvatar).toHaveAccessibleName('기본 프로필 꾸미기');
     expect(chatAvatar).toHaveAttribute('data-resource-id', 'main.profile.01');
-    expect(chatAvatar?.querySelector('img')).toHaveAttribute('src', expect.stringContaining('ZnJpZW5kcy1wcm9maWxl'));
+    expect(chatAvatar?.querySelector('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining(friends.base64),
+    );
 
     fireEvent.click(chatAvatar!);
+    const chat = imageFile('chat-profile.png', [255, 255, 0, 255]);
     fireEvent.change(screen.getByLabelText('1번 기본 프로필 이미지'), {
-      target: { files: [new File(['chat-profile'], 'chat-profile.png', { type: 'image/png' })] },
+      target: { files: [chat.file] },
     });
     await waitFor(() => expect(container.querySelector('.kt-chat-avatar img'))
-      .toHaveAttribute('src', expect.stringContaining('Y2hhdC1wcm9maWxl')));
+      .toHaveAttribute('src', expect.stringContaining(chat.base64)));
 
     fireEvent.click(screen.getByRole('button', { name: '친구 화면 보기' }));
     expect(container.querySelector('.kt-friends-list .kt-list-avatar img'))
-      .toHaveAttribute('src', expect.stringContaining('Y2hhdC1wcm9maWxl'));
+      .toHaveAttribute('src', expect.stringContaining(chat.base64));
   });
 
   it.each(['ios', 'android'] as const)('lets every shared composer target on the %s notification screen open its Inspector controls', (platform) => {

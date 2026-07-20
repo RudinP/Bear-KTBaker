@@ -21,9 +21,6 @@ import type {
   ImportTheme,
 } from '../../src/application/theme/importTheme';
 import type {
-  OpenProject,
-} from '../../src/application/theme/openProject';
-import type {
   SaveProject,
 } from '../../src/application/theme/saveProject';
 import {
@@ -40,9 +37,9 @@ import {
   assertTrustedSender,
   type TrustedSenderPolicy,
 } from './trustedSender';
+import { THEME_STUDIO_IPC_CHANNELS } from '../../src/shared/themeStudioContract';
 
 export interface ThemeIpcUseCases {
-  openProject: OpenProject;
   saveProject: SaveProject;
   importTheme: ImportTheme;
   exportIos: ExportIosTheme;
@@ -75,18 +72,7 @@ export function registerThemeIpc(dependencies: {
   };
 
   register(
-    'project:open',
-    {
-      code: 'KTB-FS-READ',
-      operation: 'project:open',
-      stage: '프로젝트 열기',
-      message: '프로젝트를 열지 못했습니다.',
-    },
-    () => dependencies.useCases.openProject(),
-  );
-
-  register(
-    'project:save',
+    THEME_STUDIO_IPC_CHANNELS.saveProject,
     {
       code: 'KTB-FS-WRITE',
       operation: 'project:save',
@@ -103,26 +89,26 @@ export function registerThemeIpc(dependencies: {
   );
 
   register(
-    'theme:import',
-    unexpectedFallback('theme:import'),
+    THEME_STUDIO_IPC_CHANNELS.importTheme,
+    unexpectedFallback(THEME_STUDIO_IPC_CHANNELS.importTheme),
     () => dependencies.useCases.importTheme(),
   );
 
   register(
-    'theme:export-ios',
-    unexpectedFallback('theme:export-ios'),
+    THEME_STUDIO_IPC_CHANNELS.exportIos,
+    unexpectedFallback(THEME_STUDIO_IPC_CHANNELS.exportIos),
     (_event, value: unknown) =>
       dependencies.useCases.exportIos(parseThemeProjectRequest(value)),
   );
 
   const androidFallback: ErrorBoundaryFallback = {
     code: 'KTB-UNKNOWN-UNEXPECTED',
-    operation: 'theme:export-android',
+    operation: THEME_STUDIO_IPC_CHANNELS.exportAndroid,
     stage: 'Android 테마 내보내기',
     message: 'Android 테마를 내보내지 못했습니다.',
   };
   register(
-    'theme:export-android',
+    THEME_STUDIO_IPC_CHANNELS.exportAndroid,
     androidFallback,
     async (_event, value: unknown) => {
       const project = parseThemeProjectRequest(value);
@@ -139,8 +125,8 @@ export function registerThemeIpc(dependencies: {
   );
 
   register(
-    'screenshots:save',
-    unexpectedFallback('screenshots:save'),
+    THEME_STUDIO_IPC_CHANNELS.saveScreenshots,
+    unexpectedFallback(THEME_STUDIO_IPC_CHANNELS.saveScreenshots),
     (_event, value: unknown) => {
       const files: readonly ScreenshotFile[] =
         parseScreenshotSaveRequests(value);

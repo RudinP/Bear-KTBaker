@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { THEME_STUDIO_EVENT_CHANNELS } from '../src/shared/themeStudioContract';
 import { historyCommandForInput } from './historyShortcut';
 
 export type BrowserWindowLike = Pick<
@@ -34,7 +35,7 @@ function installWindowGuards(
     const command = historyCommandForInput(input, platform);
     if (!command) return;
     event.preventDefault();
-    window.webContents.send('history:command', command);
+    window.webContents.send(THEME_STUDIO_EVENT_CHANNELS.historyCommand, command);
   });
 }
 
