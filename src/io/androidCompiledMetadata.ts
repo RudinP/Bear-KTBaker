@@ -1,15 +1,8 @@
 import JSZip from 'jszip';
+import type { AndroidCompiledMetadata } from '../domain/android/types';
 import { ANDROID_SAMPLE_COLORS } from '../manifest/kakaoColors';
 
-export interface AndroidCompiledMetadata {
-  colors?: Record<string, string>;
-  resourceFiles?: Record<string, string[]>;
-  name?: string;
-  resourcePackage?: string;
-  version?: string;
-  themeId?: string;
-  appearance?: 'light' | 'dark';
-}
+export type { AndroidCompiledMetadata } from '../domain/android/types';
 
 const STRING_POOL = 0x0001;
 const XML = 0x0003;

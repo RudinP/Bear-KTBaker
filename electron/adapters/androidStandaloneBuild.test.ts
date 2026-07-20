@@ -1,4 +1,5 @@
 import { sign as signWithPrivateKey } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import {
   mkdir,
   mkdtemp,
@@ -9,7 +10,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import path from 'node:path';
+import path, { resolve } from 'node:path';
 import { ApkSignerV2 } from 'android-package-signer';
 import JSZip from 'jszip';
 import * as forge from 'node-forge';
@@ -40,6 +41,25 @@ function deferred<T>() {
 }
 
 describe('standalone Android APK build support', () => {
+  it('keeps the compatibility facade limited to Android build module re-exports', () => {
+    const facade = readFileSync(
+      resolve(
+        process.cwd(),
+        'electron/adapters/androidStandaloneBuild.ts',
+      ),
+      'utf8',
+    );
+
+    expect(facade).toContain("from './androidBuild/types'");
+    expect(facade).toContain("from './androidBuild/runtime'");
+    expect(facade).toContain("from './androidBuild/signingIdentity'");
+    expect(facade).toContain("from './androidBuild/apkSigner'");
+    expect(facade).toContain("from './androidBuild/apkV2Verifier'");
+    expect(facade).toContain("from './androidBuild/buildStandaloneAndroidApk'");
+    expect(facade).not.toMatch(/\bfunction\b/);
+    expect(facade).not.toMatch(/from 'node:/);
+  });
+
   it('resolves the universal macOS AAPT2 and shared runtime files', () => {
     expect(standaloneRuntimePaths('/Applications/Kakao Theme Studio.app/Contents/Resources/android-runtime', 'darwin')).toEqual({
       androidJar: '/Applications/Kakao Theme Studio.app/Contents/Resources/android-runtime/android.jar',

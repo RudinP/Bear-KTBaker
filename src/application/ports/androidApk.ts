@@ -1,5 +1,7 @@
-import type { AndroidCompiledMetadata } from '../../io/androidCompiledMetadata';
-import type { AndroidImageExpectation } from '../../io/androidImageVerification';
+import type {
+  AndroidCompiledMetadata,
+  AndroidImageExpectation,
+} from '../../domain/android/types';
 
 export interface AndroidApkInspectorPort {
   inspect(

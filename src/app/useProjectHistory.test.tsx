@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultTheme } from '../domain/theme/defaults';
@@ -37,6 +39,53 @@ function renderProjectHistory(
 }
 
 describe('useProjectHistory', () => {
+  it('applies functional changes to the latest project', () => {
+    const { result } = renderProjectHistory();
+
+    act(() => {
+      result.current.setProject((current) => ({
+        ...current,
+        meta: { ...current.meta, author: 'latest author' },
+      }));
+      result.current.setProject((current) => ({
+        ...current,
+        meta: { ...current.meta, name: 'latest name' },
+      }));
+    });
+
+    expect(result.current.project.meta).toMatchObject({
+      author: 'latest author',
+      name: 'latest name',
+    });
+  });
+
+  it('merges consecutive changes with the same key into one undo step', () => {
+    const { result } = renderProjectHistory();
+
+    act(() => {
+      result.current.setProject(
+        (current) => ({
+          ...current,
+          meta: { ...current.meta, name: 'first' },
+        }),
+        { mergeKey: 'meta:name' },
+      );
+      result.current.setProject(
+        (current) => ({
+          ...current,
+          meta: { ...current.meta, name: 'second' },
+        }),
+        { mergeKey: 'meta:name' },
+      );
+    });
+
+    expect(result.current.project.meta.name).toBe('second');
+    act(() => result.current.undo());
+    expect(result.current.project.meta.name).toBe('0');
+    act(() => result.current.redo());
+    expect(result.current.project.meta.name).toBe('second');
+  });
+
   it('limits history to the newest 100 projects and clears redo after a fresh change', () => {
     const { result } = renderProjectHistory({ limit: 100 });
 

@@ -1,9 +1,10 @@
+import { readImageAsset } from '../app/browserAssets';
+import type { ProjectChangeHandler } from '../app/projectChange';
 import type { EditableElementId, ImageAsset, Platform, ScreenId, ThemeProject } from '../domain/theme/model';
 import { getResourceSlot } from '../manifest/kakaoResources';
 import { resolveResourceAsset, resolveResourceUrl } from '../manifest/resourceResolver';
 import { KAKAO_COLOR_SLOTS, getColorSlot } from '../manifest/kakaoColors';
 import { colorAlpha, colorValue, cssColor, opaqueColor, setColorSlot, setColorSlotAlpha } from '../manifest/colorResolver';
-import { pngDimensionsFromDataUrl, uploadSourceScale } from '../io/resourceGeometry';
 
 const labels: Partial<Record<EditableElementId, string>> = {
   'screen-background': '화면 배경', header: '위쪽 바', tabbar: '하단 탭',
@@ -17,28 +18,6 @@ const labels: Partial<Record<EditableElementId, string>> = {
 function selectionLabel(selected: EditableElementId) {
   if (selected.startsWith('color:')) return getColorSlot(selected.slice(6)).label;
   return labels[selected] ?? '선택한 부분';
-}
-
-function readFile(file: File, platform: Platform, resourceId: string, callback: (asset: ImageAsset) => void) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = String(reader.result);
-    const dimensions = pngDimensionsFromDataUrl(dataUrl);
-    const asset: ImageAsset = {
-      fileName: file.name,
-      dataUrl,
-      ...dimensions,
-      sourceScale: uploadSourceScale(platform, resourceId, file.name),
-      rawNinePatch: platform === 'android' && /\.9\.png$/i.test(file.name),
-      userSelected: true,
-    };
-    callback(asset);
-    if (dimensions) return;
-    const image = new Image();
-    image.onload = () => callback({ ...asset, width: image.naturalWidth, height: image.naturalHeight });
-    image.src = dataUrl;
-  };
-  reader.readAsDataURL(file);
 }
 
 function ResourceUpload({ project, platform, resourceId, label, onResource, action }: {
@@ -55,7 +34,18 @@ function ResourceUpload({ project, platform, resourceId, label, onResource, acti
   const assetMetadata = asset && `${asset.fileName}${asset.width && asset.height ? ` · ${asset.width} × ${asset.height}` : ''}`;
   return <div className={`file-drop resource-file${action ? ' has-action' : ''}`}>
     <label className="resource-picker"><input type="file" aria-label={`${label} 이미지`} accept="image/png,image/jpeg,image/webp"
-      onChange={(event) => { const file = event.target.files?.[0]; if (file) readFile(file, platform, resourceId, (asset) => onResource(resourceId, asset)); }} />
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        void readImageAsset(file, platform, resourceId).then((asset) => {
+          onResource(resourceId, {
+            ...asset,
+            ...(platform === 'android' && /\.9\.png$/i.test(file.name)
+              ? { rawNinePatch: true }
+              : {}),
+          });
+        });
+      }} />
       <span className="asset-thumb" style={preview ? { backgroundImage: `url(${preview})` } : undefined} />
       <span className="resource-file-copy"><b>{label}</b>{assetMetadata && <small className="resource-file-meta" title={assetMetadata}>{assetMetadata}</small>}</span>
     </label>
@@ -93,7 +83,7 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
   platform: Platform;
   selected: EditableElementId;
   screen: ScreenId;
-  onProject: (project: ThemeProject) => void;
+  onProject: ProjectChangeHandler;
   onNinePatch: (variant: 'normal' | 'pressed' | 'grouped' | 'groupedPressed', resourceId: string) => void;
 }) {
   const isMe = selected === 'bubble-me';
@@ -106,13 +96,18 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
       || (selected === 'notification' && slot.targets.includes('direct-share'))
     ));
 
-  const setResource = (resourceId: string, asset: ImageAsset) => onProject({
-    ...project,
-    platformResources: {
-      ...project.platformResources,
-      [platform]: { ...project.platformResources[platform], [resourceId]: asset },
-    },
-  });
+  const setResource = (resourceId: string, asset: ImageAsset) => onProject(
+    (current) => ({
+      ...current,
+      platformResources: {
+        ...current.platformResources,
+        [platform]: {
+          ...current.platformResources[platform],
+          [resourceId]: asset,
+        },
+      },
+    }),
+  );
   const bubbleSide = isMe ? 'me' : 'you';
   const bubbleLabel = isMe ? '보낸' : '받은';
   const bubbleUploads = platform === 'android'
@@ -145,7 +140,13 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
             <span className="color-swatch-checker" aria-hidden="true">
               <span data-testid={`${slot.id}-color-swatch`} data-preview-color={previewColor} style={{ backgroundColor: previewColor }} />
             </span>
-            <input aria-label={`${slot.label} 색상`} type="color" value={opaqueColor(value)} onChange={(event) => onProject(setColorSlot(project, platform, slot.id, event.target.value))} />
+            <input aria-label={`${slot.label} 색상`} type="color" value={opaqueColor(value)} onChange={(event) => {
+              const nextValue = event.target.value;
+              onProject(
+                (current) => setColorSlot(current, platform, slot.id, nextValue),
+                { mergeKey: `color:${platform}:${slot.id}` },
+              );
+            }} />
           </label>
           <span className="color-slot-copy"><b>{slot.label}</b><small title={keys.join(' · ')}>{keys.join(' · ')}</small></span>
           <span className="color-slot-values">
@@ -156,7 +157,15 @@ export function Inspector({ project, platform, selected, screen, onProject, onNi
                 onChange={(event) => {
                   if (event.target.value === '') return;
                   const percent = Number(event.target.value);
-                  if (Number.isFinite(percent)) onProject(setColorSlotAlpha(project, platform, slot.id, percent / 100));
+                  if (Number.isFinite(percent)) onProject(
+                    (current) => setColorSlotAlpha(
+                      current,
+                      platform,
+                      slot.id,
+                      percent / 100,
+                    ),
+                    { mergeKey: `color:${platform}:${slot.id}` },
+                  );
                 }} />
               <span>%</span>
             </label>}

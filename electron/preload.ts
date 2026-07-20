@@ -7,6 +7,10 @@ import { ERROR_CATALOG } from '../src/application/errors/errorCatalog';
 import { ThemeStudioError } from '../src/application/errors/ThemeStudioError';
 import { formatThemeStudioSupportString } from '../src/application/errors/supportString';
 import type { ThemeStudioApi } from '../src/electron';
+import {
+  THEME_STUDIO_EVENT_CHANNELS,
+  THEME_STUDIO_IPC_CHANNELS,
+} from '../src/shared/themeStudioContract';
 
 async function invokeOrThrow<T>(
   channel: string,
@@ -89,30 +93,29 @@ function bridgeUnavailableError() {
 
 const api: ThemeStudioApi = {
   platform: process.platform,
-  openProject: () => invokeOrThrow('project:open'),
   saveProject: (content, suggestedName) => invokeOrThrow(
-    'project:save',
+    THEME_STUDIO_IPC_CHANNELS.saveProject,
     { content, suggestedName },
   ),
-  importTheme: () => invokeOrThrow('theme:import'),
-  exportIos: (project) => invokeOrThrow('theme:export-ios', project),
+  importTheme: () => invokeOrThrow(THEME_STUDIO_IPC_CHANNELS.importTheme),
+  exportIos: (project) => invokeOrThrow(THEME_STUDIO_IPC_CHANNELS.exportIos, project),
   exportAndroid: (project) => invokeOrThrow(
-    'theme:export-android',
+    THEME_STUDIO_IPC_CHANNELS.exportAndroid,
     project,
   ),
   saveScreenshots: (files) => invokeOrThrow(
-    'screenshots:save',
+    THEME_STUDIO_IPC_CHANNELS.saveScreenshots,
     files,
   ),
   onHistoryCommand: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: 'undo' | 'redo') => listener(command);
-    ipcRenderer.on('history:command', handler);
-    return () => ipcRenderer.removeListener('history:command', handler);
+    ipcRenderer.on(THEME_STUDIO_EVENT_CHANNELS.historyCommand, handler);
+    return () => ipcRenderer.removeListener(THEME_STUDIO_EVENT_CHANNELS.historyCommand, handler);
   },
   onFileCommand: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: 'import-theme' | 'save-project' | 'finish-theme') => listener(command);
-    ipcRenderer.on('file:command', handler);
-    return () => ipcRenderer.removeListener('file:command', handler);
+    ipcRenderer.on(THEME_STUDIO_EVENT_CHANNELS.fileCommand, handler);
+    return () => ipcRenderer.removeListener(THEME_STUDIO_EVENT_CHANNELS.fileCommand, handler);
   },
 };
 

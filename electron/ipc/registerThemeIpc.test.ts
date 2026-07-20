@@ -19,7 +19,6 @@ type RegisteredHandler = (
 ) => Promise<unknown>;
 
 const channels = [
-  'project:open',
   'project:save',
   'theme:import',
   'theme:export-ios',
@@ -35,7 +34,6 @@ function event(url = 'file:///Applications/Bear%20KTBaker/dist/index.html') {
 
 function createUseCases(): ThemeIpcUseCases {
   return {
-    openProject: vi.fn().mockResolvedValue('/opened'),
     saveProject: vi.fn().mockResolvedValue('/saved'),
     importTheme: vi.fn().mockResolvedValue('/imported'),
     exportIos: vi.fn().mockResolvedValue('/ios'),
@@ -78,13 +76,12 @@ describe('registerThemeIpc', () => {
     return registered;
   }
 
-  it('registers all six invoke channels exactly once', () => {
+  it('registers the shared invoke channels exactly once', () => {
     expect(registrations).toEqual(channels);
-    expect(new Set(registrations)).toHaveLength(6);
+    expect(new Set(registrations)).toHaveLength(5);
   });
 
   it.each([
-    ['project:open', []],
     ['project:save', [{ content: '{}', suggestedName: 'theme' }]],
     ['theme:import', []],
     ['theme:export-ios', [createDefaultTheme()]],
@@ -113,7 +110,6 @@ describe('registerThemeIpc', () => {
         ok: false,
         error: { code: 'KTB-IPC-UNTRUSTED-SENDER' },
       });
-      expect(useCases.openProject).not.toHaveBeenCalled();
       expect(useCases.saveProject).not.toHaveBeenCalled();
       expect(useCases.importTheme).not.toHaveBeenCalled();
       expect(useCases.exportIos).not.toHaveBeenCalled();
@@ -148,7 +144,6 @@ describe('registerThemeIpc', () => {
       }
       const project = createDefaultTheme();
       const args: Record<typeof channels[number], unknown[]> = {
-        'project:open': [],
         'project:save': [{ content: JSON.stringify(project), suggestedName: 'theme' }],
         'theme:import': [],
         'theme:export-ios': [project],
@@ -166,7 +161,6 @@ describe('registerThemeIpc', () => {
   );
 
   it.each([
-    ['project:open', 'openProject', []],
     [
       'project:save',
       'saveProject',

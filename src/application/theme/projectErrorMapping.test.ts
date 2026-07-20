@@ -41,7 +41,7 @@ describe('project codec error mapping', () => {
   it('preserves an existing application error unchanged', () => {
     const original = new ThemeStudioError({
       code: 'KTB-FS-READ',
-      operation: 'project:open',
+      operation: 'project:save',
       stage: '기존 단계',
       message: '기존 오류입니다.',
       cause: new Error('original cause'),

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it, vi } from 'vitest';
 import type { ThemeStudioApi } from '../electron';
 import {
@@ -17,7 +19,6 @@ describe('theme studio renderer client', () => {
 
     api = {
       platform: 'darwin',
-      openProject: vi.fn(),
       importTheme: vi.fn().mockResolvedValue(null),
       saveProject: vi.fn().mockResolvedValue(null),
       exportIos: vi.fn(),

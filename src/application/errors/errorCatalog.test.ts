@@ -19,7 +19,7 @@ describe('diagnostic error catalog', () => {
 
   it('keeps stable catalog defaults for public compatibility', () => {
     expect(ERROR_CATALOG['KTB-PROJECT-INVALID-FORMAT']).toMatchObject({
-      operation: 'project:open',
+      operation: 'project:save',
       stage: '프로젝트 파일 검증',
       message: '테마 스튜디오 프로젝트 파일을 읽지 못했습니다.',
       source: 'src/application/theme/projectErrorMapping.ts#mapProjectCodecFailure',

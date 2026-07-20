@@ -2,10 +2,6 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  createOpenProject,
-  type OpenedProject,
-} from '../src/application/theme/openProject';
-import {
   createImportTheme,
   type ImportThemeResult,
 } from '../src/application/theme/importTheme';
@@ -67,8 +63,6 @@ const signingIdentityPath = paths.join(
   app.getPath('userData'),
   'android-signing-identity.json',
 );
-const openProject: () => Promise<OpenedProject | null> =
-  createOpenProject({ dialogs, files });
 const saveProject = createSaveProject({ dialogs, files });
 const saveScreenshots = createSaveScreenshots({ dialogs, files, paths });
 const importTheme: () => Promise<ImportThemeResult | null> = createImportTheme({
@@ -109,7 +103,6 @@ app.whenReady().then(async () => {
     ipc: ipcMain,
     senderPolicy,
     useCases: {
-      openProject,
       saveProject,
       importTheme,
       exportIos: exportIosTheme,

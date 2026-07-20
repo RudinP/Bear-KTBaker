@@ -250,16 +250,32 @@ function isDomainDependencyViolation(
   );
 }
 
-function isApplicationDependencyViolation(file: string, specifier: string) {
+function isApplicationDependencyViolation(
+  file: string,
+  specifier: string,
+  compilerOptions = compilerOptionsForFile(file),
+) {
   const forbiddenPackages = ['react', 'react-dom', 'electron'];
-  const target = resolvedRepositoryTarget(file, specifier);
+  const target = resolvedRepositoryTarget(file, specifier, compilerOptions);
   return (
     isNodeRuntimeImport(specifier) ||
     forbiddenPackages.some((packageName) =>
       importsPackage(specifier, packageName),
     ) ||
+    target?.startsWith('src/app/') ||
     target?.startsWith('src/components/') ||
     target?.startsWith('electron/')
+  );
+}
+
+function isApplicationPortDependencyViolation(
+  file: string,
+  specifier: string,
+  compilerOptions = compilerOptionsForFile(file),
+) {
+  return (
+    isApplicationDependencyViolation(file, specifier, compilerOptions)
+    || resolvedRepositoryTarget(file, specifier, compilerOptions)?.startsWith('src/io/')
   );
 }
 
@@ -417,6 +433,10 @@ describe('architecture gate self-tests', () => {
     projectRoot,
     'src/application/theme/importTheme.ts',
   );
+  const applicationPortImporter = path.join(
+    projectRoot,
+    'src/application/ports/androidApk.ts',
+  );
   const aliasCompilerOptions: ts.CompilerOptions = {
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -470,6 +490,35 @@ describe('architecture gate self-tests', () => {
   });
 
   it.each([
+    ['@app/themeStudioClient', 'src/app/'],
+  ])('rejects application aliases into %s', (specifier, target) => {
+    expect(
+      resolvedRepositoryTarget(
+        applicationImporter,
+        specifier,
+        aliasCompilerOptions,
+      ),
+    ).toEqual(expect.stringMatching(`^${target}`));
+    expect(
+      isApplicationDependencyViolation(
+        applicationImporter,
+        specifier,
+        aliasCompilerOptions,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects application port aliases into IO', () => {
+    expect(
+      isApplicationPortDependencyViolation(
+        applicationPortImporter,
+        '@io/androidImageVerification',
+        aliasCompilerOptions,
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
     'window.themeStudio',
     'window?.themeStudio',
     "window['themeStudio']",
@@ -515,6 +564,18 @@ describe('dependency direction', () => {
           .filter((specifier) =>
             isApplicationDependencyViolation(file, specifier),
           )
+          .map((specifier) => `${repositoryPath(file)} imports ${specifier}`),
+      );
+
+    expect(violations, violations.join('\n')).toEqual([]);
+  });
+
+  it('keeps application ports independent from IO implementations', () => {
+    const violations = productionFiles
+      .filter((file) => repositoryPath(file).startsWith('src/application/ports/'))
+      .flatMap((file) =>
+        (importsByFile.get(file) ?? [])
+          .filter((specifier) => isApplicationPortDependencyViolation(file, specifier))
           .map((specifier) => `${repositoryPath(file)} imports ${specifier}`),
       );
 
