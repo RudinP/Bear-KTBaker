@@ -322,6 +322,34 @@ describe('Android APK builder adapter', () => {
     },
   );
 
+  it('carries a classified aapt2 toolReason into safeContext without leaking raw diagnostics', async () => {
+    const failure = new AndroidStandaloneBuildError({
+      stage: 'compile',
+      message: '/private/build/한글-경로 컴파일 실패',
+      exitCode: 1,
+      diagnostics: "error: failed to open file '/private/build/한글-경로/src/main/res'.",
+      toolReason: 'non-ascii-path',
+      cause: { stderr: 'raw stderr with /private/build/한글-경로' },
+    });
+    const builder = createAndroidApkBuilder({
+      platform: 'win32',
+      buildStandalone: vi.fn().mockRejectedValue(failure),
+    });
+
+    const error = await builder.build(request).catch((caught) => caught);
+
+    expect(error).toMatchObject({
+      code: 'KTB-ANDROID-AAPT2-COMPILE',
+      safeContext: {
+        exitCode: 1,
+        toolReason: 'non-ascii-path',
+      },
+    });
+    expect(Object.keys(error.safeContext)).toEqual(['exitCode', 'toolReason']);
+    expect(error.message).not.toContain('한글-경로');
+    expect(error.message).not.toContain('/private/build');
+  });
+
   it('never wraps an existing ThemeStudioError', async () => {
     const existing = new ThemeStudioError({
       code: 'KTB-FS-WRITE',

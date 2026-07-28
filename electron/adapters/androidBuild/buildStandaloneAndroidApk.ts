@@ -15,9 +15,17 @@ import {
 } from '../../../src/io/androidImageVerification';
 import { injectStandaloneDex, signStandaloneApk, verifyStandaloneApkStructure } from './apkSigner';
 import { verifyStandaloneApkSignatureV2 } from './apkV2Verifier';
-import { AndroidStandaloneBuildError } from './errors';
+import {
+  AndroidStandaloneBuildError,
+  classifyAapt2Failure,
+  extractProcessDiagnostics,
+} from './errors';
 import { verifyStandaloneAndroidMetadata } from './metadata';
-import { buildStandaloneAapt2Plan, standaloneRuntimePaths } from './runtime';
+import {
+  buildStandaloneAapt2Plan,
+  resolveAndroidJarArg,
+  standaloneRuntimePaths,
+} from './runtime';
 import { loadOrCreateSigningIdentity } from './signingIdentity';
 import type {
   AndroidStandaloneBuildStage,
@@ -83,20 +91,21 @@ export async function buildStandaloneAndroidApk({
     },
   );
 
-  const unsignedPath = path.join(
-    buildDir,
-    '.standalone',
-    'unsigned.apk',
+  const workDir = path.join(buildDir, '.standalone');
+  await mkdir(workDir, { recursive: true });
+  const androidJarArg = await runAndroidBuildStage(
+    'runtime',
+    'Android APK 내보내기 런타임을 확인하지 못했습니다.',
+    () => resolveAndroidJarArg(runtime.androidJar, workDir),
   );
   const plan = buildStandaloneAapt2Plan({
     buildDir,
-    outputPath: unsignedPath,
     runtime,
     packageName,
     versionCode,
     versionName,
+    androidJarArg,
   });
-  await mkdir(plan.workDir, { recursive: true });
   const options = {
     cwd: buildDir,
     timeout: 2 * 60_000,
@@ -107,16 +116,18 @@ export async function buildStandaloneAndroidApk({
       'compile',
       'Android 리소스 컴파일에 실패했습니다.',
       () => run(runtime.aapt2, args, options),
+      { buildDir, args },
     );
   }
   await runAndroidBuildStage(
     'link',
     'Android 리소스를 APK에 연결하지 못했습니다.',
     () => run(runtime.aapt2, plan.link, options),
+    { buildDir, args: plan.link },
   );
 
   const withRuntime = await injectStandaloneDex(
-    await readFile(unsignedPath),
+    await readFile(plan.unsignedPath),
     await readFile(runtime.classesDex),
   );
   const identity = await runAndroidBuildStage(
@@ -156,6 +167,7 @@ async function runAndroidBuildStage<T>(
   stage: AndroidStandaloneBuildStage,
   message: string,
   work: () => Promise<T>,
+  aapt2Context?: { buildDir: string; args: readonly string[] },
 ) {
   try {
     return await work();
@@ -169,11 +181,21 @@ async function runAndroidBuildStage<T>(
       typeof (cause as { signal?: unknown })?.signal === 'string'
         ? (cause as { signal: string }).signal
         : undefined;
+    const diagnostics = extractProcessDiagnostics(cause);
+    const toolReason = aapt2Context
+      ? classifyAapt2Failure({
+          diagnostics,
+          cwd: aapt2Context.buildDir,
+          args: aapt2Context.args,
+        })
+      : undefined;
     throw new AndroidStandaloneBuildError({
       stage,
       message,
       exitCode,
       signal,
+      diagnostics,
+      toolReason,
       cause,
     });
   }

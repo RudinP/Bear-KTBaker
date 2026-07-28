@@ -129,6 +129,26 @@ describe('ThemeStudioError', () => {
     });
   });
 
+  it('keeps an allowlisted aapt2 toolReason and drops any other value', () => {
+    const withKnownReason = new ThemeStudioError({
+      code: 'KTB-ANDROID-AAPT2-COMPILE',
+      operation: 'theme:export-android',
+      stage: 'APK 리소스 컴파일',
+      message: 'Android 리소스 컴파일에 실패했습니다.',
+      safeContext: { toolReason: 'non-ascii-path' },
+    });
+    expect(withKnownReason.safeContext).toEqual({ toolReason: 'non-ascii-path' });
+
+    const withUnknownReason = new ThemeStudioError({
+      code: 'KTB-ANDROID-AAPT2-COMPILE',
+      operation: 'theme:export-android',
+      stage: 'APK 리소스 컴파일',
+      message: 'Android 리소스 컴파일에 실패했습니다.',
+      safeContext: { toolReason: '/Users/person/leaked-path' },
+    });
+    expect(withUnknownReason.safeContext).toBeUndefined();
+  });
+
   it('drops unsafe values even when their context keys are allowlisted', () => {
     const error = new ThemeStudioError({
       code: 'KTB-FS-WRITE',

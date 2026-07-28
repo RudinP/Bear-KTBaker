@@ -8,6 +8,14 @@ import {
   type ThemeStudioErrorDetails,
 } from './ThemeStudioError';
 
+const TOOL_REASON_MESSAGES = {
+  'non-ascii-path': '경로에 한글 등 특수 문자가 포함되어 있어요 (임시 폴더 경로를 영문으로 바꾼 뒤 다시 시도해 주세요)',
+  'path-too-long': '경로가 너무 길어요 (설치 위치를 더 짧은 경로로 옮긴 뒤 다시 시도해 주세요)',
+  'permission-denied': '해당 경로에 접근 권한이 없어요',
+  'missing-file': '필요한 파일을 찾지 못했어요',
+  unknown: '알 수 없는 도구 오류예요',
+} as const;
+
 export function formatThemeStudioSupportString(
   error: Pick<
     ThemeStudioErrorDetails,
@@ -37,6 +45,13 @@ export function formatThemeStudioSupportString(
   }
   if (safeContext?.signal !== undefined) {
     lines.push(`종료 시그널: ${safeContext.signal}`);
+  }
+  if (safeContext?.toolReason !== undefined) {
+    lines.push(
+      `원인 분류: ${TOOL_REASON_MESSAGES[
+        safeContext.toolReason as keyof typeof TOOL_REASON_MESSAGES
+      ] ?? safeContext.toolReason}`,
+    );
   }
   if (safeContext?.resourceId !== undefined) {
     const key = safeContext.resourceKey === undefined

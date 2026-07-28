@@ -1,5 +1,12 @@
 export type StandaloneAndroidPlatform = 'darwin' | 'win32';
 
+export type Aapt2FailureReason =
+  | 'non-ascii-path'
+  | 'path-too-long'
+  | 'permission-denied'
+  | 'missing-file'
+  | 'unknown';
+
 export type AndroidStandaloneBuildStage =
   | 'runtime'
   | 'compile'

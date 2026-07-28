@@ -147,6 +147,55 @@ describe('Node file-system adapter', () => {
     );
   });
 
+  it('uses an ASCII-safe machine-wide temp root on Windows when %TEMP% has non-ASCII characters', async () => {
+    const originalPlatform = process.platform;
+    const originalProgramData = process.env.ProgramData;
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.ProgramData = 'C:/ProgramData';
+    node.tmpdir.mockReturnValue('C:/Users/철수/AppData/Local/Temp');
+    node.mkdtemp.mockResolvedValue('C:/ProgramData/BearKTBaker/Temp/ktb-unique');
+    try {
+      const { files } = createNodeFileSystemPort();
+
+      await expect(files.createTemporaryDirectory('ktb-'))
+        .resolves.toBe('C:/ProgramData/BearKTBaker/Temp/ktb-unique');
+      expect(node.mkdir).toHaveBeenCalledWith(
+        'C:/ProgramData/BearKTBaker/Temp',
+        { recursive: true },
+      );
+      expect(node.mkdtemp).toHaveBeenCalledWith(
+        'C:/ProgramData/BearKTBaker/Temp/ktb-',
+      );
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      if (originalProgramData === undefined) delete process.env.ProgramData;
+      else process.env.ProgramData = originalProgramData;
+    }
+  });
+
+  it('falls back to the default temp root when the ASCII-safe root cannot be prepared', async () => {
+    const originalPlatform = process.platform;
+    const originalProgramData = process.env.ProgramData;
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.ProgramData = 'C:/ProgramData';
+    node.tmpdir.mockReturnValue('C:/Users/철수/AppData/Local/Temp');
+    node.mkdir.mockRejectedValueOnce(new Error('no access'));
+    node.mkdtemp.mockResolvedValue('C:/Users/철수/AppData/Local/Temp/ktb-unique');
+    try {
+      const { files } = createNodeFileSystemPort();
+
+      await expect(files.createTemporaryDirectory('ktb-'))
+        .resolves.toBe('C:/Users/철수/AppData/Local/Temp/ktb-unique');
+      expect(node.mkdtemp).toHaveBeenCalledWith(
+        'C:/Users/철수/AppData/Local/Temp/ktb-',
+      );
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      if (originalProgramData === undefined) delete process.env.ProgramData;
+      else process.env.ProgramData = originalProgramData;
+    }
+  });
+
   it('removes directories recursively and forcibly', async () => {
     const { files } = createNodeFileSystemPort();
 
