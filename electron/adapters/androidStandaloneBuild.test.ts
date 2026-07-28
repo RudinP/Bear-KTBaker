@@ -20,6 +20,7 @@ import {
   type AndroidSigningIdentity,
   buildStandaloneAapt2Plan,
   buildStandaloneAndroidApk,
+  classifyAapt2Failure,
   injectStandaloneDex,
   loadOrCreateSigningIdentity,
   signStandaloneApk,
@@ -76,23 +77,23 @@ describe('standalone Android APK build support', () => {
     });
   });
 
-  it('builds an AAPT2 compile/link plan from all three official resource roots', () => {
+  it('builds an AAPT2 compile/link plan using paths relative to the build dir', () => {
     const plan = buildStandaloneAapt2Plan({
       buildDir: '/tmp/theme',
-      outputPath: '/tmp/theme/unsigned.apk',
       runtime: standaloneRuntimePaths('/runtime', 'darwin'),
       packageName: 'com.example.prettytheme',
       versionCode: 20304,
       versionName: '2.3.4',
     });
 
+    expect(plan.unsignedPath).toBe('/tmp/theme/.standalone/unsigned.apk');
     expect(plan.compile).toEqual([
-      ['compile', '--dir', '/tmp/theme/src/main/res', '-o', '/tmp/theme/.standalone/res.zip'],
-      ['compile', '--dir', '/tmp/theme/src/main/theme', '-o', '/tmp/theme/.standalone/theme.zip'],
-      ['compile', '--dir', '/tmp/theme/src/main/theme-adv', '-o', '/tmp/theme/.standalone/theme-adv.zip'],
+      ['compile', '--dir', path.join('src', 'main', 'res'), '-o', path.join('.standalone', 'res.zip')],
+      ['compile', '--dir', path.join('src', 'main', 'theme'), '-o', path.join('.standalone', 'theme.zip')],
+      ['compile', '--dir', path.join('src', 'main', 'theme-adv'), '-o', path.join('.standalone', 'theme-adv.zip')],
     ]);
     expect(plan.link).toEqual(expect.arrayContaining([
-      '--manifest', '/tmp/theme/src/main/AndroidManifest.xml',
+      '--manifest', path.join('src', 'main', 'AndroidManifest.xml'),
       '-I', '/runtime/android.jar',
       '--rename-manifest-package', 'com.example.prettytheme',
       '--rename-resources-package', 'com.example.prettytheme',
@@ -100,10 +101,89 @@ describe('standalone Android APK build support', () => {
       '--version-name', '2.3.4',
     ]));
     expect(plan.link.slice(-3)).toEqual([
-      '/tmp/theme/.standalone/res.zip',
-      '/tmp/theme/.standalone/theme.zip',
-      '/tmp/theme/.standalone/theme-adv.zip',
+      path.join('.standalone', 'res.zip'),
+      path.join('.standalone', 'theme.zip'),
+      path.join('.standalone', 'theme-adv.zip'),
     ]);
+  });
+
+  it('uses a relative -I arg when the android.jar path has non-ASCII characters, ASCII otherwise', () => {
+    const asciiPlan = buildStandaloneAapt2Plan({
+      buildDir: '/tmp/theme',
+      runtime: standaloneRuntimePaths('/runtime', 'darwin'),
+      packageName: 'com.example.prettytheme',
+      versionCode: 1,
+      versionName: '1.0.0',
+    });
+    expect(asciiPlan.link).toEqual(expect.arrayContaining(['-I', '/runtime/android.jar']));
+
+    const nonAsciiPlan = buildStandaloneAapt2Plan({
+      buildDir: '/tmp/theme',
+      runtime: standaloneRuntimePaths('/runtime', 'darwin'),
+      packageName: 'com.example.prettytheme',
+      versionCode: 1,
+      versionName: '1.0.0',
+      androidJarArg: path.join('.standalone', 'android.jar'),
+    });
+    expect(nonAsciiPlan.link).toEqual(
+      expect.arrayContaining(['-I', path.join('.standalone', 'android.jar')]),
+    );
+  });
+
+  it('never emits a non-ASCII argument to aapt2, even for a non-ASCII build directory', () => {
+    const koreanBuildDir = '/tmp/한글-테마';
+    const plan = buildStandaloneAapt2Plan({
+      buildDir: koreanBuildDir,
+      runtime: standaloneRuntimePaths('/runtime', 'darwin'),
+      packageName: 'com.example.prettytheme',
+      versionCode: 1,
+      versionName: '1.0.0',
+    });
+    const allArgs = [...plan.compile.flat(), ...plan.link];
+    expect(allArgs.every((arg) => !/[^\x00-\x7f]/.test(arg))).toBe(true);
+  });
+
+  describe('classifyAapt2Failure', () => {
+    it('classifies a failure to open a path as non-ascii-path when the build dir has non-ASCII characters', () => {
+      expect(classifyAapt2Failure({
+        diagnostics: "error: failed to open file 'src/main/res'.",
+        cwd: '/Users/철수/AppData/Local/Temp/ktb-xyz',
+        args: ['compile', '--dir', 'src/main/res', '-o', '.standalone/res.zip'],
+      })).toBe('non-ascii-path');
+    });
+
+    it('classifies an overly long resolved path as path-too-long', () => {
+      const deepCwd = `/tmp/${'a'.repeat(250)}`;
+      expect(classifyAapt2Failure({
+        diagnostics: 'error: failed to open file',
+        cwd: deepCwd,
+        args: ['compile', '--dir', 'src/main/res', '-o', '.standalone/res.zip'],
+      })).toBe('path-too-long');
+    });
+
+    it('classifies an access error as permission-denied', () => {
+      expect(classifyAapt2Failure({
+        diagnostics: 'error: Access is denied.',
+        cwd: '/tmp/ktb-xyz',
+        args: ['compile', '--dir', 'src/main/res', '-o', '.standalone/res.zip'],
+      })).toBe('permission-denied');
+    });
+
+    it('classifies a plain open failure with ASCII-only paths as missing-file', () => {
+      expect(classifyAapt2Failure({
+        diagnostics: "error: failed to open file 'src/main/res'.",
+        cwd: '/tmp/ktb-xyz',
+        args: ['compile', '--dir', 'src/main/res', '-o', '.standalone/res.zip'],
+      })).toBe('missing-file');
+    });
+
+    it('classifies anything else as unknown', () => {
+      expect(classifyAapt2Failure({
+        diagnostics: 'error: some unrelated aapt2 failure',
+        cwd: '/tmp/ktb-xyz',
+        args: ['compile', '--dir', 'src/main/res', '-o', '.standalone/res.zip'],
+      })).toBe('unknown');
+    });
   });
 
   it('rejects a compiled manifest package that differs from the requested theme identifier', () => {
@@ -655,10 +735,10 @@ describe('standalone Android APK build support', () => {
     await writeFile(path.join(runtimeDir, 'android.jar'), 'android');
     await writeFile(path.join(runtimeDir, 'classes.dex'), 'dex\n035\0runtime');
     const calls: string[][] = [];
-    const run = vi.fn(async (_executable: string, args: string[]) => {
+    const run = vi.fn(async (_executable: string, args: string[], options: { cwd: string }) => {
       calls.push(args);
       if (args[0] !== 'link') return;
-      await writeFile(args[args.indexOf('-o') + 1], compiledFixture);
+      await writeFile(path.resolve(options.cwd, args[args.indexOf('-o') + 1]), compiledFixture);
     });
 
     const result = await buildStandaloneAndroidApk({
@@ -713,8 +793,10 @@ describe('standalone Android APK build support', () => {
       sourcePng,
       false,
     )!;
-    const run = vi.fn(async (_executable: string, args: string[]) => {
-      if (args[0] === 'link') await writeFile(args[args.indexOf('-o') + 1], compiledFixture);
+    const run = vi.fn(async (_executable: string, args: string[], options: { cwd: string }) => {
+      if (args[0] === 'link') {
+        await writeFile(path.resolve(options.cwd, args[args.indexOf('-o') + 1]), compiledFixture);
+      }
     });
 
     await expect(buildStandaloneAndroidApk({
@@ -765,8 +847,10 @@ describe('standalone Android APK build support', () => {
     mismatchedApk.file('AndroidManifest.xml', manifest);
     mismatchedApk.file('resources.arsc', resources);
     const compiled = await mismatchedApk.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
-    const run = vi.fn(async (_executable: string, args: string[]) => {
-      if (args[0] === 'link') await writeFile(args[args.indexOf('-o') + 1], compiled);
+    const run = vi.fn(async (_executable: string, args: string[], options: { cwd: string }) => {
+      if (args[0] === 'link') {
+        await writeFile(path.resolve(options.cwd, args[args.indexOf('-o') + 1]), compiled);
+      }
     });
 
     await expect(buildStandaloneAndroidApk({
@@ -848,6 +932,36 @@ describe('standalone Android APK build support', () => {
       });
     },
   );
+
+  it('captures aapt2 stderr as diagnostics and classifies a non-ASCII-path compile failure', async () => {
+    const fixture = await stageFixture('compile-diagnostics-stage');
+    const failure = Object.assign(new Error('aapt2 exited with code 1'), {
+      code: 1,
+      stderr: "error: failed to open file 'src/main/res'.",
+    });
+    const run = vi.fn(async (_executable: string, args: string[]) => {
+      if (args[0] === 'compile') throw failure;
+    });
+
+    let caught: unknown;
+    try {
+      await buildStandaloneAndroidApk({
+        ...fixture.request,
+        buildDir: path.join(fixture.request.buildDir, '한글-경로'),
+        run,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(AndroidStandaloneBuildError);
+    expect(caught).toMatchObject({
+      stage: 'compile',
+      exitCode: 1,
+      diagnostics: expect.stringContaining('failed to open file'),
+      toolReason: 'non-ascii-path',
+    });
+  });
 
   it('preserves a nested standalone build error unchanged', async () => {
     const fixture = await stageFixture('nested-stage');
@@ -968,12 +1082,11 @@ async function compiledFixture() {
 }
 
 function linkFixture(compiled: Buffer) {
-  return vi.fn(async (_executable: string, args: string[]) => {
+  return vi.fn(async (_executable: string, args: string[], options: { cwd: string }) => {
     if (args[0] === 'link') {
-      await mkdir(path.dirname(args[args.indexOf('-o') + 1]), {
-        recursive: true,
-      });
-      await writeFile(args[args.indexOf('-o') + 1], compiled);
+      const outputPath = path.resolve(options.cwd, args[args.indexOf('-o') + 1]);
+      await mkdir(path.dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, compiled);
     }
   });
 }

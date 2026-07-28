@@ -60,7 +60,7 @@ export function createExportAndroidTheme(
     try {
       buildDirectory = await runAndroidExportStage(
         () => dependencies.files.createTemporaryDirectory(
-          'ktbaker-android-',
+          'ktb-',
         ),
         {
           code: 'KTB-FS-TEMP',

@@ -20,6 +20,7 @@ const SAFE_CONTEXT_KEYS = Object.freeze([
   'resourceKey',
   'exitCode',
   'signal',
+  'toolReason',
   'systemCode',
   'platform',
   'schemaVersion',
@@ -28,6 +29,13 @@ const SAFE_CONTEXT_KEYS = Object.freeze([
 ] as const);
 
 const SAFE_ARCHIVE_KINDS = Object.freeze(['ios', 'source', 'apk']);
+const SAFE_TOOL_REASONS = Object.freeze([
+  'non-ascii-path',
+  'path-too-long',
+  'permission-denied',
+  'missing-file',
+  'unknown',
+]);
 const SAFE_PLATFORMS = Object.freeze([
   'ios',
   'android',
@@ -242,6 +250,9 @@ function isSafeContextValue(
     case 'signal':
       return typeof value === 'string'
         && (SAFE_SIGNALS as readonly string[]).includes(value);
+    case 'toolReason':
+      return typeof value === 'string'
+        && (SAFE_TOOL_REASONS as readonly string[]).includes(value);
     case 'systemCode':
       return typeof value === 'string'
         && (SAFE_SYSTEM_CODES as readonly string[]).includes(value);

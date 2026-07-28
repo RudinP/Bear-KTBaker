@@ -13,6 +13,36 @@ import type {
   PathPort,
 } from '../../src/application/ports/fileSystem';
 
+const NON_ASCII_PATTERN = /[^\x00-\x7f]/;
+
+// Some Windows-only command-line tools (bundled aapt2 among them) mishandle
+// non-ASCII characters in absolute paths built from %TEMP%, which is
+// user-specific and often contains the Windows account name. When that
+// happens, prefer an ASCII machine-wide temp root instead of the user's.
+function preferredTemporaryRoot(): string {
+  const defaultRoot = tmpdir();
+  if (process.platform !== 'win32' || !NON_ASCII_PATTERN.test(defaultRoot)) {
+    return defaultRoot;
+  }
+  return process.env.ProgramData
+    ? path.join(process.env.ProgramData, 'BearKTBaker', 'Temp')
+    : path.join(path.parse(defaultRoot).root, 'BearKTBaker', 'Temp');
+}
+
+async function createTemporaryDirectory(prefix: string): Promise<string> {
+  const defaultRoot = tmpdir();
+  const preferredRoot = preferredTemporaryRoot();
+  if (preferredRoot !== defaultRoot) {
+    try {
+      await mkdir(preferredRoot, { recursive: true });
+      return await mkdtemp(path.join(preferredRoot, prefix));
+    } catch {
+      // Fall back to the OS default temp root below.
+    }
+  }
+  return mkdtemp(path.join(defaultRoot, prefix));
+}
+
 export function createNodeFileSystemPort(): {
   files: FileSystemPort;
   paths: PathPort;
@@ -45,8 +75,7 @@ export function createNodeFileSystemPort(): {
     ensureDirectory: async (directoryPath) => {
       await mkdir(directoryPath, { recursive: true });
     },
-    createTemporaryDirectory: (prefix) =>
-      mkdtemp(path.join(tmpdir(), prefix)),
+    createTemporaryDirectory,
     removeDirectory: async (directoryPath) => {
       await rm(directoryPath, { recursive: true, force: true });
     },

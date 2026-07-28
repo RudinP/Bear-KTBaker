@@ -1,4 +1,4 @@
-export { AndroidStandaloneBuildError } from './androidBuild/errors';
+export { AndroidStandaloneBuildError, classifyAapt2Failure } from './androidBuild/errors';
 export { verifyStandaloneAndroidMetadata } from './androidBuild/metadata';
 export {
   buildStandaloneAapt2Plan,

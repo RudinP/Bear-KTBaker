@@ -77,6 +77,9 @@ export function createAndroidApkBuilder(
               ...(error.signal === undefined
                 ? {}
                 : { signal: error.signal }),
+              ...(error.toolReason === undefined
+                ? {}
+                : { toolReason: error.toolReason }),
             },
             cause: error,
           });

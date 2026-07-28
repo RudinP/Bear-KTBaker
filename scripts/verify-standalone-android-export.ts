@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -44,10 +44,11 @@ if (!darwinAapt2.subarray(0, 4).equals(Buffer.from([0xca, 0xfe, 0xba, 0xbe]))) {
 const windowsAapt2 = await readFile(standaloneRuntimePaths(runtimeDir, 'win32').aapt2);
 if (windowsAapt2.toString('ascii', 0, 2) !== 'MZ') throw new Error('Windows AAPT2 is not a PE executable.');
 
-if (process.platform !== 'darwin') {
+if (process.platform !== 'darwin' && process.platform !== 'win32') {
   console.log(JSON.stringify({ runtimeVerified: true, buildSkippedOn: process.platform }));
   process.exit(0);
 }
+const platform = process.platform as 'darwin' | 'win32';
 
 const temporary = await mkdtemp(path.join(tmpdir(), 'kakao-standalone-verification-'));
 const buildDir = path.join(temporary, 'source');
@@ -122,7 +123,9 @@ try {
   }
   const expectedImages = [backgroundExpectation, bubbleExpectation, ...maintabExpectations];
 
-  await chmod(standaloneRuntimePaths(runtimeDir, 'darwin').aapt2, 0o755);
+  if (platform === 'darwin') {
+    await chmod(standaloneRuntimePaths(runtimeDir, 'darwin').aapt2, 0o755);
+  }
   await buildStandaloneAndroidApk({
     buildDir,
     outputPath,
@@ -137,7 +140,7 @@ try {
       colors: project.colorValues.android,
     },
     expectedImages,
-    platform: 'darwin',
+    platform,
   });
 
   const output = await readFile(outputPath);
@@ -187,6 +190,31 @@ try {
     appearance: project.meta.appearance,
     colors: project.colorValues.android,
   });
+
+  // Regression guard: the [KTB-ANDROID-AAPT2-COMPILE] failure reported on
+  // Windows traced back to non-ASCII (Korean) characters in the build
+  // directory derived from %TEMP%. Rebuild the same project tree under a
+  // Korean-named directory to confirm aapt2 still succeeds end-to-end.
+  const nonAsciiBuildDir = path.join(temporary, '한글-빌드');
+  const nonAsciiOutputPath = path.join(temporary, '한글-출력.apk');
+  await cp(buildDir, nonAsciiBuildDir, { recursive: true });
+  await buildStandaloneAndroidApk({
+    buildDir: nonAsciiBuildDir,
+    outputPath: nonAsciiOutputPath,
+    runtimeDir,
+    identityPath: path.join(temporary, 'signing-identity-non-ascii.json'),
+    packageName,
+    versionCode: 20304,
+    versionName: '2.3.4',
+    expectedMetadata: {
+      name: project.meta.name,
+      appearance: project.meta.appearance,
+      colors: project.colorValues.android,
+    },
+    expectedImages,
+    platform,
+  });
+  await verifyStandaloneApkStructure(await readFile(nonAsciiOutputPath));
 
   const copiedOutput = process.argv[2];
   if (copiedOutput) await writeFile(path.resolve(copiedOutput), output);
