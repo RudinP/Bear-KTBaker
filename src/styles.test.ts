@@ -77,4 +77,12 @@ describe('desktop workspace responsiveness', () => {
     expect(css).toMatch(/\.close-button\s*\{[^}]*min-height:\s*44px/i);
     expect(css).not.toMatch(/\.close-button\s*\{[^}]*height:\s*34px/i);
   });
+
+  it('keeps the tall iOS inset editor from overflowing short windows and clipping its 완료 button', () => {
+    expect(css).toMatch(/\.modal-backdrop\s*\{[^}]*place-items:\s*safe center/i);
+    expect(css).toMatch(/\.nine-modal\s*\{[^}]*max-height:\s*100%/i);
+    expect(css).toMatch(/\.nine-modal\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/i);
+    expect(css).toMatch(/\.modal-title\s*\{[^}]*flex:\s*none/i);
+    expect(css).toMatch(/\.patch-stage\s*\{[^}]*overflow:\s*auto/i);
+  });
 });
