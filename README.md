@@ -47,8 +47,8 @@
 
 macOS(Apple Silicon / Intel 유니버설)와 Windows 10/11(64-bit)용 설치 파일을 제공합니다.
 
-[![Download macOS](https://img.shields.io/badge/Download-macOS-black?logo=apple&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear%20KTBaker-0.1.7-universal.dmg)
-[![Download Windows](https://img.shields.io/badge/Download-Windows-0078D6?logo=windows&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear%20KTBaker%20Setup%200.1.7.exe)
+[![Download macOS](https://img.shields.io/badge/Download-macOS-black?logo=apple&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear.KTBaker-0.1.7-universal.dmg)
+[![Download Windows](https://img.shields.io/badge/Download-Windows-0078D6?logo=windows&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear.KTBaker.Setup.0.1.7.exe)
 
 최신 버전은 **v0.1.7**입니다. 이전 버전 다운로드와 체크섬은 [RELEASES.md](RELEASES.md)에서 확인할 수 있습니다.
 

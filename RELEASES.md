@@ -14,11 +14,11 @@ macOS 빌드는 Apple Silicon과 Intel을 모두 지원하는 유니버설 바�
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
-| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.7-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear%20KTBaker-0.1.7-universal.dmg) | 244.9 MB |
-| 🍎 macOS (.zip) | [Bear KTBaker-0.1.7-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear%20KTBaker-0.1.7-universal-mac.zip) | 244.9 MB |
-| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.7.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear%20KTBaker%20Setup%200.1.7.exe) | 127.5 MB |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.7-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear.KTBaker-0.1.7-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.7-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear.KTBaker-0.1.7-universal-mac.zip) | 244.9 MB |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.7.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/Bear.KTBaker.Setup.0.1.7.exe) | 127.5 MB |
 
-SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/SHA256SUMS.txt) · [변경 이력 (v0.1.6...v0.1.7)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.6...v0.1.7)
+SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.7/SHA256SUMS-0.1.7.txt) · [변경 이력 (v0.1.6...v0.1.7)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.6...v0.1.7)
 
 ## v0.1.6 — 2026-07-28
 
@@ -26,11 +26,11 @@ SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/downloa
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
-| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.6-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear%20KTBaker-0.1.6-universal.dmg) | 244.9 MB |
-| 🍎 macOS (.zip) | [Bear KTBaker-0.1.6-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear%20KTBaker-0.1.6-universal-mac.zip) | 244.9 MB |
-| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.6.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear%20KTBaker%20Setup%200.1.6.exe) | 127.5 MB |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.6-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear.KTBaker-0.1.6-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.6-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear.KTBaker-0.1.6-universal-mac.zip) | 244.9 MB |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.6.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/Bear.KTBaker.Setup.0.1.6.exe) | 127.5 MB |
 
-SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/SHA256SUMS.txt) · [변경 이력 (v0.1.5...v0.1.6)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.5...v0.1.6)
+SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.6/SHA256SUMS-0.1.6.txt) · [변경 이력 (v0.1.5...v0.1.6)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.5...v0.1.6)
 
 ## v0.1.5 — 2026-07-20
 
@@ -38,11 +38,11 @@ SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/downloa
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
-| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.5-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear%20KTBaker-0.1.5-universal.dmg) | 244.9 MB |
-| 🍎 macOS (.zip) | [Bear KTBaker-0.1.5-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear%20KTBaker-0.1.5-universal-mac.zip) | 244.9 MB |
-| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.5.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear%20KTBaker%20Setup%200.1.5.exe) | 127.5 MB |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.5-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear.KTBaker-0.1.5-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.5-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear.KTBaker-0.1.5-universal-mac.zip) | 244.9 MB |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.5.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/Bear.KTBaker.Setup.0.1.5.exe) | 127.5 MB |
 
-SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/SHA256SUMS.txt) · [변경 이력 (v0.1.4...v0.1.5)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.4...v0.1.5)
+SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.5/SHA256SUMS-0.1.5.txt) · [변경 이력 (v0.1.4...v0.1.5)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.4...v0.1.5)
 
 ## v0.1.4 — 2026-07-19
 
@@ -52,10 +52,10 @@ SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/downloa
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
-| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.4-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/Bear%20KTBaker-0.1.4-universal.dmg) | 244.9 MB |
-| 🍎 macOS (.zip) | [Bear KTBaker-0.1.4-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/Bear%20KTBaker-0.1.4-universal-mac.zip) | 244.9 MB |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.4-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/Bear.KTBaker-0.1.4-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.4-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/Bear.KTBaker-0.1.4-universal-mac.zip) | 244.9 MB |
 
-SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/SHA256SUMS.txt) · [변경 이력 (v0.1.3...v0.1.4)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.3...v0.1.4)
+SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.4/SHA256SUMS-0.1.4.txt) · [변경 이력 (v0.1.3...v0.1.4)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.3...v0.1.4)
 
 ## v0.1.3 — 2026-07-19
 
@@ -63,8 +63,8 @@ SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/downloa
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
-| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.3-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear%20KTBaker-0.1.3-universal.dmg) | 244.9 MB |
-| 🍎 macOS (.zip) | [Bear KTBaker-0.1.3-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear%20KTBaker-0.1.3-universal-mac.zip) | 244.9 MB |
-| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.3.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear%20KTBaker%20Setup%200.1.3.exe) | 127.5 MB |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.3-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear.KTBaker-0.1.3-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.3-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear.KTBaker-0.1.3-universal-mac.zip) | 244.9 MB |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.3.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/Bear.KTBaker.Setup.0.1.3.exe) | 127.5 MB |
 
-SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/SHA256SUMS.txt)
+SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.3/SHA256SUMS-0.1.3.txt)
