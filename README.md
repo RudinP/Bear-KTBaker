@@ -36,10 +36,6 @@
 ## 스크린샷
 
 <p align="center">
-  <img src="docs/screenshots/app-icon.png" width="160" alt="Bear KTBaker 앱 아이콘" />
-</p>
-
-<p align="center">
   <img src="docs/screenshots/main-editor.png" width="900" alt="Bear KTBaker 테마 편집 화면" />
 </p>
 
