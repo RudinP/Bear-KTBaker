@@ -9,6 +9,9 @@ interface ResourceRenderRule {
 
 export interface PlatformResourceBinding {
   files: string[];
+  /** Additional output aliases for older KakaoTalk releases. These are not
+   * importer candidates, so legacy filenames do not shadow the current one. */
+  exportFiles?: string[];
   css?: { block: string; property: string };
   colorResource?: string;
   ninePatch?: boolean;
@@ -136,12 +139,27 @@ for (const [id, iosName, androidName, iosSampleHasFiles] of tabDefinitions) {
       render: { mode: 'contain', minimumDp: 56 },
       ios: {
         files: iosFiles(`maintabIco${iosName}${selected ? 'Selected' : ''}`, [2, 3]),
+        ...(id === 'now' ? {
+          exportFiles: [
+            ...iosFiles(`maintabIco${iosName}${selected ? 'Selected' : ''}`, [2, 3]),
+            ...iosFiles(`maintabIcoPiccoma${selected ? 'Selected' : ''}`, [2, 3]),
+          ],
+        } : {}),
         ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}),
         outputSize: iosSampleHasFiles ? undefined : [38, 38],
         sampleIncluded: iosSampleHasFiles,
         css: { block: 'TabBarStyle-Main', property: `-ios-${id === 'now' ? 'now' : id}-${selected ? 'selected' : 'normal'}-icon-image` },
       },
-      android: { files: androidFiles(`theme_maintab_ico_${androidName}${selected ? '_focused' : ''}_image`, phoneAndTablet), ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}) },
+      android: {
+        files: androidFiles(`theme_maintab_ico_${androidName}${selected ? '_focused' : ''}_image`, phoneAndTablet),
+        ...(id === 'now' ? {
+          exportFiles: [
+            ...androidFiles(`theme_maintab_ico_${androidName}${selected ? '_focused' : ''}_image`, phoneAndTablet),
+            ...androidFiles(`theme_maintab_ico_piccoma${selected ? '_focused' : ''}_image`, phoneAndTablet),
+          ],
+        } : {}),
+        ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}),
+      },
     });
   }
 }

@@ -117,6 +117,26 @@ MessageCellStyle-Send { -ios-background-image: 'chatroomBubbleSend01.png' 17px 1
     expect(css).toContain('/* studio-bubble-me: #ABCDEF */');
   });
 
+  it('adds the legacy Piccoma alias for the open-chat tab', () => {
+    const css = buildIosCss(createDefaultTheme(), `TabBarStyle-Main {
+      -ios-now-normal-icon-image: 'maintabIcoNow.png';
+      -ios-now-selected-icon-image: 'maintabIcoNowSelected.png';
+    }`);
+
+    expect(css).toContain("-ios-piccoma-normal-icon-image: 'maintabIcoPiccoma.png';");
+    expect(css).toContain("-ios-piccoma-selected-icon-image: 'maintabIcoPiccomaSelected.png';");
+  });
+
+  it('declares the Open Chats keys used by 25.x iOS themes', () => {
+    const css = buildIosCss(createDefaultTheme(), `TabBarStyle-Main {
+      -ios-now-normal-icon-image: 'maintabIcoNow.png';
+      -ios-now-selected-icon-image: 'maintabIcoNowSelected.png';
+    }`);
+
+    expect(css).toContain("-ios-openchats-normal-icon-image: 'maintabIcoNow.png';");
+    expect(css).toContain("-ios-openchats-selected-icon-image: 'maintabIcoNowSelected.png';");
+  });
+
   it('writes first, grouped, normal, and pressed iOS bubble metrics independently', () => {
     const project = createDefaultTheme();
     const starts = { normal: 0.3, pressed: 0.35, grouped: 0.4, groupedPressed: 0.45 } as const;

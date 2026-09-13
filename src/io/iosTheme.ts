@@ -38,6 +38,36 @@ export function buildIosCss(project: ThemeProject, template: string) {
     if (separator < 0) continue;
     css = replaceInBlock(css, binding.slice(0, separator), binding.slice(separator + 1), value);
   }
+  // Older KakaoTalk releases used the Piccoma resource key for the Korean
+  // open-chat tab. Keep the modern Now declaration and add the legacy alias
+  // so one .ktheme works with both generations.
+  css = replaceInBlock(
+    css,
+    'TabBarStyle-Main',
+    '-ios-piccoma-normal-icon-image',
+    "'maintabIcoPiccoma.png'",
+  );
+  css = replaceInBlock(
+    css,
+    'TabBarStyle-Main',
+    '-ios-piccoma-selected-icon-image',
+    "'maintabIcoPiccomaSelected.png'",
+  );
+  // KakaoTalk 10.x/11.x-era guides and the 25.x sample use an explicit
+  // Open Chats key. Its image is still the current Now asset, but older
+  // templates may not contain these declarations at all.
+  css = replaceInBlock(
+    css,
+    'TabBarStyle-Main',
+    '-ios-openchats-normal-icon-image',
+    "'maintabIcoNow.png'",
+  );
+  css = replaceInBlock(
+    css,
+    'TabBarStyle-Main',
+    '-ios-openchats-selected-icon-image',
+    "'maintabIcoNowSelected.png'",
+  );
   const profiles = [1, 2, 3].filter((index) => (
     Boolean(project.platformResources.ios[`main.profile.0${index}`])
     || (index === 1 && project.baseSample === 'apeach')

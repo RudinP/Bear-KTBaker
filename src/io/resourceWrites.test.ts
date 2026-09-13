@@ -44,6 +44,23 @@ describe('manifest-driven resource writes', () => {
     ]);
   });
 
+  it('fans the open-chat tab icon out to current and legacy resource names', () => {
+    const project = createDefaultTheme();
+    project.platformResources.ios['main.tab.now.normal'] = { fileName: 'now.png', dataUrl: 'data:image/png;base64,aWNvbg==' };
+    project.platformResources.android['main.tab.now.normal'] = { fileName: 'now.png', dataUrl: 'data:image/png;base64,aWNvbg==' };
+
+    expect(getMappedResourceWrites(project, 'ios').map((write) => write.path)).toEqual([
+      'Images/maintabIcoNow@2x.png', 'Images/maintabIcoNow@3x.png',
+      'Images/maintabIcoPiccoma@2x.png', 'Images/maintabIcoPiccoma@3x.png',
+    ]);
+    expect(getMappedResourceWrites(project, 'android').map((write) => write.path)).toEqual([
+      'src/main/theme/drawable-xxhdpi/theme_maintab_ico_now_image.png',
+      'src/main/theme/drawable-sw600dp/theme_maintab_ico_now_image.png',
+      'src/main/theme/drawable-xxhdpi/theme_maintab_ico_piccoma_image.png',
+      'src/main/theme/drawable-sw600dp/theme_maintab_ico_piccoma_image.png',
+    ]);
+  });
+
   it('marks only Android nine-patch targets for border generation', () => {
     const project = createDefaultTheme();
     project.platformResources.ios['chat.bubble.me.first.normal'] = { fileName: 'bubble.png', dataUrl: 'data:image/png;base64,YnViYmxl' };

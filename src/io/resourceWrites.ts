@@ -15,6 +15,6 @@ export function getMappedResourceWrites(project: ThemeProject, platform: Platfor
     if (shouldIgnoreLegacyMirroredBubbleAssetTarget(project, platform, resourceId)) return [];
     const binding = KAKAO_RESOURCE_SLOTS.find((slot) => slot.id === resourceId)?.[platform];
     if (!binding) return [];
-    return binding.files.map((path) => ({ resourceId, path, asset, ninePatch: Boolean(binding.ninePatch) }));
+    return (binding.exportFiles ?? binding.files).map((path) => ({ resourceId, path, asset, ninePatch: Boolean(binding.ninePatch) }));
   });
 }
