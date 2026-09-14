@@ -54,7 +54,8 @@ export async function renderIosImages({
       : /@2x\.png$/i.test(write.path)
         ? 2
         : 1;
-    const catalogSize = slot.ios?.outputSize;
+    const catalogSize = slot.ios?.outputSize
+      ?? slot.ios?.exportOutputSize;
     const sourceSize = images.dimensions(source);
     const size = slot.render.mode === 'stretch' && sourceSize
       ? flexibleBubbleTargetSize(

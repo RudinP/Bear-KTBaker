@@ -58,6 +58,8 @@ describe('manifest-driven resource writes', () => {
       'src/main/theme/drawable-sw600dp/theme_maintab_ico_now_image.png',
       'src/main/theme/drawable-xxhdpi/theme_maintab_ico_piccoma_image.png',
       'src/main/theme/drawable-sw600dp/theme_maintab_ico_piccoma_image.png',
+      'src/main/theme/drawable-xxhdpi/theme_maintab_ico_openchat_image.png',
+      'src/main/theme/drawable-sw600dp/theme_maintab_ico_openchat_image.png',
     ]);
   });
 

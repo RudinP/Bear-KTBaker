@@ -63,7 +63,8 @@ export async function renderAndroidImages({
     }
     const slot = getResourceSlot(write.resourceId);
     const flexibleBubble = slot.render.mode === 'stretch';
-    const outputSize = slot.android?.outputSize;
+    const outputSize = slot.android?.outputSize
+      ?? slot.android?.exportOutputSize;
     const compiledIdentity = androidResourceIdentity(write.path);
     if (
       !compiledIdentity

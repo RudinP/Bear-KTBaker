@@ -278,6 +278,12 @@ describe('export Android theme', () => {
         path.posix.join(buildDirectory, relativePath),
       ))).toBe(buildAndroidStringsXml(harness.project));
     }
+    expect(new TextDecoder().decode(harness.storage.get(
+      path.posix.join(
+        buildDirectory,
+        'src/main/theme-adv/drawable/theme_tab_openchat_icon.xml',
+      ),
+    ))).toContain('theme_maintab_ico_openchat_focused_image');
   });
 
   it('passes exact package metadata, all colors, and both maintab expectations to the builder', async () => {

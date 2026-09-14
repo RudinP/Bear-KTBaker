@@ -16,6 +16,8 @@ export interface PlatformResourceBinding {
   colorResource?: string;
   ninePatch?: boolean;
   outputSize?: readonly [number, number];
+  /** Fallback dimensions for compatibility aliases absent from the template. */
+  exportOutputSize?: readonly [number, number];
   sampleIncluded?: boolean;
   samplePixelSize?: readonly [number, number];
   sampleContentSize?: readonly [number, number];
@@ -144,6 +146,7 @@ for (const [id, iosName, androidName, iosSampleHasFiles] of tabDefinitions) {
             ...iosFiles(`maintabIco${iosName}${selected ? 'Selected' : ''}`, [2, 3]),
             ...iosFiles(`maintabIcoPiccoma${selected ? 'Selected' : ''}`, [2, 3]),
           ],
+          exportOutputSize: [38, 38] as const,
         } : {}),
         ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}),
         outputSize: iosSampleHasFiles ? undefined : [38, 38],
@@ -156,7 +159,9 @@ for (const [id, iosName, androidName, iosSampleHasFiles] of tabDefinitions) {
           exportFiles: [
             ...androidFiles(`theme_maintab_ico_${androidName}${selected ? '_focused' : ''}_image`, phoneAndTablet),
             ...androidFiles(`theme_maintab_ico_piccoma${selected ? '_focused' : ''}_image`, phoneAndTablet),
+            ...androidFiles(`theme_maintab_ico_openchat${selected ? '_focused' : ''}_image`, phoneAndTablet),
           ],
+          exportOutputSize: [114, 114] as const,
         } : {}),
         ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}),
       },
