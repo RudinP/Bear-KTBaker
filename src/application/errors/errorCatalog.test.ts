@@ -11,7 +11,7 @@ describe('diagnostic error catalog', () => {
   it('defines unique, searchable public error codes', () => {
     expect(new Set(Object.keys(ERROR_CATALOG)).size)
       .toBe(Object.keys(ERROR_CATALOG).length);
-    expect(Object.keys(ERROR_CATALOG)).toHaveLength(23);
+    expect(Object.keys(ERROR_CATALOG)).toHaveLength(27);
     expect(Object.keys(ERROR_CATALOG).every(
       (code) => /^KTB-[A-Z0-9]+(?:-[A-Z0-9]+)+$/.test(code),
     )).toBe(true);

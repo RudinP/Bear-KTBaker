@@ -144,6 +144,30 @@ export const ERROR_CATALOG = {
     message: 'Android APK 검증에 실패했습니다.',
     source: 'electron/adapters/androidBuild/apkSigner.ts#verifyStandaloneApkStructure',
   },
+  'KTB-ANDROID-VERIFY-STRUCTURE': {
+    operation: 'theme:export-android',
+    stage: 'Android APK 구조 검증',
+    message: 'Android APK 구조 검증에 실패했습니다.',
+    source: 'electron/adapters/androidBuild/apkSigner.ts#verifyStandaloneApkStructure',
+  },
+  'KTB-ANDROID-VERIFY-SIGNATURE': {
+    operation: 'theme:export-android',
+    stage: 'Android APK 서명 검증',
+    message: 'Android APK 서명 검증에 실패했습니다.',
+    source: 'electron/adapters/androidBuild/apkV2Verifier.ts#verifyStandaloneApkSignatureV2',
+  },
+  'KTB-ANDROID-VERIFY-METADATA': {
+    operation: 'theme:export-android',
+    stage: 'Android APK 메타데이터 검증',
+    message: 'Android APK 메타데이터 검증에 실패했습니다.',
+    source: 'electron/adapters/androidBuild/metadata.ts#verifyStandaloneAndroidMetadata',
+  },
+  'KTB-ANDROID-VERIFY-IMAGES': {
+    operation: 'theme:export-android',
+    stage: 'Android APK 이미지 검증',
+    message: 'Android APK 이미지 검증에 실패했습니다.',
+    source: 'electron/adapters/androidBuild/buildStandaloneAndroidApk.ts#buildStandaloneAndroidApk',
+  },
   'KTB-IMAGE-DECODE': {
     operation: 'theme:import',
     stage: '이미지 디코딩',

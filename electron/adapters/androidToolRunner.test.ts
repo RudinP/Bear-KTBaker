@@ -272,6 +272,10 @@ describe('Android APK builder adapter', () => {
     ['signing-identity', 'KTB-ANDROID-SIGNING-IDENTITY'],
     ['sign', 'KTB-ANDROID-SIGN'],
     ['verify', 'KTB-ANDROID-VERIFY'],
+    ['verify-structure', 'KTB-ANDROID-VERIFY-STRUCTURE'],
+    ['verify-signature', 'KTB-ANDROID-VERIFY-SIGNATURE'],
+    ['verify-metadata', 'KTB-ANDROID-VERIFY-METADATA'],
+    ['verify-images', 'KTB-ANDROID-VERIFY-IMAGES'],
   ] as const)(
     'maps %s failures to %s with only safe process context',
     async (stage, code) => {

@@ -813,7 +813,7 @@ describe('standalone Android APK build support', () => {
       run,
     })).rejects.toMatchObject({
       name: 'AndroidStandaloneBuildError',
-      stage: 'verify',
+      stage: 'verify-images',
       cause: expect.objectContaining({
         message: expect.stringContaining('main.background'),
       }),
@@ -865,7 +865,7 @@ describe('standalone Android APK build support', () => {
       run,
     })).rejects.toMatchObject({
       name: 'AndroidStandaloneBuildError',
-      stage: 'verify',
+      stage: 'verify-metadata',
       cause: expect.objectContaining({
         message: expect.stringContaining('resources package'),
       }),
@@ -1012,6 +1012,32 @@ describe('standalone Android APK build support', () => {
       name: 'AndroidStandaloneBuildError',
       stage: 'signing-identity',
     });
+  });
+
+  it.each([
+    ['verify-structure', false],
+    ['verify-signature', true],
+  ] as const)('does not write an APK after %s fails', async (stage, complete) => {
+    const fixture = await stageFixture(stage);
+    const zip = new JSZip();
+    zip.file('AndroidManifest.xml', 'manifest');
+    if (complete) {
+      zip.file('resources.arsc', 'resources');
+      zip.file('classes.dex', 'runtime');
+    }
+    const invalid = await zip.generateAsync({ type: 'base64' });
+    const sign = vi.spyOn(ApkSignerV2.prototype, 'signPackageV2')
+      .mockResolvedValue(`data:application/zip;base64,${invalid}`);
+    try {
+      await expect(buildStandaloneAndroidApk({
+        ...fixture.request,
+        run: linkFixture(await compiledFixture()),
+      })).rejects.toMatchObject({ stage });
+      await expect(readFile(fixture.request.outputPath))
+        .rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      sign.mockRestore();
+    }
   });
 
   it('classifies package signing separately', async () => {

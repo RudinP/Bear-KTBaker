@@ -1,0 +1,30 @@
+name: Android APK export
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Generate and verify APKs with bundled AAPT2 in Node
+        run: npm run verify:android-runtime
+      - name: Generate and verify APKs in the Electron main process
+        run: npm run verify:android-electron

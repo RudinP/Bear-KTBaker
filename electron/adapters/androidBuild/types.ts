@@ -13,7 +13,11 @@ export type AndroidStandaloneBuildStage =
   | 'link'
   | 'signing-identity'
   | 'sign'
-  | 'verify';
+  | 'verify'
+  | 'verify-structure'
+  | 'verify-signature'
+  | 'verify-metadata'
+  | 'verify-images';
 
 export interface StandaloneAndroidRuntime {
   androidJar: string;

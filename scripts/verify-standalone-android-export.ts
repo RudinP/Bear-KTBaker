@@ -23,7 +23,7 @@ import {
   importAndroidThemeArchive,
 } from '../src/io/themeImport/importAndroidTheme';
 
-async function main() {
+export async function verifyStandaloneAndroidExport() {
 const root = process.cwd();
 const packageName = 'com.themestudio.standaloneverification';
 const runtimeDir = path.join(root, 'resources', 'templates', 'android-runtime');
@@ -237,7 +237,9 @@ try {
 }
 }
 
-void main().catch((error) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : error);
-  process.exitCode = 1;
-});
+if (!process.versions.electron) {
+  void verifyStandaloneAndroidExport().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

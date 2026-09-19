@@ -141,23 +141,31 @@ export async function buildStandaloneAndroidApk({
     () => signStandaloneApk(withRuntime, identity),
   );
   await runAndroidBuildStage(
-    'verify',
-    'Android APK 검증에 실패했습니다.',
+    'verify-structure',
+    'Android APK 구조 검증에 실패했습니다.',
+    () => verifyStandaloneApkStructure(signed),
+  );
+  await runAndroidBuildStage(
+    'verify-signature',
+    'Android APK 서명 검증에 실패했습니다.',
+    async () => verifyStandaloneApkSignatureV2(signed),
+  );
+  const metadata = await runAndroidBuildStage(
+    'verify-metadata',
+    'Android APK 메타데이터 검증에 실패했습니다.',
     async () => {
-      await verifyStandaloneApkStructure(signed);
-      verifyStandaloneApkSignatureV2(signed);
-      const metadata = await inspectCompiledAndroidApk(signed);
-      verifyStandaloneAndroidMetadata(metadata, {
+      const inspected = await inspectCompiledAndroidApk(signed);
+      return verifyStandaloneAndroidMetadata(inspected, {
         packageName,
         versionName,
         ...expectedMetadata,
       });
-      await verifyCompiledAndroidImages(
-        signed,
-        metadata,
-        expectedImages ?? [],
-      );
     },
+  );
+  await runAndroidBuildStage(
+    'verify-images',
+    'Android APK 이미지 검증에 실패했습니다.',
+    () => verifyCompiledAndroidImages(signed, metadata, expectedImages ?? []),
   );
   await writeFile(outputPath, signed);
   return outputPath;

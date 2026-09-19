@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "audit:theme": "tsx scripts/audit-theme-resources.ts",
     "typecheck": "tsc -b --pretty false",
+    "verify:android-electron": "node scripts/run-android-electron-verification.cjs",
     "verify:android-runtime": "tsx scripts/verify-standalone-android-export.ts",
     "verify:platform-round-trip": "tsx scripts/verify-platform-round-trip.ts",
     "package:mac": "npm run verify:platform-round-trip && npm run verify:android-runtime && npm run build && electron-builder --mac --universal",
