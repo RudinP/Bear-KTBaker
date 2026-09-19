@@ -26,13 +26,10 @@ export function standaloneRuntimePaths(
 
 const NON_ASCII_PATTERN = /[^\x00-\x7f]/;
 
-// aapt2's Windows build mixes wide (UTF-16) and ANSI file APIs. Absolute
-// paths reach it as UTF-8-encoded bytes that ANSI calls reinterpret using the
-// active codepage, corrupting non-ASCII characters. Passing only ASCII
-// relative paths (resolved against `cwd`, which Node sets via CreateProcessW)
-// avoids that codepage round-trip entirely, so a non-ASCII build directory
-// stays safe. Keep every arg built with `path.join`, never a literal '/' —
-// aapt2 parses '--dir' subpaths as Windows-style segments.
+// Keep tool arguments relative and ASCII. Windows builds with non-ASCII
+// working directories also require the staging directory in workspace.ts:
+// relative arguments alone do not fix AAPT2's ANSI directory enumeration.
+// Use path.join so --dir receives the host's directory separators.
 export function buildStandaloneAapt2Plan({
   buildDir,
   runtime,

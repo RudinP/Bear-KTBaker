@@ -26,6 +26,7 @@ import {
   resolveAndroidJarArg,
   standaloneRuntimePaths,
 } from './runtime';
+import { prepareAndroidBuildWorkspace } from './workspace';
 import { loadOrCreateSigningIdentity } from './signingIdentity';
 import type {
   AndroidStandaloneBuildStage,
@@ -41,7 +42,28 @@ type Aapt2Runner = (executable: string, args: string[], options: {
   maxBuffer: number;
 }) => Promise<unknown>;
 
-export async function buildStandaloneAndroidApk({
+export async function buildStandaloneAndroidApk(
+  request: Parameters<typeof buildStandaloneAndroidApkInDirectory>[0],
+) {
+  const workspace = await runAndroidBuildStage(
+    'runtime',
+    'Android APK 빌드용 임시 폴더를 준비하지 못했습니다.',
+    () => prepareAndroidBuildWorkspace(
+      request.buildDir,
+      request.platform ?? process.platform as StandaloneAndroidPlatform,
+    ),
+  );
+  try {
+    return await buildStandaloneAndroidApkInDirectory({
+      ...request,
+      buildDir: workspace.buildDir,
+    });
+  } finally {
+    await workspace.cleanup();
+  }
+}
+
+async function buildStandaloneAndroidApkInDirectory({
   buildDir,
   outputPath,
   runtimeDir,
