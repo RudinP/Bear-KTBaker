@@ -98,7 +98,7 @@ describe('manifest-driven theme import', () => {
     }, asset!.sourceScale!, false, asset!.mirroredFromPlatform)).toEqual({ width: 120, height: 105 });
   });
 
-  it('uses legacy iOS Piccoma tab icons as Now fallbacks without replacing current Now icons', async () => {
+  it('uses legacy iOS View tab icons as Now fallbacks without replacing current Now icons', async () => {
     const source = await readFile(path.join(templates, 'ios-base.ktheme'));
     const legacyZip = await JSZip.loadAsync(source);
     const replacement2x = await legacyZip.file('Images/maintabIcoFriends@2x.png')!.async('nodebuffer');
@@ -107,20 +107,20 @@ describe('manifest-driven theme import', () => {
     const replacementSelected3x = await legacyZip.file('Images/maintabIcoFriendsSelected@3x.png')!.async('nodebuffer');
     for (const suffix of ['@2x.png', '@3x.png']) legacyZip.remove(`Images/maintabIcoNow${suffix}`);
     for (const suffix of ['Selected@2x.png', 'Selected@3x.png']) legacyZip.remove(`Images/maintabIcoNow${suffix}`);
-    legacyZip.file('Images/maintabIcoPiccoma@2x.png', replacement2x);
-    legacyZip.file('Images/maintabIcoPiccoma@3x.png', replacement3x);
-    legacyZip.file('Images/maintabIcoPiccomaSelected@2x.png', replacementSelected2x);
-    legacyZip.file('Images/maintabIcoPiccomaSelected@3x.png', replacementSelected3x);
+    legacyZip.file('Images/maintabIcoView@2x.png', replacement2x);
+    legacyZip.file('Images/maintabIcoView@3x.png', replacement3x);
+    legacyZip.file('Images/maintabIcoViewSelected@2x.png', replacementSelected2x);
+    legacyZip.file('Images/maintabIcoViewSelected@3x.png', replacementSelected3x);
 
     const legacy = await importIosKtheme(await legacyZip.generateAsync({ type: 'nodebuffer' }), 'legacy.ktheme');
-    expect(legacy.platformResources.ios['main.tab.now.normal']?.fileName).toBe('maintabIcoPiccoma@3x.png');
-    expect(legacy.platformResources.ios['main.tab.now.selected']?.fileName).toBe('maintabIcoPiccomaSelected@3x.png');
+    expect(legacy.platformResources.ios['main.tab.now.normal']?.fileName).toBe('maintabIcoView@3x.png');
+    expect(legacy.platformResources.ios['main.tab.now.selected']?.fileName).toBe('maintabIcoViewSelected@3x.png');
     expect(legacy.platformResources.android['main.tab.now.normal']?.dataUrl)
       .toBe(legacy.platformResources.ios['main.tab.now.normal']?.dataUrl);
 
     const currentZip = await JSZip.loadAsync(source);
-    currentZip.file('Images/maintabIcoPiccoma@3x.png', replacement3x);
-    currentZip.file('Images/maintabIcoPiccomaSelected@3x.png', replacementSelected3x);
+    currentZip.file('Images/maintabIcoView@3x.png', replacement3x);
+    currentZip.file('Images/maintabIcoViewSelected@3x.png', replacementSelected3x);
     const current = await importIosKtheme(await currentZip.generateAsync({ type: 'nodebuffer' }), 'current.ktheme');
     expect(current.platformResources.ios['main.tab.now.normal']?.fileName).toBe('maintabIcoNow@3x.png');
     expect(current.platformResources.ios['main.tab.now.selected']?.fileName).toBe('maintabIcoNowSelected@3x.png');
@@ -240,29 +240,33 @@ describe('manifest-driven theme import', () => {
     expect(Buffer.from(preview.data)).toEqual(Buffer.from(expected.data));
   });
 
-  it('uses legacy Android source Piccoma tab icons as Now fallbacks while current Now icons win', async () => {
+  it('uses legacy Android source Open Chat tab icons as Now fallbacks while current Now icons win', async () => {
     const source = await readFile(path.join(templates, 'android-source.zip'));
     const legacyZip = await JSZip.loadAsync(source);
     for (const directory of ['drawable-xxhdpi', 'drawable-sw600dp']) {
+      for (const suffix of ['', '_focused']) {
+        const original = `src/main/theme/${directory}/theme_maintab_ico_now${suffix}_image.png`;
+        legacyZip.file(original.replace('_now', '_openchat'), await legacyZip.file(original)!.async('nodebuffer'));
+      }
       legacyZip.remove(`src/main/theme/${directory}/theme_maintab_ico_now_image.png`);
       legacyZip.remove(`src/main/theme/${directory}/theme_maintab_ico_now_focused_image.png`);
     }
     const legacy = await importAndroidSourceZip(await legacyZip.generateAsync({ type: 'nodebuffer' }), 'legacy.zip');
-    expect(legacy.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_piccoma_image.png');
-    expect(legacy.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_piccoma_focused_image.png');
+    expect(legacy.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_openchat_image.png');
+    expect(legacy.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_openchat_focused_image.png');
 
     const current = await importAndroidSourceZip(source, 'current.zip');
     expect(current.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_now_image.png');
     expect(current.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_now_focused_image.png');
   });
 
-  it('uses legacy Piccoma tab icons from a compiled APK when Now resources are absent', async () => {
+  it('uses legacy Open Chat tab icons from a compiled APK when Now resources are absent', async () => {
     const source = await JSZip.loadAsync(await readFile(path.join(templates, 'android-source.zip')));
     const apk = new JSZip();
     for (const state of ['', '_focused']) {
       apk.file(
-        `res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma${state}_image.png`,
-        await source.file(`src/main/theme/drawable-xxhdpi/theme_maintab_ico_piccoma${state}_image.png`)!.async('nodebuffer'),
+        `res/drawable-xxhdpi-v4/theme_maintab_ico_openchat${state}_image.png`,
+        await source.file(`src/main/theme/drawable-xxhdpi/theme_maintab_ico_now${state}_image.png`)!.async('nodebuffer'),
       );
     }
 
@@ -270,16 +274,16 @@ describe('manifest-driven theme import', () => {
       await apk.generateAsync({ type: 'nodebuffer' }),
       'legacy.apk',
       { resourceFiles: {
-        'drawable/theme_maintab_ico_piccoma_image': [
-          'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_image.png',
+        'drawable/theme_maintab_ico_openchat_image': [
+          'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_image.png',
         ],
-        'drawable/theme_maintab_ico_piccoma_focused_image': [
-          'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_focused_image.png',
+        'drawable/theme_maintab_ico_openchat_focused_image': [
+          'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_focused_image.png',
         ],
       } },
     );
-    expect(project.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_piccoma_image.png');
-    expect(project.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_piccoma_focused_image.png');
+    expect(project.platformResources.android['main.tab.now.normal']?.fileName).toBe('theme_maintab_ico_openchat_image.png');
+    expect(project.platformResources.android['main.tab.now.selected']?.fileName).toBe('theme_maintab_ico_openchat_focused_image.png');
   });
 
   it('restores the Android dark-theme meta-data while importing source', async () => {

@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
 import { createDefaultTheme } from '../../domain/theme/defaults';
-import { migrateLegacyNowTabAssets } from '../../domain/theme/migrations/legacyNowTabAssets';
 import type { ThemeProject } from '../../domain/theme/model';
 import type { NinePatchGuides } from '../../domain/ninePatch';
 import { ANDROID_SAMPLE_COLORS } from '../../manifest/kakaoColors';
@@ -197,7 +196,6 @@ async function importAndroidArchive(
     resourceFiles: compiledMetadata?.resourceFiles,
   });
   applyRecoveredImages(project, images.images);
-  migrateLegacyNowTabAssets(project);
 
   const decoded =
     archiveKind === 'apk'

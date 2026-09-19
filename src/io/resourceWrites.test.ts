@@ -51,13 +51,11 @@ describe('manifest-driven resource writes', () => {
 
     expect(getMappedResourceWrites(project, 'ios').map((write) => write.path)).toEqual([
       'Images/maintabIcoNow@2x.png', 'Images/maintabIcoNow@3x.png',
-      'Images/maintabIcoPiccoma@2x.png', 'Images/maintabIcoPiccoma@3x.png',
+      'Images/maintabIcoView@2x.png', 'Images/maintabIcoView@3x.png',
     ]);
     expect(getMappedResourceWrites(project, 'android').map((write) => write.path)).toEqual([
       'src/main/theme/drawable-xxhdpi/theme_maintab_ico_now_image.png',
       'src/main/theme/drawable-sw600dp/theme_maintab_ico_now_image.png',
-      'src/main/theme/drawable-xxhdpi/theme_maintab_ico_piccoma_image.png',
-      'src/main/theme/drawable-sw600dp/theme_maintab_ico_piccoma_image.png',
       'src/main/theme/drawable-xxhdpi/theme_maintab_ico_openchat_image.png',
       'src/main/theme/drawable-sw600dp/theme_maintab_ico_openchat_image.png',
     ]);

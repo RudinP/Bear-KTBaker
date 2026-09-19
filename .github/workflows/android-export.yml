@@ -28,3 +28,5 @@ jobs:
         run: npm run verify:android-runtime
       - name: Generate and verify APKs in the Electron main process
         run: npm run verify:android-electron
+      - name: Verify old Open Chat selectors and exported icon pixels
+        run: npm run verify:openchat

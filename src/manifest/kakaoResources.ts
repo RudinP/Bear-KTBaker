@@ -12,6 +12,9 @@ export interface PlatformResourceBinding {
   /** Additional output aliases for older KakaoTalk releases. These are not
    * importer candidates, so legacy filenames do not shadow the current one. */
   exportFiles?: string[];
+  /** Older filenames, tried only after the current import candidates. */
+  importFallbackFiles?: string[];
+  cssFallbackProperties?: string[];
   css?: { block: string; property: string };
   colorResource?: string;
   ninePatch?: boolean;
@@ -144,7 +147,12 @@ for (const [id, iosName, androidName, iosSampleHasFiles] of tabDefinitions) {
         ...(id === 'now' ? {
           exportFiles: [
             ...iosFiles(`maintabIco${iosName}${selected ? 'Selected' : ''}`, [2, 3]),
-            ...iosFiles(`maintabIcoPiccoma${selected ? 'Selected' : ''}`, [2, 3]),
+            ...iosFiles(`maintabIcoView${selected ? 'Selected' : ''}`, [2, 3]),
+          ],
+          importFallbackFiles: iosFiles(`maintabIcoView${selected ? 'Selected' : ''}`, [3, 2]),
+          cssFallbackProperties: [
+            `-ios-openchats-${state}-icon-image`,
+            `-ios-view-${state}-icon-image`,
           ],
           exportOutputSize: [38, 38] as const,
         } : {}),
@@ -158,9 +166,9 @@ for (const [id, iosName, androidName, iosSampleHasFiles] of tabDefinitions) {
         ...(id === 'now' ? {
           exportFiles: [
             ...androidFiles(`theme_maintab_ico_${androidName}${selected ? '_focused' : ''}_image`, phoneAndTablet),
-            ...androidFiles(`theme_maintab_ico_piccoma${selected ? '_focused' : ''}_image`, phoneAndTablet),
             ...androidFiles(`theme_maintab_ico_openchat${selected ? '_focused' : ''}_image`, phoneAndTablet),
           ],
+          importFallbackFiles: androidFiles(`theme_maintab_ico_openchat${selected ? '_focused' : ''}_image`, phoneAndTablet),
           exportOutputSize: [114, 114] as const,
         } : {}),
         ...(iosSampleHasFiles ? { samplePixelSize: [114, 114] as const, sampleLogicalSize: [38, 38] as const } : {}),

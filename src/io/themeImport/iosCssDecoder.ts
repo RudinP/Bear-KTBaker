@@ -57,17 +57,20 @@ function numbers(value: string | undefined) {
 function referencedFiles(resourceId: string, css: string) {
   const binding = KAKAO_RESOURCE_SLOTS.find((slot) => slot.id === resourceId)?.ios;
   if (!binding?.css) return [];
-  const references = quotedValues(cssValue(css, binding.css.block, binding.css.property));
-  const profile = resourceId.match(/^main\.profile\.(0[1-3])$/)?.[1];
-  const reference = profile ? references[Number(profile) - 1] : references[0];
-  if (!reference) return [];
-  const normalized = reference.replace(/^\.\//, '').replace(/^Images\//i, '');
-  const extension = path.extname(normalized) || '.png';
-  const stem = normalized.slice(0, normalized.length - extension.length);
-  const names = /@\d+x$/i.test(stem)
-    ? [normalized]
-    : [`${stem}@3x${extension}`, `${stem}@2x${extension}`, normalized];
-  return names.map((name) => `Images/${name}`);
+  const properties = [binding.css.property, ...(binding.cssFallbackProperties ?? [])];
+  return properties.flatMap((property) => {
+    const references = quotedValues(cssValue(css, binding.css!.block, property));
+    const profile = resourceId.match(/^main\.profile\.(0[1-3])$/)?.[1];
+    const reference = profile ? references[Number(profile) - 1] : references[0];
+    if (!reference) return [];
+    const normalized = reference.replace(/^\.\//, '').replace(/^Images\//i, '');
+    const extension = path.extname(normalized) || '.png';
+    const stem = normalized.slice(0, normalized.length - extension.length);
+    const names = /@\d+x$/i.test(stem)
+      ? [normalized]
+      : [`${stem}@3x${extension}`, `${stem}@2x${extension}`, normalized];
+    return names.map((name) => `Images/${name}`);
+  });
 }
 
 const BUBBLE_GUIDE_CONFIGS = [

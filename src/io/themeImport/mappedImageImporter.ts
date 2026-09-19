@@ -112,6 +112,7 @@ function iosImageCandidates(
   return [...new Set([
     ...(referencedFiles[resourceId] ?? []),
     ...orderedFiles(binding, 'ios'),
+    ...(binding.importFallbackFiles ?? []),
   ])].flatMap((candidate) => {
     const entry = zip.file(candidate);
     return entry ? [{ path: candidate, entry, compiled: false }] : [];
@@ -169,12 +170,13 @@ export async function importMappedImages(
     const binding = slot[request.platform];
     if (!binding || binding.files.length === 0) continue;
     const candidates = request.platform === 'android'
-      ? androidPngCandidates({
-        index: request.androidIndex,
-        kind: request.archiveKind,
-        bindingFiles: orderedFiles(binding, request.platform),
-        resourceFiles: request.resourceFiles,
-      })
+      ? [orderedFiles(binding, request.platform), binding.importFallbackFiles ?? []]
+        .flatMap((bindingFiles) => androidPngCandidates({
+          index: request.androidIndex,
+          kind: request.archiveKind,
+          bindingFiles,
+          resourceFiles: request.resourceFiles,
+        }))
       : iosImageCandidates(request.zip, slot.id, binding, request.referencedFiles);
     const decodeErrors: string[] = [];
     let restored = false;
@@ -195,7 +197,7 @@ export async function importMappedImages(
     }
     if (!restored && request.platform === 'android') {
       const referencesByKey = new Map<string, string[]>();
-      for (const file of binding.files) {
+      for (const file of [...binding.files, ...(binding.importFallbackFiles ?? [])]) {
         const key = androidResourceIdentity(file)?.key;
         if (!key) continue;
         const paths = (request.resourceFiles?.[key] ?? []).filter(isAndroidPngPath);

@@ -189,40 +189,45 @@ async function extractAndroidTemplate(
       destination,
       entry.contents ?? new Uint8Array(),
     );
-
-    // The bundled template predates the 25.x `openchat` resource name. Keep
-    // the legacy selector usable even when the user did not replace the tab
-    // icon, then renderAndroidImages overwrites this alias for custom themes.
-    const openChatAlias = entry.relativePath.match(
-      /^(src\/main\/theme\/drawable-(?:xxhdpi|sw600dp)\/theme_maintab_ico_)(?:now|piccoma)((?:_focused)?_image\.png)$/,
-    );
-    if (openChatAlias) {
-      const aliasPath = paths.join(
-        buildDirectory,
-        `${openChatAlias[1]}openchat${openChatAlias[2]}`,
-      );
-      await files.writeBytes(aliasPath, entry.contents ?? new Uint8Array());
-    }
   }
 
-  // KakaoTalk 25.x still resolves the open-chat tab through this legacy
-  // selector/resource name even though newer templates use the `now` name.
-  const openChatSelectorPath = paths.join(
-    buildDirectory,
-    'src/main/theme-adv/drawable/theme_tab_openchat_icon.xml',
-  );
-  await files.ensureDirectory(paths.dirname(openChatSelectorPath));
-  await files.writeText(
-    openChatSelectorPath,
-    [
-      '<?xml version="1.0" encoding="utf-8"?>',
-      '<selector xmlns:android="http://schemas.android.com/apk/res/android">',
-      '    <item android:drawable="@drawable/theme_maintab_ico_openchat_focused_image" android:state_selected="true" />',
-      '    <item android:drawable="@drawable/theme_maintab_ico_openchat_image" />',
-      '</selector>',
-      '',
-    ].join('\n'),
-  );
+  // The 250204 sample names the selector open_chat (with an underscore)
+  // and also includes view. Copy only the matching open-chat/Now images;
+  // Piccoma is a separate tab and must never overwrite these resources.
+  for (const directory of ['drawable-xxhdpi', 'drawable-sw600dp']) {
+    for (const suffix of ['', '_focused']) {
+      const names = ['now', 'openchat'].map(
+        (name) => `src/main/theme/${directory}/theme_maintab_ico_${name}${suffix}_image.png`,
+      );
+      const source = names.map((name) => entries.find(
+        (entry) => !entry.directory && entry.relativePath === name,
+      )).find((entry) => entry?.contents);
+      if (!source?.contents) continue;
+      for (const name of names) {
+        const destination = paths.join(buildDirectory, name);
+        await files.ensureDirectory(paths.dirname(destination));
+        await files.writeBytes(destination, source.contents);
+      }
+    }
+  }
+  for (const name of ['open_chat', 'view']) {
+    const selectorPath = paths.join(
+      buildDirectory,
+      `src/main/theme-adv/drawable/theme_tab_${name}_icon.xml`,
+    );
+    await files.ensureDirectory(paths.dirname(selectorPath));
+    await files.writeText(
+      selectorPath,
+      [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<selector xmlns:android="http://schemas.android.com/apk/res/android">',
+        '    <item android:drawable="@drawable/theme_maintab_ico_openchat_focused_image" android:state_selected="true" />',
+        '    <item android:drawable="@drawable/theme_maintab_ico_openchat_image" />',
+        '</selector>',
+        '',
+      ].join('\n'),
+    );
+  }
 }
 
 async function writeAndroidProjectMetadata({

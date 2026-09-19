@@ -25,6 +25,25 @@ export async function renderIosImages({
     ...entry,
     contents: entry.contents?.slice(),
   }));
+  // Supply compatibility files even for an untouched sample theme. Custom
+  // icons below replace both names with the user's image at each scale.
+  for (const suffix of ['', 'Selected']) {
+    for (const scale of [2, 3]) {
+      const names = ['Now', 'View'].map(
+        (name) => `Images/maintabIco${name}${suffix}@${scale}x.png`,
+      );
+      const source = names.map((name) => output.find(
+        (entry) => !entry.directory && entry.relativePath === name,
+      )).find((entry) => entry?.contents);
+      if (!source?.contents) continue;
+      for (const name of names) {
+        const replacement = { ...source, relativePath: name, contents: source.contents.slice() };
+        const index = output.findIndex((entry) => entry.relativePath === name);
+        if (index >= 0) output[index] = replacement;
+        else output.push(replacement);
+      }
+    }
+  }
   for (const write of getMappedResourceWrites(project, 'ios')) {
     const slot = getResourceSlot(write.resourceId);
     let source: Uint8Array;

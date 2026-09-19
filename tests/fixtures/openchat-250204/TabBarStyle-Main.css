@@ -1,0 +1,37 @@
+TabBarStyle-Main
+{
+    /* 배경 이미지 */
+    background-color: ;
+    -ios-background-image: 'maintabBgImage.png';		/* 배경 이미지 top-center-crop */
+    
+    /* 홈탭 */
+    -ios-home-normal-icon-image: 'maintabIcoHome.png';
+    -ios-home-selected-icon-image: 'maintabIcoHomeSelected.png';
+    /* 친구탭 */
+    -ios-friends-normal-icon-image: 'maintabIcoFriends.png';
+    -ios-friends-selected-icon-image: 'maintabIcoFriendsSelected.png';
+    /* 채팅탭 */
+    -ios-chats-normal-icon-image: 'maintabIcoChats.png';
+    -ios-chats-selected-icon-image: 'maintabIcoChatsSelected.png';
+    /* 친구찾기 (글로벌) */
+    -ios-find-normal-icon-image: 'maintabIcoFind.png';
+    -ios-find-selected-icon-image: 'maintabIcoFindSelected.png';
+    /* 채널탭 */
+    -ios-browse-normal-icon-image: 'maintabIcoBrowse.png';
+    -ios-browse-selected-icon-image: 'maintabIcoBrowseSelected.png';    
+    /* 뷰탭 */
+    -ios-view-normal-icon-image: 'maintabIcoView.png';
+    -ios-view-selected-icon-image: 'maintabIcoViewSelected.png';
+    /* 만화탭 (일본) */
+    -ios-piccoma-normal-icon-image: 'maintabIcoPiccoma.png';
+    -ios-piccoma-selected-icon-image: 'maintabIcoPiccomaSelected.png';
+    /* 쇼핑탭 */
+    -ios-shopping-normal-icon-image: 'maintabIcoShopping.png';
+    -ios-shopping-selected-icon-image: 'maintabIcoShoppingSelected.png';
+    /* 콜탭 */
+    -ios-call-normal-icon-image: 'maintabIcoCall.png';
+    -ios-call-selected-icon-image: 'maintabIcoCallSelected.png';
+    /* 더보기탭 */
+    -ios-more-normal-icon-image: 'maintabIcoMore.png';
+    -ios-more-selected-icon-image: 'maintabIcoMoreSelected.png';
+}

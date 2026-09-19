@@ -154,16 +154,16 @@ describe('Android theme import coordinator', () => {
     );
   });
 
-  it('uses compiled legacy Piccoma tab icons as Now fallbacks', async () => {
+  it('uses compiled legacy Open Chat tab icons as Now fallbacks', async () => {
     const normal = solidPng(12, 34, 56);
     const selected = solidPng(65, 43, 21);
     const apk = new JSZip();
     apk.file(
-      'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_image.png',
+      'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_image.png',
       normal,
     );
     apk.file(
-      'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_focused_image.png',
+      'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_focused_image.png',
       selected,
     );
 
@@ -172,11 +172,11 @@ describe('Android theme import coordinator', () => {
       'legacy.apk',
       {
         resourceFiles: {
-          'drawable/theme_maintab_ico_piccoma_image': [
-            'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_image.png',
+          'drawable/theme_maintab_ico_openchat_image': [
+            'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_image.png',
           ],
-          'drawable/theme_maintab_ico_piccoma_focused_image': [
-            'res/drawable-xxhdpi-v4/theme_maintab_ico_piccoma_focused_image.png',
+          'drawable/theme_maintab_ico_openchat_focused_image': [
+            'res/drawable-xxhdpi-v4/theme_maintab_ico_openchat_focused_image.png',
           ],
         },
       },
@@ -184,10 +184,10 @@ describe('Android theme import coordinator', () => {
 
     expect(
       project.platformResources.android['main.tab.now.normal']?.fileName,
-    ).toBe('theme_maintab_ico_piccoma_image.png');
+    ).toBe('theme_maintab_ico_openchat_image.png');
     expect(
       project.platformResources.android['main.tab.now.selected']?.fileName,
-    ).toBe('theme_maintab_ico_piccoma_focused_image.png');
+    ).toBe('theme_maintab_ico_openchat_focused_image.png');
   });
 
   it('classifies an invalid ZIP as an Android archive failure', async () => {

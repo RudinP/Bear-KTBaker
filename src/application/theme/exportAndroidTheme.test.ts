@@ -281,7 +281,7 @@ describe('export Android theme', () => {
     expect(new TextDecoder().decode(harness.storage.get(
       path.posix.join(
         buildDirectory,
-        'src/main/theme-adv/drawable/theme_tab_openchat_icon.xml',
+        'src/main/theme-adv/drawable/theme_tab_open_chat_icon.xml',
       ),
     ))).toContain('theme_maintab_ico_openchat_focused_image');
   });

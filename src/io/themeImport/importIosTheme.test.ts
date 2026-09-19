@@ -63,7 +63,7 @@ describe('iOS theme import coordinator', () => {
     expect(project.colorValues.android.theme_body_cell_color).toBe('#00ABCDEF');
   });
 
-  it('uses legacy Piccoma tab icons as Now fallbacks', async () => {
+  it('uses legacy View tab icons as Now fallbacks', async () => {
     const zip = await JSZip.loadAsync(
       await readFile(path.join(templates, 'ios-base.ktheme')),
     );
@@ -85,10 +85,10 @@ describe('iOS theme import coordinator', () => {
     for (const suffix of ['Selected@2x.png', 'Selected@3x.png']) {
       zip.remove(`Images/maintabIcoNow${suffix}`);
     }
-    zip.file('Images/maintabIcoPiccoma@2x.png', replacement2x);
-    zip.file('Images/maintabIcoPiccoma@3x.png', replacement3x);
-    zip.file('Images/maintabIcoPiccomaSelected@2x.png', selected2x);
-    zip.file('Images/maintabIcoPiccomaSelected@3x.png', selected3x);
+    zip.file('Images/maintabIcoView@2x.png', replacement2x);
+    zip.file('Images/maintabIcoView@3x.png', replacement3x);
+    zip.file('Images/maintabIcoViewSelected@2x.png', selected2x);
+    zip.file('Images/maintabIcoViewSelected@3x.png', selected3x);
 
     const project = await importIosKtheme(
       await zip.generateAsync({ type: 'uint8array' }),
@@ -97,10 +97,10 @@ describe('iOS theme import coordinator', () => {
 
     expect(
       project.platformResources.ios['main.tab.now.normal']?.fileName,
-    ).toBe('maintabIcoPiccoma@3x.png');
+    ).toBe('maintabIcoView@3x.png');
     expect(
       project.platformResources.ios['main.tab.now.selected']?.fileName,
-    ).toBe('maintabIcoPiccomaSelected@3x.png');
+    ).toBe('maintabIcoViewSelected@3x.png');
   });
 
   it('classifies invalid archives and missing CSS without losing the Korean message', async () => {

@@ -1,6 +1,5 @@
 import JSZip from 'jszip';
 import { createDefaultTheme } from '../../domain/theme/defaults';
-import { migrateLegacyNowTabAssets } from '../../domain/theme/migrations/legacyNowTabAssets';
 import type { ThemeProject } from '../../domain/theme/model';
 import type { NinePatchGuides } from '../../domain/ninePatch';
 import {
@@ -146,7 +145,6 @@ export async function importIosKtheme(
     referencedFiles: decoded.referencedFiles,
   });
   applyRecoveredImages(project, importedImages.images);
-  migrateLegacyNowTabAssets(project);
   applyBubbleGuides(project, decoded);
   mirrorSemanticResources(project, 'ios');
   mirrorSemanticColors(project, 'ios', new Set(decoded.importedColorBindings));
