@@ -4,7 +4,16 @@ const xmlEscape = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 export function buildAndroidStringsXml(project: ThemeProject) {
-  const name = xmlEscape(project.meta.name);
+  // XML escaping alone does not stop AAPT2 from trimming/collapsing spaces
+  // or interpreting quotes and backslashes. Quote the Android string literal
+  // and escape its contents before XML encoding so the compiled name is exact.
+  const literal = project.meta.name
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\u000d')
+    .replace(/\t/g, '\\t');
+  const name = `"${xmlEscape(literal)}"`;
   return `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="theme_title">${name}</string>\n    <string name="app_name">${name}</string>\n</resources>\n`;
 }
 

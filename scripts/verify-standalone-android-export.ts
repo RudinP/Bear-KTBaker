@@ -63,7 +63,8 @@ try {
   }));
 
   const project = createDefaultTheme();
-  project.meta.name = '독립 실행 검증 테마';
+  // Cover Android's string parsing, including the trailing-space export regression.
+  project.meta.name = "  독립  실행 \"검증\" \\n & 테마\t\r\n ";
   project.meta.version = '2.3.4';
   project.meta.appearance = 'dark';
   const colorsPath = path.join(buildDir, 'src/main/theme/values/colors.xml');
