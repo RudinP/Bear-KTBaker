@@ -4,13 +4,25 @@ Bear KTBaker의 버전별 설치 파일입니다. 각 파일은 [GitHub Releases
 
 macOS 빌드는 Apple Silicon과 Intel을 모두 지원하는 유니버설 바이너리이며, Windows 빌드는 64-bit(NSIS 설치형)입니다. 모두 코드 서명 없이 배포되므로 최초 실행 시 나타나는 운영체제 경고 해결 방법은 [README의 설치 안내](README.md#설치-안내)를 참고해 주세요.
 
-> ⚠️ **v0.1.7 이전 버전에는 아래에 표시된 것과 같은 버그가 있었습니다.** 특별히 이전 버전이 필요한 경우가 아니라면 최신 버전(v0.1.9) 사용을 권장합니다.
+> ⚠️ **v0.1.7 이전 버전에는 아래에 표시된 것과 같은 버그가 있었습니다.** 특별히 이전 버전이 필요한 경우가 아니라면 최신 버전(v0.1.10) 사용을 권장합니다.
 
 ---
 
-## v0.1.9 — 2026-09-14 (최신)
+## v0.1.10 — 2026-09-19 (최신)
 
-**이 버전에서 수정:** Android 25.x 계열에서 오픈채팅 하단 탭 아이콘이 적용되지 않던 문제를 수정했습니다. 구형 `openchat` 리소스명과 선택자를 APK에 함께 생성하며, Android와 iOS의 현재·구형 테마 리소스를 모두 호환합니다.
+**이 버전에서 수정:** 250204 공식 가이드·샘플에 맞춰 구형 오픈채팅 아이콘 연결을 수정했습니다. Android의 `open_chat`·`view` 선택자와 iOS의 `openchats`·`view` 선언을 지원합니다. 구형 아이콘 가져오기를 보완하고, Piccoma 탭과 이미지가 충돌해 APK 검증에 실패하던 문제를 수정했습니다. APK 오류도 검증 항목별로 구분합니다.
+
+| 플랫폼 | 파일 | 크기 |
+| --- | --- | --- |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.10-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.10/Bear.KTBaker-0.1.10-universal.dmg) | 244.9 MB |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.10-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.10/Bear.KTBaker-0.1.10-universal-mac.zip) | 244.9 MB |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.10.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.10/Bear.KTBaker.Setup.0.1.10.exe) | 127.6 MB |
+
+SHA256: [SHA256SUMS-0.1.10.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.10/SHA256SUMS-0.1.10.txt) · [변경 이력 (v0.1.9...v0.1.10)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.9...v0.1.10)
+
+## v0.1.9 — 2026-09-14
+
+**이 버전에서 변경:** 구형 오픈채팅 이미지와 선택자 생성을 추가했습니다. 이후 확인된 선택자 이름 오류와 Piccoma 이미지 충돌은 v0.1.10에서 수정했습니다.
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
@@ -22,7 +34,7 @@ SHA256: [SHA256SUMS-0.1.9.txt](https://github.com/RudinP/Bear-KTBaker/releases/d
 
 ## v0.1.8 — 2026-09-13
 
-**이 버전에서 개선:** Android와 iOS 테마에서 구버전 및 25.x 카카오톡의 오픈채팅 하단 탭 아이콘 호환성을 강화했습니다. 최신 `Now`, iOS `Open Chats`, 구형 `Piccoma` 리소스 명칭을 함께 지원합니다. Windows x64 NSIS 설치 파일도 함께 제공합니다.
+**이 버전에서 변경:** 오픈채팅 탭 호환 처리를 추가하고 Windows x64 NSIS 설치 파일을 제공했습니다. 당시 Piccoma를 오픈채팅 별칭으로 처리한 오류는 v0.1.10에서 수정했습니다.
 
 | 플랫폼 | 파일 | 크기 |
 | --- | --- | --- |
@@ -32,7 +44,7 @@ SHA256: [SHA256SUMS-0.1.9.txt](https://github.com/RudinP/Bear-KTBaker/releases/d
 
 SHA256: [SHA256SUMS.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.8/SHA256SUMS-0.1.8.txt) · [변경 이력 (v0.1.7...v0.1.8)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.7...v0.1.8)
 
-## v0.1.7 — 2026-08-08 (최신)
+## v0.1.7 — 2026-08-08
 
 **이 버전에서 수정:** macOS에서 iOS 말풍선 영역 편집 후 완료 버튼의 클릭 범위가 작아 누르기 어렵던 문제를 수정했습니다.
 
