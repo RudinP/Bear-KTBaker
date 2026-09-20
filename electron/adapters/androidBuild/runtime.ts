@@ -55,7 +55,9 @@ export function buildStandaloneAapt2Plan({
     workDir,
     unsignedPath: path.join(workDir, 'unsigned.apk'),
     compile: roots.map((name, index) => [
-      'compile', '--dir', path.join('src', 'main', name), '-o', relCompiled[index],
+      // Ordinary PNGs are already encoded. Re-crunching detailed artwork can
+      // exceed the tool timeout; AAPT2 still compiles .9.png stretch metadata.
+      'compile', '--no-crunch', '--dir', path.join('src', 'main', name), '-o', relCompiled[index],
     ]),
     link: [
       'link', '-o', relUnsigned,

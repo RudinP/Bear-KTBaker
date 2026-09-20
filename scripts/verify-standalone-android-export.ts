@@ -155,6 +155,15 @@ try {
   if (!metadata.resourceFiles?.['drawable/theme_background_image']?.some((file) => file.endsWith('.png'))) {
     throw new Error('Compiled background image references are missing.');
   }
+  // Ordinary PNG bytes must bypass AAPT2's expensive cruncher. Nine-patch
+  // pixels and compiled stretch guides are checked by expectedImages above.
+  const compiledArchive = await JSZip.loadAsync(output);
+  const backgroundFiles = metadata.resourceFiles['drawable/theme_background_image'] ?? [];
+  const backgroundCopies = await Promise.all(backgroundFiles.map(async (file) =>
+    compiledArchive.file(file)?.async('nodebuffer')));
+  if (!backgroundCopies.some((bytes) => bytes?.equals(backgroundBuffer))) {
+    throw new Error('Ordinary PNG was reprocessed instead of preserving encoded bytes.');
+  }
   const imported = await importAndroidThemeArchive(output, 'standalone-verification.apk', metadata);
   const imageCount = Object.keys(imported.platformResources.android).length;
   const colorCount = Object.keys(metadata.colors ?? {}).length;

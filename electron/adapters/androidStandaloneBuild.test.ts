@@ -88,9 +88,9 @@ describe('standalone Android APK build support', () => {
 
     expect(plan.unsignedPath).toBe('/tmp/theme/.standalone/unsigned.apk');
     expect(plan.compile).toEqual([
-      ['compile', '--dir', path.join('src', 'main', 'res'), '-o', path.join('.standalone', 'res.zip')],
-      ['compile', '--dir', path.join('src', 'main', 'theme'), '-o', path.join('.standalone', 'theme.zip')],
-      ['compile', '--dir', path.join('src', 'main', 'theme-adv'), '-o', path.join('.standalone', 'theme-adv.zip')],
+      ['compile', '--no-crunch', '--dir', path.join('src', 'main', 'res'), '-o', path.join('.standalone', 'res.zip')],
+      ['compile', '--no-crunch', '--dir', path.join('src', 'main', 'theme'), '-o', path.join('.standalone', 'theme.zip')],
+      ['compile', '--no-crunch', '--dir', path.join('src', 'main', 'theme-adv'), '-o', path.join('.standalone', 'theme-adv.zip')],
     ]);
     expect(plan.link).toEqual(expect.arrayContaining([
       '--manifest', path.join('src', 'main', 'AndroidManifest.xml'),

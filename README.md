@@ -7,7 +7,7 @@
 
 <p align="center">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue">
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.7-informational">
+  <img alt="version" src="https://img.shields.io/badge/version-0.1.12-informational">
   <img alt="license" src="https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey">
 </p>
 
@@ -43,10 +43,10 @@
 
 macOS(Apple Silicon / Intel 유니버설)와 Windows 10/11(64-bit)용 설치 파일을 제공합니다.
 
-[![Download macOS](https://img.shields.io/badge/Download-macOS-black?logo=apple&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.11/Bear.KTBaker-0.1.11-universal.dmg)
-[![Download Windows](https://img.shields.io/badge/Download-Windows-0078D6?logo=windows&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.11/Bear.KTBaker.Setup.0.1.11.exe)
+[![Download macOS](https://img.shields.io/badge/Download-macOS-black?logo=apple&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/Bear.KTBaker-0.1.12-universal.dmg)
+[![Download Windows](https://img.shields.io/badge/Download-Windows-0078D6?logo=windows&logoColor=white)](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/Bear.KTBaker.Setup.0.1.12.exe)
 
-최신 버전은 **v0.1.11**입니다. 이전 버전 다운로드와 체크섬은 [RELEASES.md](RELEASES.md)에서 확인할 수 있습니다.
+최신 버전은 **v0.1.12**입니다. 이전 버전 다운로드와 체크섬은 [RELEASES.md](RELEASES.md)에서 확인할 수 있습니다.
 
 ### 설치 안내
 

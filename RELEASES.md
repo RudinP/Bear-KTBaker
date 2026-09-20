@@ -4,11 +4,23 @@ Bear KTBaker의 버전별 설치 파일입니다. 각 파일은 [GitHub Releases
 
 macOS 빌드는 Apple Silicon과 Intel을 모두 지원하는 유니버설 바이너리이며, Windows 빌드는 64-bit(NSIS 설치형)입니다. 모두 코드 서명 없이 배포되므로 최초 실행 시 나타나는 운영체제 경고 해결 방법은 [README의 설치 안내](README.md#설치-안내)를 참고해 주세요.
 
-> ⚠️ **v0.1.7 이전 버전에는 아래에 표시된 것과 같은 버그가 있었습니다.** 특별히 이전 버전이 필요한 경우가 아니라면 최신 버전(v0.1.11) 사용을 권장합니다.
+> ⚠️ **v0.1.7 이전 버전에는 아래에 표시된 것과 같은 버그가 있었습니다.** 특별히 이전 버전이 필요한 경우가 아니라면 최신 버전(v0.1.12) 사용을 권장합니다.
 
 ---
 
-## v0.1.11 — 2026-09-19 (최신)
+## v0.1.12 — 2026-09-20 (최신)
+
+**이 버전에서 수정:** 이미지가 많은 Android 테마에서 AAPT2 리소스 컴파일이 오래 걸리거나 `KTB-ANDROID-AAPT2-COMPILE` 단계가 `SIGTERM`으로 종료될 수 있던 문제를 줄였습니다. 일반 PNG는 이미 앱에서 인코딩한 바이트를 유지하고, 9-patch 메타데이터 검증은 그대로 수행합니다.
+
+| 플랫폼 | 파일 |
+| --- | --- |
+| 🍎 macOS (.dmg) | [Bear KTBaker-0.1.12-universal.dmg](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/Bear.KTBaker-0.1.12-universal.dmg) |
+| 🍎 macOS (.zip) | [Bear KTBaker-0.1.12-universal-mac.zip](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/Bear.KTBaker-0.1.12-universal-mac.zip) |
+| 🪟 Windows (.exe) | [Bear KTBaker Setup 0.1.12.exe](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/Bear.KTBaker.Setup.0.1.12.exe) |
+
+SHA256: [SHA256SUMS-0.1.12.txt](https://github.com/RudinP/Bear-KTBaker/releases/download/v0.1.12/SHA256SUMS-0.1.12.txt) · [변경 이력 (v0.1.11...v0.1.12)](https://github.com/RudinP/Bear-KTBaker/compare/v0.1.11...v0.1.12)
+
+## v0.1.11 — 2026-09-19
 
 **이 버전에서 수정:** 테마 이름 끝의 공백이 APK 생성 과정에서 제거되어 메타데이터 검증에 실패하던 문제를 수정했습니다. 이름의 앞뒤·연속 공백과 특수문자를 그대로 보존합니다.
 
