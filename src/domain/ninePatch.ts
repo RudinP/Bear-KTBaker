@@ -18,6 +18,15 @@ export function moveGuide(
   return result;
 }
 
+function floorPixelBoundary(normalized: number, length: number) {
+  const pixel = normalized * length;
+  const nearest = Math.round(pixel);
+  // Normalized integer coordinates can return just below the original pixel
+  // (56 / 111 * 111 === 55.99999999999999), erasing a one-pixel marker.
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(pixel)) * 4;
+  return Math.abs(pixel - nearest) <= tolerance ? nearest : Math.floor(pixel);
+}
+
 export function guidesToAndroidMarkers(
   guides: NinePatchGuides,
   width: number,
@@ -26,19 +35,19 @@ export function guidesToAndroidMarkers(
   return {
     stretchX: [
       Math.round(guides.stretch.x[0] * width),
-      Math.floor(guides.stretch.x[1] * width),
+      floorPixelBoundary(guides.stretch.x[1], width),
     ] as [number, number],
     stretchY: [
       Math.round(guides.stretch.y[0] * height),
-      Math.floor(guides.stretch.y[1] * height),
+      floorPixelBoundary(guides.stretch.y[1], height),
     ] as [number, number],
     contentX: [
       Math.round(guides.content.left * width),
-      Math.floor(guides.content.right * width),
+      floorPixelBoundary(guides.content.right, width),
     ] as [number, number],
     contentY: [
       Math.round(guides.content.top * height),
-      Math.floor(guides.content.bottom * height),
+      floorPixelBoundary(guides.content.bottom, height),
     ] as [number, number],
   };
 }

@@ -12,6 +12,31 @@ const guides: NinePatchGuides = {
 };
 
 describe('nine-patch guide conversion', () => {
+  it('preserves every integer pixel boundary after normalized JSON storage', () => {
+    for (const size of [111, 123, 300, 512]) {
+      for (let end = 1; end <= size; end += 1) {
+        const range: [number, number] = [(end - 1) / size, end / size];
+        const stored = JSON.parse(
+          JSON.stringify({
+            stretch: { x: range, y: range },
+            content: {
+              left: range[0],
+              top: range[0],
+              right: range[1],
+              bottom: range[1],
+            },
+          }),
+        ) as NinePatchGuides;
+        expect(guidesToAndroidMarkers(stored, size, size)).toEqual({
+          stretchX: [end - 1, end],
+          stretchY: [end - 1, end],
+          contentX: [end - 1, end],
+          contentY: [end - 1, end],
+        });
+      }
+    }
+  });
+
   it('converts normalized drag guides to Android border marker pixels', () => {
     expect(guidesToAndroidMarkers(guides, 120, 105)).toEqual({
       stretchX: [48, 72],

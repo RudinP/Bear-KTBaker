@@ -7,6 +7,23 @@ import { buildNinePatchPng, parseNinePatchPng, replaceNinePatchInterior, stripNi
 const sample = path.join(process.cwd(), 'public/sample/apeach/android/theme_chatroom_bubble_me_01_image.9.png');
 
 describe('Android nine-patch PNG codec', () => {
+  it.each([56, 57])('preserves a 123×111 bubble vertical stretch ending at %ipx', (end) => {
+    const interior = new PNG({ width: 123, height: 111 });
+    interior.data.fill(255);
+    const guides = {
+      stretch: { x: [67 / 123, (end + 12) / 123] as [number, number], y: [55 / 111, end / 111] as [number, number] },
+      content: { left: 32 / 123, top: 19 / 111, right: 101 / 123, bottom: 91 / 111 },
+    };
+    const output = buildNinePatchPng(PNG.sync.write(interior), guides);
+    const image = PNG.sync.read(output);
+    const markedRows = Array.from({ length: 111 }, (_, y) => y)
+      .filter((y) => image.data[((y + 1) * image.width) * 4 + 3] === 255);
+
+    expect(markedRows).toEqual(Array.from({ length: end - 55 }, (_, i) => 55 + i));
+    expect(parseNinePatchPng(output).guides).toEqual(guides);
+    expect(stripNinePatchBorder(output)).toEqual(PNG.sync.write(interior));
+  });
+
   it('reads stretch and content markers from the official sample border', async () => {
     const parsed = parseNinePatchPng(await readFile(sample));
 
